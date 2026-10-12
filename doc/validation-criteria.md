@@ -107,6 +107,8 @@ focused tests.
 - representative valid and invalid inputs;
 - elaboration cases for names, types, widths, parameters, events, and unsupported forms;
 - semantic corner cases for initialization, reset, retention, sampling, assumptions, and unknown/high-impedance values;
+- SVA implication timing, repeated antecedent matches, history-function warm-up, asynchronous `disable iff`, cover witnesses, vacuity, and inconsistent assumptions;
+- `covered`, `unreachable` (only when established), and `inconclusive` cover outcomes;
 - proved, disproved, inconclusive, rejected, and infrastructure-failure outcomes;
 - counterexample generation and replay; and
 - diagnostic text or structured fields where their contract is intentional.

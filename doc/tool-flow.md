@@ -88,13 +88,17 @@ assumptions that are not part of those semantics.
 
 ## 7. Proof Execution
 
-Lemma submits the design model and its properties to the proof engine.
+Lemma submits one target assertion or cover and its assumption properties to
+the proof engine. Assumptions restrict the target's allowed executions.
 
-For each property, the proof engine may determine that:
+For an assertion, the proof engine may determine that:
 
 - The property holds for all executions allowed by the model.
 - A counterexample exists.
 - The result is inconclusive, for example because the proof did not complete.
+
+For a cover, the proof engine searches for a matching execution. Failure to
+find a witness is not proof of unreachability unless the analysis is complete.
 
 The proof engine’s algorithm and implementation are outside the scope of this document.
 
@@ -102,11 +106,15 @@ The proof engine’s algorithm and implementation are outside the scope of this 
 
 Lemma reports a result for each property and an overall job status.
 
-A result must distinguish at least:
+For an assertion, report `proven`, `failed`, or `inconclusive`. For a cover,
+report `covered` with a witness, `unreachable` only when established by a
+complete analysis, or `inconclusive`. Do not report a bounded search with no
+witness as proof of unreachability.
 
-- **Proven** — the property holds for all executions represented by the model.
-- **Failed** — a violating execution was found.
-- **Inconclusive** — the tool could not determine whether the property holds.
+All assumptions used for the target must be reported. Contradictory assumptions
+or an empty set of allowed executions must be diagnosed; they must not produce
+an unqualified `proven` result. If an implication is known to pass vacuously
+because its antecedent is unreachable, disclose that fact.
 
 When a property fails and a counterexample is available, Lemma should report enough information to
 identify the violating execution, including the relevant cycle and signal values.
