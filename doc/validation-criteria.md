@@ -119,3 +119,48 @@ Each regression should state its intended obligation and expected classification
 ## 9. Evidence and change control
 
 A validation claim is complete only when its test or proof evidence, model assumptions, limitations, and expected outcome are recorded. New implementation choices may satisfy these criteria in different ways; until such a choice is documented and tested, it must remain an explicit open decision rather than an unstated guarantee.
+
+## 10. MVP acceptance baseline
+
+The MVP is accepted only when the following evidence is present. This section
+narrows the general criteria above to the first end-to-end milestone; the
+broader FRISCV-inspired RTL roadmap is not an MVP acceptance requirement.
+
+### Required test coverage
+
+1. **Input classification:** A supported flat-top example reaches proof
+   execution. Malformed RTL, unsupported active syntax, unresolved required
+   parameters, and cross-domain-dependent properties are rejected at the
+   appropriate stage. Rejection must not become a proof result.
+2. **RTL semantics:** Tests establish default-zero proof-start values and
+   source-located warnings, supported explicit RTL initialization, simultaneous
+   updates, retention, supported asynchronous reset events, ordinary clocked
+   control conditions, and two-state handling of `X`/`Z` where applicable.
+   Multi-clock RTL must be accepted for a domain-local property and rejected
+   when the property dependency cone crosses domains.
+3. **Assertion semantics:** Tests cover an invariant, a failing assertion with
+   a counterexample, overlapped and non-overlapped implication timing, fixed
+   and bounded delays, repeated antecedent matches, asynchronous `disable iff`,
+   history-function warm-up, and the explicit `past_valid` pattern.
+4. **Assumptions, vacuity, and covers:** Tests show that assumptions restrict
+   the environment and are reported; inconsistent assumptions do not yield an
+   unqualified proof; an implication can pass vacuously; and a companion cover
+   can demonstrate antecedent reachability. Cover tests include a found
+   witness, an inconclusive bounded search, and an unreachable case only when
+   the analysis is complete.
+5. **Proof strategy:** A BMC-found counterexample produces `failed`; bounded
+   search with no counterexample alone never produces `proven`; successful
+   k-induction base and step checks produce `proven`; and induction that does
+   not complete without a counterexample produces `inconclusive`.
+6. **Reports and witnesses:** Reports identify the target, selected clock,
+   assumptions, default-zero registers, history warm-up samples, and any
+   relevant proof bounds or limitations. Counterexamples must match the model,
+   include relevant initial/input/reset/event values, and be checked against
+   the model before being presented as valid.
+
+Each required test must state its expected stage and result classification.
+Small hand-checkable designs are sufficient; the complete FRISCV IP, broad
+performance targets, full IEEE SystemVerilog compliance, and proof
+certificates are not required for MVP acceptance. A larger IP regression is
+useful only after all constructs enabled in its configuration have their own
+conformance tests.
