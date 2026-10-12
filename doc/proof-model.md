@@ -5,7 +5,7 @@ The proof considers all possible executions of the design. An execution is a seq
 ## State and transitions
 
 - The internal state consists primarily of the design's registers.
-- Initial states follow the register semantics already defined for the design.
+- Initial states follow the register semantics already defined for the design, including supported RTL initializations and Lemma's default-zero policy for other registers.
 - Combinational and sequential logic determine the state transitions.
 - Inputs that are not constrained by the proof context may vary freely across executions.
 

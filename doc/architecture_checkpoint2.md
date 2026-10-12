@@ -4,7 +4,7 @@
 
 ## 1. Project purpose
 
-Lemma is intended to provide formal verification of RTL behavior using a stable-state, event-driven proof model. The project should prove properties over all behaviors permitted by the RTL and explicit environmental assumptions, rather than validate a single simulation run or a single seeded initial state.
+Lemma is intended to provide formal verification of RTL behavior using a stable-state, event-driven proof model. The project should prove properties over all behaviors permitted by the RTL, Lemma's documented initialization policy, and explicit environmental assumptions, rather than validate a single simulation run.
 
 The supplied context does not state the final product goals, target implementation language, supported tools, or intended users. Those items remain open.
 
@@ -54,11 +54,22 @@ another clock domain, the property is unsupported and must be rejected. Other, u
 excluded from that proof. Lemma does not model clock periods, physical time, or cross-domain event
 interleavings.
 
-### 3.3 Initialization and arbitrary initial state
+### 3.3 Initialization and default-zero policy
 
-A register without a supported RTL initialization starts with an arbitrary value; each bit may be `0` or `1`. The value is arbitrary but fixed until the register is updated. Formal proof must cover all possible initial values. A seed-based selection would cover only one initial state and is therefore not sufficient for an all-initial-states proof.
+A register with a supported RTL initialization starts with that value. Every
+other register starts at `0` at proof start under Lemma's default-zero policy
+and retains that value until updated by the RTL. This policy is a tool-defined
+initialization convention; it is not inferred from RTL and does not mean that
+reset has occurred.
 
-Lemma must honor an RTL initialization only when that initialization is supported. It must not assume that reset has occurred unless the RTL or explicit proof constraints establish it. A synchronous reset does not initialize a register merely because it is active at the beginning of the proof; it takes effect at an active clock edge.
+During RTL analysis, Lemma must emit a source-located warning for each register
+assigned the default zero. Proof reports must disclose the policy and list the
+affected registers. Results are conditional on this model and do not establish
+behavior from arbitrary physical power-up values.
+
+Lemma must honor an RTL initialization only when that initialization is
+supported. A synchronous reset does not initialize a register merely because
+it is active at proof start; it takes effect at an active clock edge.
 
 ### 3.4 Reset behavior
 
@@ -77,9 +88,16 @@ If no branch assigns a value to a register at an active clock edge, the register
 
 ## 4. Execution and proof semantics — conclusions
 
-The proof engine should reason over all legal initial states and all unconstrained input choices, subject only to explicit assumptions. It should not inject an implicit startup reset, choose one random seed as proof coverage, or treat combinational propagation transients as observable proof states.
+The proof engine should reason over the initial state defined by supported RTL
+initializations and Lemma's default-zero policy, and over all unconstrained
+input choices, subject to explicit assumptions. It should not infer that an
+RTL reset occurred at startup or treat combinational propagation transients
+as observable proof states.
 
-For reporting, Lemma must state that registers without an explicit supported initialization have arbitrary initial values. If such values contribute to a counterexample, the trace should identify the initial values used. The supplied discussion does not decide the exact trace format, counterexample presentation, or proof-result taxonomy.
+For reporting, Lemma must identify registers assigned default zero and disclose
+that results use this initialization policy. Counterexamples should show the
+relevant proof-start values. The supplied discussion does not decide the exact
+trace format, counterexample presentation, or proof-result taxonomy.
 
 ## 5. Proposed MVP flow
 
@@ -90,10 +108,10 @@ The following flow is consistent with the confirmed semantics, but its tooling a
 3. Build a stable-state transition model with simultaneous register updates and post-update combinational stabilization.
 4. Represent unsupported RTL/SVA constructs, unresolved reset values, and unsupported initialization forms as explicit diagnostics rather than silently approximating them.
 5. Add unconstrained module inputs and explicit assumptions.
-6. Apply arbitrary-but-fixed initial values to registers without supported initialization.
+6. Initialize registers without supported RTL initialization to zero and emit a source-located warning for each.
 7. Encode concurrent assertion sampling at the event boundary and implement `disable iff` as an asynchronous abort/disable condition.
-8. Run the proof over all permitted initial states and input behaviors.
-9. Report proof status, assumptions, unsupported constructs, arbitrary initial-state information, and counterexample traces including relevant initial values.
+8. Run the proof over the initialized state defined by supported RTL initializations and the default-zero policy, and over all permitted input behaviors.
+9. Report proof status, assumptions, unsupported constructs, default-zero initialization warnings, and counterexample traces including relevant proof-start values.
 
 The solver, intermediate representation, command-line/API flow, incremental proof strategy, and expected performance targets are not established in the supplied context.
 
@@ -106,7 +124,7 @@ The solver, intermediate representation, command-line/API flow, incremental proo
   physical-time semantics in the initial architecture.
 - Model synchronous and asynchronous reset as distinct mechanisms.
 - Infer reset polarity and priority from RTL rather than imposing defaults.
-- Preserve arbitrary initial state symbolically across the proof; do not replace it with a single random seed.
+- Initialize registers without supported RTL initialization to zero as an explicit Lemma policy, and disclose the affected registers; do not present this as an RTL reset or guarantee about physical power-up state.
 - Treat inputs as unconstrained unless constrained by explicit assumptions.
 - Use a two-state proof model while conservatively treating each RTL `X`/`Z` bit as either `0` or `1`.
 - Keep the first reset model simple: one reset per sequential process and constant/resolved-parameter reset values.
@@ -131,11 +149,11 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 
 ## 8. High-level next steps
 
-1. Ratify this semantic baseline, especially arbitrary initial state, assertion sampling, reset event behavior, and two-state treatment of `X`/`Z`.
+1. Preserve the decided default-zero initialization policy and specify its conformance tests alongside assertion sampling, reset event behavior, and two-state treatment of `X`/`Z`.
 2. Define and document the normative RTL and SVA MVP subset, including accepted and rejected examples.
 3. Specify the intermediate transition-model representation and event ordering precisely enough for implementation and tests.
 4. Decide the parser, solver/backend, assumptions interface, and proof-result/trace formats.
-5. Create focused semantic tests for retention, simultaneous updates, synchronous versus asynchronous reset, reset deassertion, reset priority, arbitrary initialization, sampled assertions, and `disable iff` abort behavior.
+5. Create focused semantic tests for retention, simultaneous updates, synchronous versus asynchronous reset, reset deassertion, reset priority, default-zero and supported RTL initialization, warning diagnostics, sampled assertions, and `disable iff` abort behavior.
 6. Add negative tests for multiple resets, missing reset assignments, unsupported reset values, unsupported initialization, and unsupported RTL/SVA constructs.
 7. Build the smallest end-to-end MVP: parse, validate, model, prove, and report one-clock-domain examples before expanding scope.
 8. Revisit cross-domain properties and event semantics, richer SVA, memories, and additional RTL

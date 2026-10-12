@@ -15,14 +15,14 @@ The MVP supports:
   Cross-domain-dependent properties are unsupported and must be rejected.
 - The limited synthesizable Verilog/SystemVerilog subset defined by the RTL specification.
 - Parameter resolution as defined by the RTL specification.
-- The previously defined register semantics, including stable-state proof steps, abstract clock events, RTL-defined synchronous/asynchronous reset behavior, simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and arbitrary-but-fixed initial values for registers without supported initialization.
+- The previously defined register semantics, including stable-state proof steps, abstract clock events, RTL-defined synchronous/asynchronous reset behavior, simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and Lemma's default-zero proof-start value for registers without a supported RTL initialization. Such registers must be identified by warnings and in the proof report.
 - The initial SVA subset defined separately.
 - One property at a time.
 - Proof outcomes of `proven`, `failed`, or `inconclusive`.
 - A readable counterexample when a property fails.
 - Diagnostics for unsupported constructs and other errors.
 
-The proof must use the defined register semantics rather than assuming that reset has occurred. A failed result should identify the behavior that violates the property; where relevant, the counterexample should expose the initial values used for uninitialized registers.
+The proof must use the defined register semantics rather than assuming that reset has occurred. A failed result should identify the behavior that violates the property. Reports must disclose when the default-zero policy applies; this default is not evidence that physical hardware or an RTL reset establishes zero.
 
 ## End-to-end behavior
 
@@ -48,4 +48,4 @@ The MVP excludes:
 
 ## Exit criterion
 
-The milestone is complete when tests exercise the full flow on small supported RTL and demonstrate both passing and failing properties. Passing tests must produce `proven`; failing-property tests must produce `failed` with a readable counterexample. Tests must also cover the expected `inconclusive` outcome and diagnostics for unsupported constructs or errors, so that the supported boundary is explicit.
+The milestone is complete when tests exercise the full flow on small supported RTL and demonstrate both passing and failing properties. Passing tests must produce `proven`; failing-property tests must produce `failed` with a readable counterexample. Tests must also verify default-zero initialization warnings and proof-report disclosure, cover the expected `inconclusive` outcome, and check diagnostics for unsupported constructs or errors so that the supported boundary is explicit.

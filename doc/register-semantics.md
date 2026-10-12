@@ -26,13 +26,22 @@ event interleavings are outside the initial proof scope.
 
 ## 3. Register Initialization
 
-A register without a supported RTL initialization starts with a randomly chosen value. Each bit is assigned `0` or `1` independently.
+A register with a supported RTL initialization starts with that value. Every
+register without a supported RTL initialization starts at `0` at proof start.
+This is Lemma's default-initialization policy, not an initialization or reset
+behavior inferred from the RTL. The value remains `0` until the RTL updates the
+register.
 
-The chosen initial value remains fixed until the register is updated. Lemma does not consider every possible initial value during a single proof run.
+During RTL analysis, Lemma must emit a warning for each register assigned this
+default. The warning must identify the register and its source location and
+state that its proof-start value is set to `0` by Lemma. The proof report must
+also disclose that the proof uses the default-zero policy.
 
-An RTL initialization is honored only if it is supported by Lemma. Lemma must not assume that a reset has occurred unless the RTL or proof constraints establish that it has.
-
-For a register with a reset, the reset affects the register only according to its RTL semantics. In particular, a synchronous reset does not initialize the register merely because it is active at the start of the proof; it is applied at an active clock edge.
+The default value is applied at proof start; it does not mean that an RTL reset
+has occurred. Resets affect registers only according to their RTL semantics. In
+particular, a synchronous reset is applied only at an active clock edge, and
+an asynchronous reset only when asserted. A reset may subsequently assign a
+value different from the default zero.
 
 ## 4. Reset Semantics
 
@@ -93,6 +102,6 @@ The `disable iff` construct is supported. Its condition acts as an asynchronous 
 
 ## 9. Reporting
 
-Proof reports must state that registers without an explicit supported initialization receive randomly chosen initial values.
-
-If such values contribute to a counterexample, the trace should show the initial values used.
+Proof reports must disclose the default-zero policy and identify registers to
+which it was applied. Counterexamples must reflect those zero proof-start
+values; reports must not describe them as values established by an RTL reset.

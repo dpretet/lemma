@@ -46,7 +46,7 @@ Elaboration must preserve distinctions that affect proof meaning. If a construct
 
 Validate that each translation or normalization step preserves the semantics required by the proof model. The checks should cover, as applicable:
 
-- state elements, initial-state freedom, and state updates;
+- state elements, supported RTL initialization, Lemma's default-zero initialization policy, and state updates;
 - sampling points, event ordering, and simultaneous updates;
 - combinational stabilization and the treatment of transient behavior;
 - reset type, polarity, value, assertion/deassertion, and priority as expressed by the input;
@@ -75,7 +75,7 @@ For a disproved property, validate that the witness:
 - is consistent with the elaborated model and all stated assumptions;
 - identifies the violated obligation and the relevant time/event position;
 - includes sufficient state, input, reset, and clock context to replay or inspect the failure;
-- represents arbitrary initial values explicitly when they contribute to the trace; and
+- represents supported RTL initial values and Lemma default-zero proof-start values explicitly when relevant; and
 - is stable enough to distinguish a semantic failure from a reporting or reconstruction failure.
 
 If a witness cannot be replayed or is incomplete, report that limitation separately; do not present an unverified trace as a definitive counterexample.
@@ -87,7 +87,8 @@ Validate diagnostics for correctness, locality, consistency, and actionability. 
 - point to the relevant source span or model element when one exists;
 - explain whether the issue is invalid input, unsupported semantics, an unmet validation obligation, inconclusive reasoning, or infrastructure failure;
 - avoid claiming a stronger guarantee than the evidence supports;
-- report assumptions, initialization rules, ignored or unsupported constructs, and scope limits that affect interpretation; and
+- report assumptions, initialization rules, ignored or unsupported constructs, and scope limits that affect interpretation;
+- emit a source-located warning for each register initialized to zero by Lemma's default policy, and disclose that policy in the proof report; and
 - remain deterministic enough for users and regression tests to compare meaningful changes.
 
 Warnings and non-fatal limitations must not be hidden by a successful exit status or a proof-looking summary.

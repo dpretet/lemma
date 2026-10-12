@@ -44,6 +44,10 @@ Lemma parses the supplied sources and identifies:
 - Sequential and combinational processes.
 - Assertions within the supported SVA subset.
 
+During RTL analysis, Lemma must identify registers without a supported RTL
+initialization and emit a source-located warning that each receives the
+default proof-start value `0`.
+
 Unsupported syntax must be reported as an error. Lemma must not silently ignore unsupported
 constructs if doing so could change the meaning of the design or its assertions.
 
@@ -75,7 +79,8 @@ After elaboration, Lemma constructs an internal model containing:
 
 - The design’s state elements.
 - The combinational logic that determines outputs and next-state values.
-- The assumptions about initial state and inputs defined by the project’s semantics.
+- Supported RTL initialization values and assumptions about inputs defined by the project’s semantics.
+- Lemma's default-zero proof-start values for registers without supported RTL initialization.
 - The properties extracted from the supported assertions.
 
 This model must preserve the semantics defined in the project documentation. It must not introduce

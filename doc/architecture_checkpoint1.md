@@ -66,7 +66,7 @@ The following architectural decisions remain open:
 
 3. **Formal semantics**
    - State-transition model for sequential logic.
-   - Initial-state assumptions and reset treatment.
+   - Supported RTL initialization forms and reset treatment (including the default-zero policy for registers without supported initialization).
    - Cycle and clock semantics.
    - Four-state versus two-state interpretation.
    - Semantics of assumptions, assertions, and unsupported/unknown results.
