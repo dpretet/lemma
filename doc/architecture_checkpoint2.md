@@ -22,11 +22,11 @@ The supplied context does not state the final product goals, target implementati
 
 ### Explicitly limited or deferred
 
-- A sequential process supports at most one reset, either synchronous or asynchronous. Multiple resets are deferred.
+- A sequential process supports at most one asynchronous reset event control. Reset-named conditions in the process body are ordinary RTL control, not additional reset events. Multiple asynchronous reset event controls are deferred.
 - Cross-domain-dependent properties are outside the MVP scope and must be rejected. Unrelated clock
   domains in the RTL are allowed and excluded from a domain-local proof.
-- Reset values must be constants or resolved parameters. Values depending on other signals are not supported.
-- Every register in a resettable sequential process must receive an explicit value in the reset branch.
+- Asynchronous reset values must be constants or resolved parameters. Values depending on other signals are not supported for the asynchronous reset branch.
+- Every register in a process with an asynchronous reset event control must receive an explicit value in that asynchronous reset branch.
 
 ### Not established in the supplied context
 
@@ -68,18 +68,19 @@ affected registers. Results are conditional on this model and do not establish
 behavior from arbitrary physical power-up values.
 
 Lemma must honor an RTL initialization only when that initialization is
-supported. A synchronous reset does not initialize a register merely because
-it is active at proof start; it takes effect at an active clock edge.
+supported. A reset-named condition in a clocked process body does not
+initialize a register merely because it is active at proof start; it is
+ordinary control evaluated at an active clock edge.
 
 ### 3.4 Reset behavior
 
-- **Synchronous reset:** sampled and applied only at the active clock edge.
-- **Asynchronous reset:** applied when asserted, independently of a clock edge, and therefore capable of causing a state transition outside a clock event.
-- **Polarity:** inferred from the RTL condition; no default active polarity is imposed.
-- **Reset values:** each register may have its own value, but the value must be a constant or resolved parameter.
-- **Reset branch:** every register in a resettable sequential process must be assigned explicitly there.
-- **Priority:** when reset is combined with enable or other conditions, priority follows the order and conditions expressed in the RTL; Lemma adds no priority rule.
-- **Coincident events:** an active asynchronous reset imposes the reset value, including when assertion coincides with a clock edge. A synchronous reset is evaluated at the clock edge according to the RTL.
+- **Clocked reset condition:** a branch condition in a clocked process body (often named `srst`) is ordinary RTL control evaluated at the active clock edge. It has no separate reset-event semantics.
+- **Asynchronous reset:** an event control applied when asserted, independently of a clock edge, and therefore capable of causing a state transition outside a clock event.
+- **Asynchronous reset polarity:** inferred from the RTL event control and condition; no default active polarity is imposed.
+- **Asynchronous reset values:** each register may have its own value, but the value must be a constant or resolved parameter.
+- **Asynchronous reset branch:** every register in a process with an asynchronous reset event control must be assigned explicitly there.
+- **Priority:** ordinary clocked conditions follow their RTL branch order. When combined with asynchronous reset, event control and branch priority follow the RTL; Lemma adds no priority rule.
+- **Coincident events:** an active asynchronous reset imposes the reset value, including when assertion coincides with a clock edge. Other conditions are evaluated according to the process RTL at the clock edge.
 - **Deassertion:** deasserting reset does not itself update a register. The register retains its current value and resumes loading data at the next active clock edge, as specified by the RTL.
 
 ### 3.5 Retention
@@ -104,7 +105,7 @@ trace format, counterexample presentation, or proof-result taxonomy.
 The following flow is consistent with the confirmed semantics, but its tooling and exact interfaces are **not yet confirmed**:
 
 1. Parse the selected RTL and identify supported sequential processes, registers, clocks, resets, assignments, and supported assertion constructs.
-2. Validate the input against the supported subset, including the one-reset-per-sequential-process and reset-assignment rules.
+2. Validate the input against the supported subset, including the one-asynchronous-reset-event-control-per-process and asynchronous reset-assignment rules.
 3. Build a stable-state transition model with simultaneous register updates and post-update combinational stabilization.
 4. Represent unsupported RTL/SVA constructs, unresolved reset values, and unsupported initialization forms as explicit diagnostics rather than silently approximating them.
 5. Add unconstrained module inputs and explicit assumptions.
@@ -122,12 +123,12 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 - Allow multiple clock domains in RTL, while constructing each property proof from one clock domain
   and rejecting dependency cones that cross domains. Treat modeled edges as abstract events and avoid
   physical-time semantics in the initial architecture.
-- Model synchronous and asynchronous reset as distinct mechanisms.
+- Model asynchronous reset assertion as a distinct event; treat reset-named conditions in clocked process bodies as ordinary RTL control.
 - Infer reset polarity and priority from RTL rather than imposing defaults.
 - Initialize registers without supported RTL initialization to zero as an explicit Lemma policy, and disclose the affected registers; do not present this as an RTL reset or guarantee about physical power-up state.
 - Treat inputs as unconstrained unless constrained by explicit assumptions.
 - Use a two-state proof model while conservatively treating each RTL `X`/`Z` bit as either `0` or `1`.
-- Keep the first reset model simple: one reset per sequential process and constant/resolved-parameter reset values.
+- Keep the first asynchronous reset model simple: one reset event control per process and constant/resolved-parameter reset values.
 - Make unsupported constructs visible through validation and reporting.
 
 ## 7. Unresolved questions
@@ -153,8 +154,8 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 2. Define and document the normative RTL and SVA MVP subset, including accepted and rejected examples.
 3. Specify the intermediate transition-model representation and event ordering precisely enough for implementation and tests.
 4. Decide the parser, solver/backend, assumptions interface, and proof-result/trace formats.
-5. Create focused semantic tests for retention, simultaneous updates, synchronous versus asynchronous reset, reset deassertion, reset priority, default-zero and supported RTL initialization, warning diagnostics, sampled assertions, and `disable iff` abort behavior.
-6. Add negative tests for multiple resets, missing reset assignments, unsupported reset values, unsupported initialization, and unsupported RTL/SVA constructs.
+5. Create focused semantic tests for retention, simultaneous updates, clocked reset-style conditions, asynchronous reset events, reset deassertion, reset priority, default-zero and supported RTL initialization, warning diagnostics, sampled assertions, and `disable iff` abort behavior.
+6. Add negative tests for multiple asynchronous reset event controls, missing assignments in asynchronous reset branches, unsupported asynchronous reset values, unsupported initialization, and unsupported RTL/SVA constructs.
 7. Build the smallest end-to-end MVP: parse, validate, model, prove, and report one-clock-domain examples before expanding scope.
 8. Revisit cross-domain properties and event semantics, richer SVA, memories, and additional RTL
    features only after the MVP semantics and diagnostics are stable.

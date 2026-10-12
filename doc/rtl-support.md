@@ -2,8 +2,11 @@
 
 ## 1. Purpose
 
-This document defines the initial RTL language subset accepted by the tool.
-The target is simple, synthesizable RTL suitable for formal analysis.
+This document defines the RTL language subset accepted by the tool and its
+working long-term target. The target is common, synthesizable Verilog and
+SystemVerilog RTL suitable for formal analysis, not the full SystemVerilog
+language. Support is added incrementally; a feature is not accepted until its
+semantics and conformance tests are specified.
 
 The implementation must reject unsupported constructs explicitly. It must
 not silently ignore them or guess their intended meaning.
@@ -93,9 +96,11 @@ Within a sequential block:
 - use nonblocking assignments (`<=`);
 - do not mix combinational and sequential behavior in the same process.
 
-Reset semantics are defined in [register-semantics.md](register-semantics.md). A sequential
-process may contain at most one reset, either synchronous or asynchronous. Supported event controls
-and assignment semantics remain TBD.
+Reset semantics are defined in [register-semantics.md](register-semantics.md).
+A sequential process may contain at most one asynchronous reset event control.
+Conditions in the process body—including a signal conventionally named
+`srst`—are ordinary RTL control logic, not additional reset events. Supported
+event controls and assignment semantics remain TBD.
 
 ## 8. Process restrictions
 
@@ -143,3 +148,86 @@ Every supported construct must have:
 - documented expected elaboration or diagnostic behavior.
 
 Tests must distinguish parsing, elaboration, and semantic validation failures.
+
+## 12. Practical long-term target
+
+The intended target is guided by common constructs found in the FRISCV RTL
+review. The list describes the direction of the project, not features already
+implemented or automatically included in the MVP:
+
+- Module hierarchy, parameterized modules, `parameter` / `localparam`, and
+  statically elaborated `if` / `case` / `for` generate constructs.
+- Common declarations such as `wire` and `logic`, fixed-width packed vectors,
+  and the port styles `input wire` / `output logic`.
+- Sized constants and the SystemVerilog fill literals `'0` and `'1`, with
+  documented width, signedness, and expression-sizing rules.
+- Continuous assignments and separate combinational and sequential
+  procedural blocks, including `always @(*)`, `always_comb`, and
+  edge-triggered processes using nonblocking assignments.
+- Common control and expression constructs: `if` / `else`, `case`, bounded
+  procedural and generate loops, arithmetic, comparisons, bitwise and
+  reduction operators, concatenation, replication, signed casts, variable
+  indexing, and indexed part-selects.
+- Common synthesizable SystemVerilog helpers, including `typedef enum logic`
+  state types and automatic combinational functions with a restricted body.
+- Statically sized unpacked arrays and memories with supported indexing and
+  access patterns. Memory initialization and read/write behavior require their
+  own specification; the default-zero policy for registers does not define
+  memory semantics.
+- The limited source preprocessing needed by real RTL projects, such as
+  includes, macros, and conditional compilation under an explicit job
+  configuration. Diagnostics must retain useful source locations after
+  preprocessing.
+
+The target does not imply support for full SystemVerilog, testbench features,
+interfaces, packages, classes, randomization, DPI, or arbitrary dynamic
+elaboration. Simulation-only tracing and logging should be excluded through a
+documented preprocessing configuration or rejected explicitly; it must not be
+silently dropped.
+
+The FRISCV source commonly combines an asynchronous active-low reset in a
+process event control with a reset-named condition in the process body (for
+example, `negedge aresetn` plus `else if (srst)`). Lemma treats `aresetn` as
+the asynchronous reset event and `srst` as ordinary control sampled at the
+clock edge. Branch ordering and priority follow the RTL. This is a target use
+case; conformance tests must distinguish the asynchronous event from the
+clocked control condition.
+
+## 13. Incremental conformance-test roadmap
+
+The test suite should grow in small layers. Each layer should use minimized,
+standalone RTL examples rather than requiring the complete FRISCV project or a
+proprietary toolchain. A layer becomes supported only after its accepted cases,
+boundary cases, expected model, and rejection cases are documented.
+
+1. **Source and expression foundation:** explicit compile configuration and
+   preprocessing; module ports; `wire` / `logic`; packed widths; assignments;
+   common operators, signedness, expression sizing, `'0` / `'1`, concatenation,
+   indexing, and part-selects.
+2. **Combinational processes:** blocking assignments in `always @(*)` and
+   `always_comb`, `if` / `case`, and complete assignment behavior. Include
+   rejection tests for unsupported statements, mixed process styles, and
+   unintended latches.
+3. **Sequential state and resets:** nonblocking updates, simultaneous state
+   updates, retention, clock events, default-zero initialization warnings,
+   explicit initialization, asynchronous reset events, and ordinary
+   reset-named control conditions sampled at clock edges. Include the common
+   asynchronous-reset-plus-synchronous-control pattern and rejection tests for
+   unsupported multiple asynchronous reset event controls.
+4. **Parameters, generate, and hierarchy:** constant-expression resolution,
+   named parameter overrides, static generate branches/loops, nested module
+   instances, parameterized widths, and useful diagnostics for failed
+   elaboration.
+5. **Common SystemVerilog abstractions:** enum-based FSMs, supported automatic
+   combinational functions, and bounded procedural loops.
+6. **Arrays and memories:** static array declarations, variable addresses,
+   supported read/write ports and byte enables, and separately specified
+   memory initialization behavior.
+7. **Realistic integration profile:** a small selected FRISCV configuration
+   using only features already covered by earlier layers. Treat this as an
+   integration regression, not as a substitute for focused unit tests.
+
+The sequence is a proposed dependency order, not a schedule. Exact operators,
+reset/event forms, memory patterns, and preprocessing behavior remain
+non-normative until their layer is specified and tested. The current MVP
+limits continue to apply until they are explicitly revised.

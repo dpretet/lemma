@@ -81,7 +81,12 @@ This rule applies to register state, not to inputs. Inputs remain environment
 choices on each applicable execution step and do not become persistent state
 unless the RTL stores them.
 
-Lemma does **not** assume that reset occurred at startup. A register is initialized by reset only when reset is actually observed and its RTL semantics cause an update. A synchronous reset that is active at the beginning of an execution does not initialize a register until an active edge of its declared clock. A supported asynchronous reset assertion may initialize the register immediately upon assertion, including when that assertion occurs outside a clock event.
+Lemma does **not** assume that reset occurred at startup. A register is
+initialized by an asynchronous reset only when that event is actually
+observed. A reset-named condition in a clocked process body is ordinary RTL
+control; when true, it affects state only through the process assignments at
+the next applicable active clock edge. A supported asynchronous reset
+assertion may update state immediately, including outside a clock event.
 
 An RTL initialization is honored only when it is in the supported synthesizable RTL subset. The default-zero policy applies only when no supported RTL initialization is present. Any additional startup behavior must be introduced through an explicit verification assumption or protocol constraint.
 
@@ -89,24 +94,42 @@ An RTL initialization is honored only when it is in the supported synthesizable 
 
 ### 5.1 Reset type and triggering
 
-Lemma distinguishes:
+Only asynchronous reset event controls have special reset-event semantics:
+assertion can cause a state transition independently of a clock edge.
 
-- **Synchronous reset:** evaluated and applied only at the active clock edge specified by the RTL.
-- **Asynchronous reset:** applied when the reset is asserted, independently of a clock edge.
+A condition in a clocked process body, including a synchronous-reset-style
+condition, is evaluated as ordinary RTL at the process's active clock edge.
+Its effect follows the written assignments and branch order; it does not
+create an independent event.
 
-Reset polarity is taken from the RTL condition. Lemma imposes no default active-high or active-low polarity. Reset effects, including the value assigned to each register, are taken from the RTL. Where the supported subset requires a restricted reset form, reset values are explicit constants or resolved parameters, and every resettable register receives an explicit reset-branch assignment.
+Asynchronous reset polarity is taken from the event control and RTL condition;
+Lemma imposes no default polarity. Its reset values follow the RTL and, in the
+supported subset, are constants or resolved parameters, with an explicit
+assignment for every register in the process. Ordinary clocked conditions
+follow the supported RTL expression and assignment semantics.
 
 ### 5.2 Reset priority and coincident events
 
-When reset is combined with enable or other conditions, priority follows the order and conditions expressed in the RTL; Lemma adds no independent priority rule.
+When an asynchronous reset is combined with ordinary clocked conditions,
+priority follows the event control, conditions, and branch order expressed in
+the RTL; Lemma adds no independent priority rule. A reset-named synchronous
+condition is simply one of those ordinary conditions.
 
-An active synchronous reset is handled at its clock edge. An asserted asynchronous reset imposes its RTL-defined effect independently of the clock. If asynchronous reset assertion coincides with a clock edge, the treatment must preserve the RTL event semantics; any unresolved atomicity or ordering question for such coincident events remains an implementation semantic point and must not be hidden by an arbitrary choice.
+An asserted asynchronous reset imposes its RTL-defined effect independently
+of the clock. If its assertion coincides with a clock edge, the treatment must
+preserve the RTL event semantics; any unresolved atomicity or ordering question
+for that coincidence remains an implementation semantic point and must not be
+hidden by an arbitrary choice.
 
 ### 5.3 Deassertion and supported structure
 
 Reset deassertion does not itself update a register. The register retains its current value and resumes ordinary RTL updates at the next applicable active clock edge.
 
-The proposed supported subset permits at most one reset per sequential process, either synchronous or asynchronous. Multiple-reset structures are deferred and require an explicit extension of this specification.
+The proposed supported subset permits at most one asynchronous reset event
+control per sequential process. Reset-named conditions in the process body
+are ordinary RTL control and are not counted as additional reset events.
+Multiple asynchronous reset event controls are deferred and require an
+explicit extension of this specification.
 
 ## 6. Register updates and retention
 

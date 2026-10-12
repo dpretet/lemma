@@ -38,43 +38,67 @@ state that its proof-start value is set to `0` by Lemma. The proof report must
 also disclose that the proof uses the default-zero policy.
 
 The default value is applied at proof start; it does not mean that an RTL reset
-has occurred. Resets affect registers only according to their RTL semantics. In
-particular, a synchronous reset is applied only at an active clock edge, and
-an asynchronous reset only when asserted. A reset may subsequently assign a
-value different from the default zero.
+has occurred. Resets affect registers only according to their RTL semantics.
+A reset-named condition in a clocked process body is ordinary RTL control
+evaluated at the active clock edge; it is not a separate reset event. An
+asynchronous reset event control takes effect only when asserted. A reset
+branch may subsequently assign a value different from the default zero.
 
 ## 4. Reset Semantics
 
 ### 4.1 Reset Type
 
-Lemma distinguishes:
+Lemma gives special event semantics only to an **asynchronous reset** listed
+in a sequential process's event control. Its assertion can cause a state
+transition independently of a clock edge.
 
-- **Synchronous reset:** sampled and applied only at the active clock edge.
-- **Asynchronous reset:** applied as soon as it is asserted, independently of a clock edge.
+A condition in a clocked process body—even if named `srst` or described as a
+synchronous reset—is ordinary sequential control logic. It is evaluated at
+the process's active clock edge like any other condition and follows the
+process's normal assignment and branch-priority semantics. It does not create
+an independent event or receive special reset treatment from Lemma.
 
 An asynchronous reset can therefore cause a state transition outside a clock event. Lemma must not reinterpret it as synchronous.
 
 ### 4.2 Reset Polarity and Values
 
-Reset polarity is inferred from the RTL condition. Lemma imposes no default active polarity.
+Asynchronous reset polarity is inferred from its RTL event control and
+condition. Lemma imposes no default active polarity. Ordinary clocked
+conditions have no separate reset-polarity semantics.
 
-Each register may have its own reset value. A reset value must be a constant or a resolved parameter; values that depend on other signals are not supported.
+For an asynchronous reset branch, each register may have its own reset value.
+Those asynchronous reset values must be constants or resolved parameters;
+values depending on other signals are not supported. Values assigned by
+ordinary clocked conditions are governed by the supported RTL expression
+subset.
 
-Every register in a resettable sequential process must receive an explicit value in the reset branch.
+Every register in a process with an asynchronous reset event control must be
+assigned explicitly in its asynchronous reset branch. Incomplete assignments
+in other branches follow the ordinary retention rules.
 
 ### 4.3 Reset and Clock Events
 
-At a clock edge, a synchronous reset is evaluated according to the RTL. An active asynchronous reset imposes the reset value, including when reset assertion coincides with a clock edge.
+At a clock edge, all process conditions—including synchronous-reset-style
+conditions—are evaluated according to the RTL. An active asynchronous reset
+imposes its reset value, including when assertion coincides with a clock edge.
 
-When reset and enable, or other conditions, are combined, their priority follows the order and conditions expressed in the RTL. Lemma adds no priority rule of its own.
+When an asynchronous reset and ordinary clocked conditions are combined, their
+priority follows the event control, conditions, and branch order expressed in
+the RTL. Lemma adds no priority rule of its own.
 
 ### 4.4 Reset Deassertion
 
-Deasserting reset does not itself update a register. The register retains its current value and resumes loading data at the next active clock edge, as specified by the RTL.
+Deasserting an asynchronous reset does not itself update a register. The
+register retains its current value and resumes ordinary RTL updates at the
+next active clock edge. Deasserting a reset-named clocked condition likewise
+does not update state until the next active edge evaluates the process.
 
 ### 4.5 Supported Reset Structure
 
-A sequential process may contain at most one reset, either synchronous or asynchronous. Support for multiple resets is deferred.
+A sequential process may contain at most one asynchronous reset event control.
+Conditions in the process body are ordinary RTL control and are not counted as
+additional resets. Multiple asynchronous reset event controls in one process
+are deferred.
 
 ## 5. Register Updates and Retention
 

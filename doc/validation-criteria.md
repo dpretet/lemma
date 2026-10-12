@@ -97,6 +97,13 @@ Warnings and non-fatal limitations must not be hidden by a successful exit statu
 
 Maintain regression coverage for every validated contract and every discovered semantic boundary. The suite should include:
 
+Organize the suite in incremental feature layers following the proposed
+[RTL-support roadmap](rtl-support.md#13-incremental-conformance-test-roadmap).
+Use small standalone examples for each layer, including accepted cases,
+semantic boundary cases, and explicit rejection cases. Add larger IP examples
+only as integration regressions after the constructs they use have their own
+focused tests.
+
 - representative valid and invalid inputs;
 - elaboration cases for names, types, widths, parameters, events, and unsupported forms;
 - semantic corner cases for initialization, reset, retention, sampling, assumptions, and unknown/high-impedance values;

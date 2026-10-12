@@ -15,7 +15,7 @@ The MVP supports:
   Cross-domain-dependent properties are unsupported and must be rejected.
 - The limited synthesizable Verilog/SystemVerilog subset defined by the RTL specification.
 - Parameter resolution as defined by the RTL specification.
-- The previously defined register semantics, including stable-state proof steps, abstract clock events, RTL-defined synchronous/asynchronous reset behavior, simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and Lemma's default-zero proof-start value for registers without a supported RTL initialization. Such registers must be identified by warnings and in the proof report.
+- The previously defined register semantics, including stable-state proof steps, abstract clock events, asynchronous reset events, ordinary clocked control conditions (including reset-named conditions), simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and Lemma's default-zero proof-start value for registers without a supported RTL initialization. Such registers must be identified by warnings and in the proof report.
 - The initial SVA subset defined separately.
 - One property at a time.
 - Proof outcomes of `proven`, `failed`, or `inconclusive`.
