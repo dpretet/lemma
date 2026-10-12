@@ -91,7 +91,17 @@ assumptions that are not part of those semantics.
 Lemma submits one target assertion or cover and its assumption properties to
 the proof engine. Assumptions restrict the target's allowed executions.
 
-For an assertion, the proof engine may determine that:
+For an assertion, Lemma uses BMC to search for counterexamples up to a selected
+depth. A found violating trace produces `failed`. If BMC finds no violation
+within that depth, Lemma must not report `proven` on that basis alone.
+
+Lemma also uses k-induction: it checks the initial base cases and an inductive
+step for a selected `k`. A property is `proven` only when both complete
+successfully. If induction does not complete, including when its step fails
+because it cannot establish the needed invariant, the result is
+`inconclusive` unless BMC has already found a valid counterexample.
+
+For an assertion, the outcomes are therefore:
 
 - The property holds for all executions allowed by the model.
 - A counterexample exists.
@@ -100,7 +110,8 @@ For an assertion, the proof engine may determine that:
 For a cover, the proof engine searches for a matching execution. Failure to
 find a witness is not proof of unreachability unless the analysis is complete.
 
-The proof engine’s algorithm and implementation are outside the scope of this document.
+The exact solver, solver interface, bound-selection policy, resource limits,
+and any future invariant-strengthening method remain unspecified.
 
 ## 8. Results and Diagnostics
 
@@ -141,7 +152,7 @@ This document does not define:
 - The command-line interface or configuration-file syntax.
 - The parser technology.
 - The internal representation format.
-- The proof algorithm or backend.
+- The exact solver, solver interface, and encoding implementation. The selected BMC plus k-induction strategy is defined in the proof-model specification.
 - The exact output format for logs and counterexamples.
 - The detailed semantics of RTL or SVA constructs.
 

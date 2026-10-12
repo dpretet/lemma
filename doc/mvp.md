@@ -17,6 +17,7 @@ The MVP supports:
 - Parameter resolution as defined by the RTL specification.
 - The previously defined register semantics, including stable-state proof steps, abstract clock events, asynchronous reset events, ordinary clocked control conditions (including reset-named conditions), simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and Lemma's default-zero proof-start value for registers without a supported RTL initialization. Such registers must be identified by warnings and in the proof report.
 - The initial SVA subset defined separately.
+- BMC for counterexample search together with k-induction for safety assertions over all cycles. A bounded search with no counterexample is not a proof.
 - One target assertion or cover at a time, with zero or more `assume property` constraints.
 - Assertion outcomes of `proven`, `failed`, or `inconclusive`.
 - Cover outcomes of `covered`, `unreachable` (only when established), or `inconclusive`.
@@ -49,4 +50,4 @@ The MVP excludes:
 
 ## Exit criterion
 
-The milestone is complete when tests exercise the full flow on small supported RTL and demonstrate proven and failing assertions, cover witnesses, and inconclusive analyses. Passing assertions must produce `proven`; failing assertions must produce `failed` with a readable counterexample. Tests must also cover vacuous implications, contradictory assumptions, initial-history warm-up for sampled-value functions, default-zero initialization warnings and proof-report disclosure, and diagnostics for unsupported constructs or errors so that the supported boundary is explicit. A cover may be reported unreachable only when the analysis is complete enough to establish that result.
+The milestone is complete when tests exercise the full flow on small supported RTL and demonstrate proven and failing assertions, cover witnesses, and inconclusive analyses. Passing assertions must produce `proven`; failing assertions must produce `failed` with a readable counterexample. Tests must verify that bounded-search exhaustion alone is not `proven`, that a successful base and induction step can prove a property, and that induction failure without a counterexample is `inconclusive`. Tests must also cover vacuous implications, contradictory assumptions, initial-history warm-up for sampled-value functions, default-zero initialization warnings and proof-report disclosure, and diagnostics for unsupported constructs or errors so that the supported boundary is explicit. A cover may be reported unreachable only when the analysis is complete enough to establish that result.

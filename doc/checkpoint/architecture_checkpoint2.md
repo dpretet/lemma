@@ -97,8 +97,9 @@ as observable proof states.
 
 For reporting, Lemma must identify registers assigned default zero and disclose
 that results use this initialization policy. Counterexamples should show the
-relevant proof-start values. The supplied discussion does not decide the exact
-trace format, counterexample presentation, or proof-result taxonomy.
+relevant proof-start values. Assertion and cover result categories are defined
+in the tool-flow and MVP specifications; the exact trace format and
+counterexample presentation remain open.
 
 ## 5. Proposed MVP flow
 
@@ -111,10 +112,12 @@ The following flow is consistent with the confirmed semantics, but its tooling a
 5. Add unconstrained module inputs and explicit assumptions.
 6. Initialize registers without supported RTL initialization to zero and emit a source-located warning for each.
 7. Encode concurrent assertion sampling at the event boundary and implement `disable iff` as an asynchronous abort/disable condition.
-8. Run the proof over the initialized state defined by supported RTL initializations and the default-zero policy, and over all permitted input behaviors.
+8. Use BMC to search for counterexamples and k-induction to establish unbounded safety properties over the initialized state and permitted input behaviors. Bounded search alone must not produce `proven`.
 9. Report proof status, assumptions, unsupported constructs, default-zero initialization warnings, and counterexample traces including relevant proof-start values.
 
-The solver, intermediate representation, command-line/API flow, incremental proof strategy, and expected performance targets are not established in the supplied context.
+The exact solver, solver interface/encoding, intermediate representation,
+command-line/API flow, induction limits, and expected performance targets
+remain undecided.
 
 ## 6. Key architecture decisions
 
@@ -123,6 +126,8 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 - Allow multiple clock domains in RTL, while constructing each property proof from one clock domain
   and rejecting dependency cones that cross domains. Treat modeled edges as abstract events and avoid
   physical-time semantics in the initial architecture.
+- Use BMC for counterexample search and k-induction for unbounded safety proofs; a bounded search with
+  no counterexample is not a proof.
 - Model asynchronous reset assertion as a distinct event; treat reset-named conditions in clocked process bodies as ordinary RTL control.
 - Infer reset polarity and priority from RTL rather than imposing defaults.
 - Initialize registers without supported RTL initialization to zero as an explicit Lemma policy, and disclose the affected registers; do not present this as an RTL reset or guarantee about physical power-up state.
@@ -134,7 +139,7 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 ## 7. Unresolved questions
 
 1. What exact RTL language/version and parser front end will Lemma support?
-2. What is the complete supported SVA subset beyond concurrent assertions and `disable iff`?
+2. Which SVA extensions beyond the defined v1 profile are worth considering later?
 3. What exact clocked-process and assertion clock forms are accepted, and how are clock domains
    identified in the elaborated design?
 4. What are the precise semantics for asynchronous reset assertion/deassertion relative to each
@@ -143,9 +148,9 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 6. How should unsupported `X`/`Z` expressions be diagnosed when they occur in control conditions rather than as data bits?
 7. What combinational constructs, latches, memories, arrays, parameterization, and generated RTL are in scope?
 8. What assumption syntax and proof-constraint format will be accepted?
-9. Which solver/backend, intermediate representation, and proof algorithms will be used?
-10. What exact trace format, reporting schema, reproducibility controls, and proof-result categories are required?
-11. Are vacuity checks, coverage, bounded proofs, induction, and proof decomposition part of the MVP?
+9. Which open-source solver/backend and SAT/SMT encoding will be used, and what intermediate representation will feed it?
+10. What exact trace format, reporting schema, and reproducibility controls are required? Assertion and cover result categories are defined in the MVP and tool-flow specifications.
+11. How will the MVP bound BMC depth and induction effort, and will it add invariant strengthening or automatic vacuity checks beyond explicit covers?
 12. What command-line/API and build/test workflow should users receive?
 
 ## 8. High-level next steps
@@ -153,7 +158,7 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 1. Preserve the decided default-zero initialization policy and specify its conformance tests alongside assertion sampling, reset event behavior, and two-state treatment of `X`/`Z`.
 2. Define and document the normative RTL and SVA MVP subset, including accepted and rejected examples.
 3. Specify the intermediate transition-model representation and event ordering precisely enough for implementation and tests.
-4. Decide the parser, solver/backend, assumptions interface, and proof-result/trace formats.
+4. Decide the parser, solver/backend, assumptions interface, and exact trace/report formats.
 5. Create focused semantic tests for retention, simultaneous updates, clocked reset-style conditions, asynchronous reset events, reset deassertion, reset priority, default-zero and supported RTL initialization, warning diagnostics, sampled assertions, and `disable iff` abort behavior.
 6. Add negative tests for multiple asynchronous reset event controls, missing assignments in asynchronous reset branches, unsupported asynchronous reset values, unsupported initialization, and unsupported RTL/SVA constructs.
 7. Build the smallest end-to-end MVP: parse, validate, model, prove, and report one-clock-domain examples before expanding scope.

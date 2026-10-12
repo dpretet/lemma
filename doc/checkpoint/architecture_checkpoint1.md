@@ -72,7 +72,7 @@ The following architectural decisions remain open:
    - Semantics of assumptions, assertions, and unsupported/unknown results.
 
 4. **Proof engine and backend**
-   - Bounded versus unbounded proof strategy.
+   - BMC plus k-induction is the selected proof strategy; induction strengthening and resource policies remain open.
    - SAT/SMT encoding and solver interface.
    - Counterexample representation and replay/export.
    - Resource limits, termination, and result classification.
