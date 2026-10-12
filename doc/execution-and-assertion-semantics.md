@@ -17,7 +17,8 @@ A state `S` contains the values of RTL registers and the values of combinational
 - **State** is the persistent information carried between RTL events, principally register values.
 - **Inputs** are environment-provided values associated with an execution step. They may change from one step to the next and do not become persistent state unless the RTL stores them.
 
-For a single active clock event, the conceptual transition is:
+For a property proof, the conceptual transition is scoped to the property's
+selected clock domain. For an active edge in that domain:
 
 1. Begin in a stabilized state `S_t` with the event's input valuation.
 2. Sample the state and relevant signals for assertion purposes.
@@ -29,30 +30,39 @@ Transient states between register update and combinational settling are excluded
 
 ### 2.2 Executions and transitions
 
-An **execution** is a finite or infinite sequence of stabilized states connected by RTL-event transitions. An event transition is caused only by an event recognized by the supported RTL semantics, including:
+For a property proof, an **execution** is a finite or infinite sequence of
+stabilized states in the property's selected clock domain, connected by
+transitions recognized by the supported RTL semantics, including:
 
-- an active edge of a declared clock; or
+- an active edge of the selected clock; or
 - assertion of a supported asynchronous reset.
 
 A clock event may update state even when no register changes value; in that case the transition still represents evaluation of the sequential logic and assertions at that event. An asynchronous reset assertion may cause a transition outside any clock event. Reset deassertion alone does not update registers and is not, by itself, a state transition; the affected registers retain their values until the RTL causes an update.
 
-Only declared clock transitions trigger synchronous logic. Lemma does not infer an implicit clock from signal changes and does not assume any frequency, period, phase, or fixed relationship between clocks.
+Only active edges of the selected clock trigger the synchronous logic included
+in that proof. Lemma does not infer an implicit clock from signal changes.
 
-## 3. Clock events and interleavings
+## 3. Clock domains and property scope
 
-Clocks are modeled as abstract events, not as waveforms in physical time. Each declared clock domain may produce active-edge events according to the supported RTL clock specification.
+RTL may contain any number of clock domains. Clocks are modeled as abstract
+events, not as waveforms in physical time. Each property selects one clock
+domain; Lemma builds that property's proof model from the selected domain and
+the transitive signal-dependency cone of the property.
 
-When multiple clock domains are present and no explicit relation or verification assumption orders their events, their events may occur in any allowed interleaving. Lemma must consider those unconstrained interleavings rather than inventing a frequency or phase relationship.
+The cone may include constants and unconstrained module inputs, but every
+state element in it must be updated in the selected domain. Combinational
+signals in the cone must in turn depend only on constants, inputs, and state
+from that domain. If the cone depends on a register updated by another clock
+domain, Lemma must reject the property rather than treat that register as a
+free value. This rule applies to assertions, assumptions, covers, and
+`disable iff` expressions used in the proof context.
 
-### Open semantic point: simultaneous clock edges
-
-The semantics for genuinely simultaneous active edges from different clock domains are **open**. This specification does not decide whether such edges are:
-
-- one atomic multi-clock event,
-- an ordered pair of events in either order, or
-- another explicitly defined composite transition.
-
-The implementation and multi-clock semantics specification must define this behavior before claims depending on simultaneous edges are treated as fully settled. Until then, a tool must not silently choose one interpretation and present it as the normative model.
+Clock domains outside the dependency cone are allowed in the RTL and do not
+affect the property proof. Their state transitions and event interleavings are
+not modeled. Consequently, Lemma does not verify cross-domain properties or
+perform clock-domain-crossing analysis. Clock-domain identification and
+dependency analysis must be sufficiently conservative that no dependency on
+another domain is silently omitted.
 
 ## 4. Initial state and initialization
 
@@ -107,7 +117,10 @@ This rule is separate from arbitrary register initialization: initial register b
 
 ## 9. Assertion semantics
 
-An assertion passes only if it holds on **all allowed executions**: all permitted initial register states, input valuations, event interleavings, reset behaviors, and choices for indeterminate `X`/`Z` bits, subject to the explicit assumptions.
+An assertion passes only if it holds on **all allowed executions** of its
+modeled domain-local cone: all permitted initial register states, input
+valuations, selected-clock events, asynchronous reset events, and choices for
+indeterminate `X`/`Z` bits, subject to the explicit assumptions.
 
 For an assertion associated with a clock event, the property observes the stabilized pre-event state and the event's sampled signals. It is not evaluated using a post-update transient or by silently substituting the state after register updates. Sequential RTL then computes and applies its updates from that same pre-event state.
 
@@ -118,13 +131,13 @@ The precise sampling regions, implication timing, `$past`/history behavior, over
 Lemma reports one of the following outcomes for a checked assertion:
 
 - **PASS:** the assertion holds on every allowed execution under the modeled RTL subset and explicit assumptions.
-- **FAIL:** Lemma found an allowed execution that violates the assertion. The counterexample should identify relevant initial register choices, input choices, event sequence, reset activity, and any interleaving choices.
+- **FAIL:** Lemma found an allowed execution that violates the assertion. The counterexample should identify relevant initial register choices, input choices, selected-clock event sequence, and reset activity.
 - **UNKNOWN:** Lemma cannot establish PASS or FAIL within the supported semantics, implementation capabilities, or configured resources. UNKNOWN is not a proof of the assertion and is not a counterexample.
 
 Reports should state whether arbitrary initial register values were included and should make the assumptions that restricted the execution set visible.
 
 ## 11. Normative implications and placement guidance
 
-The execution engine specification should reference this document for stabilized-state transitions, arbitrary initial register state, reset triggering, free inputs, and clock-event interleavings. The synthesizable RTL subset specification should define which initialization and reset forms are accepted. The SVA Support Specification should define assertion sampling and evaluation details. A future multi-clock/event specification must resolve simultaneous-edge semantics and any coincident asynchronous-reset/clock-event atomicity questions.
+The execution engine specification should reference this document for stabilized-state transitions, property-scoped clock domains, dependency-cone restrictions, arbitrary initial register state, reset triggering, and free inputs. The synthesizable RTL subset specification should define which initialization, clock, and reset forms are accepted. The SVA Support Specification should define assertion sampling and evaluation details. A future cross-domain proof extension would require a separately specified multi-clock event model.
 
 Until those open items are resolved, tools and reports should identify them explicitly rather than treating an implementation choice as a settled formal guarantee.

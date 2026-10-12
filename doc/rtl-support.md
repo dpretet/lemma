@@ -82,6 +82,12 @@ The exact supported statement and expression forms are **TBD**.
 
 Sequential logic may be described using clocked procedural blocks.
 
+An RTL design may contain clocked processes from any number of clock domains.
+The supported event controls and rules for identifying each process's clock
+domain remain subject to the subset defined here; a design is not rejected
+solely because it contains multiple domains. Property-specific restrictions on
+cross-domain dependencies are defined in the SVA support specification.
+
 Within a sequential block:
 
 - use nonblocking assignments (`<=`);

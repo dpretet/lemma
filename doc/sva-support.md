@@ -16,7 +16,12 @@ Lemma supports the following concurrent property statements:
 - `assume property` — constrain the environment.
 - `cover property` — check whether a property is reachable.
 
-Each property must specify a single clock using `@(posedge clock)`. Multiclock properties are not supported.
+Each property must specify one clock using `@(posedge clock)`. Its full
+signal-dependency cone must belong to that clock domain, apart from constants
+and unconstrained module inputs. A dependency on state updated by another clock
+domain is unsupported and must be rejected. Module inputs are sampled as
+environment values at the property's clock event; they are not assigned to a
+clock domain by Lemma.
 
 `disable iff (expression)` is supported to disable a property while the expression is true.
 
@@ -49,7 +54,10 @@ Property expressions may use:
 - Boolean operators: `!`, `&&`, `||`.
 - Equality and relational operators supported by Lemma’s RTL expression subset.
 
-Expressions must be compatible with the clock associated with their property.
+Expressions and their transitive RTL dependencies must be compatible with the
+clock associated with their property. This restriction also applies to
+`assume property`, `cover property`, and `disable iff` expressions used in the
+proof context.
 
 ## 5. Sampled-value functions
 
@@ -80,16 +88,14 @@ The following constructs are not supported:
 Lemma must report unsupported SVA syntax as an error. It must not silently ignore, approximate, or
 reinterpret a property.
 
-## 8. Clock Domains
+## 8. Clock Domain Scope
 
-A design may contain multiple clock signals and multiple clock domains. Lemma supports this at the
-RTL level.
+RTL may contain any number of clock domains. Each property proof uses one
+selected clock domain and only the state and combinational logic in that
+property's dependency cone. A property is rejected if that cone depends on a
+register updated by another clock domain. Clock domains outside the cone do
+not prevent the proof and are not modeled for it.
 
-In v1, each SVA property must be associated with exactly one clock using `@(posedge clock)`. A
-property may not reference or synchronize events from multiple clock domains.
-
-Lemma does not require clocks to have a defined frequency or phase relationship. Properties spanning
-multiple clock domains, including clock-domain-crossing properties, are outside the v1 scope.
-
-The presence of multiple clocks in a design does not prevent proving properties that are local to a
-single clock domain.
+Lemma does not model cross-domain event interleavings or perform
+clock-domain-crossing analysis. Properties that synchronize or otherwise
+depend on behavior across domains are outside the v1 scope.

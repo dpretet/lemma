@@ -17,9 +17,12 @@ For concurrent assertions, property expressions use the values sampled at the cl
 
 ## 2. Clock Model
 
-RTL clocks are modeled as events. Lemma advances each clock domain abstractly; it does not model clock periods or physical time.
-
-Detailed semantics for designs with multiple clock domains are deferred.
+RTL may contain multiple clock domains. For a property proof, Lemma models one
+selected domain and the state in that property's dependency cone; unrelated
+domains are excluded. A dependency on state updated by another clock domain
+must be rejected rather than modeled as an unconstrained value. Clock edges
+are abstract events; physical periods and time are not modeled. Cross-domain
+event interleavings are outside the initial proof scope.
 
 ## 3. Register Initialization
 

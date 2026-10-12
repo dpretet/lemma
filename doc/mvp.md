@@ -9,6 +9,10 @@ The first milestone demonstrates end-to-end verification of a simple property on
 The MVP supports:
 
 - A single, flat top module.
+- RTL may contain any number of clock domains. Each proof checks one property
+  on one clock domain, and the property's full signal-dependency cone must be
+  confined to that domain (apart from constants and unconstrained inputs).
+  Cross-domain-dependent properties are unsupported and must be rejected.
 - The limited synthesizable Verilog/SystemVerilog subset defined by the RTL specification.
 - Parameter resolution as defined by the RTL specification.
 - The previously defined register semantics, including stable-state proof steps, abstract clock events, RTL-defined synchronous/asynchronous reset behavior, simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and arbitrary-but-fixed initial values for registers without supported initialization.
@@ -37,6 +41,7 @@ The MVP excludes:
 
 - VHDL.
 - Hierarchical designs; only a single flat top is supported.
+- Properties whose signal-dependency cones span multiple clock domains.
 - SVA beyond the separately defined initial subset.
 - Multiple properties in one proof run.
 - Performance optimization.

@@ -25,6 +25,11 @@ Validate that:
 
 Tests should cover valid inputs, boundary forms, malformed input, and failures at multiple source locations. The validation evidence should retain the relevant source span and a stable diagnostic identity where the tool provides one.
 
+For clock-domain handling, tests should demonstrate that a design with multiple
+domains can be accepted for a property whose complete dependency cone is local
+to one domain, and that a property depending on state from another domain is
+rejected.
+
 ## 3. Elaboration and supported constructs
 
 Validate that parsing produces the intended elaborated representation for every construct claimed as supported. In particular, check:

@@ -40,12 +40,11 @@ The exact grammar, IR, and elaboration rules still need to be specified.
 - Lemma is an assertion-based formal verification tool.
 - Support a restricted but useful subset of SVA.
 - The exact supported syntax and semantics are documented separately in the SVA support document.
-- Each v1 property is associated with exactly one clock using `@(posedge clock)`.
-- A design may contain multiple clocks and clock domains.
-- Properties local to one clock domain may be supported even when the design has multiple clocks.
-- Properties spanning multiple clock domains, including cross-domain event synchronization, are
-  outside the v1 scope.
-- Lemma does not assume a frequency or phase relationship between clocks.
+- RTL designs may contain multiple clock domains. Each v1 property is associated with one clock using
+  `@(posedge clock)`, and its full signal-dependency cone must be confined to that domain (apart from
+  constants and unconstrained inputs).
+- Properties with dependencies spanning multiple clock domains are unsupported and must be rejected.
+  Lemma does not check CDC behavior or model cross-domain event interleavings for a proof.
 
 ## Project Name
 

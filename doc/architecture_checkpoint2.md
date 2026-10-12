@@ -13,7 +13,8 @@ The supplied context does not state the final product goals, target implementati
 ### Confirmed or explicitly supported by the discussion
 
 - RTL sequential behavior is modeled through stable states around active clock events.
-- Clock domains are advanced as abstract events; physical periods and time are not modeled.
+- RTL may contain multiple clock domains. Each property proof is scoped to one clock domain and its
+  domain-local dependency cone; physical periods and time are not modeled.
 - Concurrent assertions sample expressions at the clock event, before sequential register updates.
 - `disable iff` is supported as an asynchronous disable: when its condition becomes true, the assertion is disabled and active property attempts are aborted.
 - Module inputs are unconstrained by default; only explicit `assume` constraints restrict them.
@@ -22,7 +23,8 @@ The supplied context does not state the final product goals, target implementati
 ### Explicitly limited or deferred
 
 - A sequential process supports at most one reset, either synchronous or asynchronous. Multiple resets are deferred.
-- Multiple-clock-domain details are deferred.
+- Cross-domain-dependent properties are outside the MVP scope and must be rejected. Unrelated clock
+  domains in the RTL are allowed and excluded from a domain-local proof.
 - Reset values must be constants or resolved parameters. Values depending on other signals are not supported.
 - Every register in a resettable sequential process must receive an explicit value in the reset branch.
 
@@ -45,7 +47,12 @@ Transient states caused only by combinational propagation are excluded from proo
 
 ### 3.2 Clock events
 
-Clocks are events, not timed waveforms. Lemma advances each clock domain abstractly and does not model clock periods or physical time. Detailed multi-clock semantics remain deferred.
+Clocks are events, not timed waveforms. RTL may contain multiple clock domains, but each property
+proof is built for one selected domain. Lemma models that domain's active edges and the state and
+combinational logic in the property's dependency cone. If the cone depends on state updated by
+another clock domain, the property is unsupported and must be rejected. Other, unrelated domains are
+excluded from that proof. Lemma does not model clock periods, physical time, or cross-domain event
+interleavings.
 
 ### 3.3 Initialization and arbitrary initial state
 
@@ -94,7 +101,9 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 
 - Use a stable-state transition model rather than a propagation-delay simulation model.
 - Separate pre-edge sampled assertion values from post-edge register updates and combinational settling.
-- Treat clocks as abstract events and avoid physical-time semantics in the initial architecture.
+- Allow multiple clock domains in RTL, while constructing each property proof from one clock domain
+  and rejecting dependency cones that cross domains. Treat modeled edges as abstract events and avoid
+  physical-time semantics in the initial architecture.
 - Model synchronous and asynchronous reset as distinct mechanisms.
 - Infer reset polarity and priority from RTL rather than imposing defaults.
 - Preserve arbitrary initial state symbolically across the proof; do not replace it with a single random seed.
@@ -107,8 +116,10 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 
 1. What exact RTL language/version and parser front end will Lemma support?
 2. What is the complete supported SVA subset beyond concurrent assertions and `disable iff`?
-3. How are properties associated with clocks, especially when a design has multiple clock domains?
-4. What are the precise semantics for simultaneous events across clock domains and for asynchronous reset assertion/deassertion relative to clocks?
+3. What exact clocked-process and assertion clock forms are accepted, and how are clock domains
+   identified in the elaborated design?
+4. What are the precise semantics for asynchronous reset assertion/deassertion relative to each
+   modeled clock domain?
 5. Which RTL initialization forms are supported, including declaration assignments, initial blocks, parameters, and tool-specific constructs?
 6. How should unsupported `X`/`Z` expressions be diagnosed when they occur in control conditions rather than as data bits?
 7. What combinational constructs, latches, memories, arrays, parameterization, and generated RTL are in scope?
@@ -127,7 +138,8 @@ The solver, intermediate representation, command-line/API flow, incremental proo
 5. Create focused semantic tests for retention, simultaneous updates, synchronous versus asynchronous reset, reset deassertion, reset priority, arbitrary initialization, sampled assertions, and `disable iff` abort behavior.
 6. Add negative tests for multiple resets, missing reset assignments, unsupported reset values, unsupported initialization, and unsupported RTL/SVA constructs.
 7. Build the smallest end-to-end MVP: parse, validate, model, prove, and report one-clock-domain examples before expanding scope.
-8. Revisit multiple clocks, richer SVA, memories, and additional RTL features only after the MVP semantics and diagnostics are stable.
+8. Revisit cross-domain properties and event semantics, richer SVA, memories, and additional RTL
+   features only after the MVP semantics and diagnostics are stable.
 
 ## 9. Source and confidence note
 

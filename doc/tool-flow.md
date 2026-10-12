@@ -29,6 +29,7 @@ A verification job consists of:
 - RTL source files in the supported language subset.
 - Assertion source files, or assertions included in the RTL sources.
 - The name of the top-level design unit.
+- The clock associated with the property being checked.
 - Any configuration required to resolve parameters and select the proof target.
 
 The exact command-line interface and configuration-file format are outside the scope of this
@@ -59,6 +60,12 @@ concrete design model, including:
 
 If required information cannot be resolved, elaboration fails with a diagnostic identifying the
 cause.
+
+RTL may contain multiple clock domains. Before proof, Lemma must identify the
+selected property's complete signal-dependency cone. If the cone depends on
+state updated by a different clock domain, the property must be rejected. A
+domain that is outside the cone does not prevent a proof and need not be
+included in that property's proof model.
 
 The initial supported scope may restrict which forms of hierarchy or parameterization are accepted.
 
