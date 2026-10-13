@@ -22,6 +22,10 @@ target_include_directories(tree_sitter_runtime
     PUBLIC "${TREE_SITTER_DIR}/include"
     PRIVATE "${TREE_SITTER_DIR}/src" "${TREE_SITTER_DIR}/src/wasm"
 )
+target_compile_definitions(tree_sitter_runtime PRIVATE
+    _POSIX_C_SOURCE=200112L
+    _DEFAULT_SOURCE
+)
 set_target_properties(tree_sitter_runtime PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_custom_command(
