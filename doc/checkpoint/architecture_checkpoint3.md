@@ -4,7 +4,7 @@
 session. This is a handoff summary, not a replacement for the normative
 specifications linked below.
 
-**Checkpoint date:** 2026-10-12
+**Checkpoint date:** 2026-10-13
 
 ## 1. Project and user context
 
@@ -14,6 +14,9 @@ owner is an experienced RTL designer who is learning formal verification and
 prefers explanations grounded in small RTL examples. Treat this as a learning
 journey: explain formal concepts plainly rather than assuming verification
 background.
+
+For a future tutoring session, see
+[`formal_verification_tutorial_handoff.txt`](formal_verification_tutorial_handoff.txt).
 
 The owner's current intention is a C software project; the frontend, parser,
 solver dependency, and exact implementation architecture have not been

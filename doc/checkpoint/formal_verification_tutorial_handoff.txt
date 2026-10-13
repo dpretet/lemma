@@ -1,0 +1,115 @@
+LEMMA FORMAL VERIFICATION TUTORIAL — SESSION HANDOFF
+Prepared: 2026-10-13
+
+PURPOSE
+
+In the next session, act as a patient tutor introducing formal verification to
+an experienced RTL designer who is new to formal methods and does not want a
+math-heavy course. Build a practical tutorial around the three web pages below.
+Explain one concept at a time, use small Verilog/SystemVerilog and SVA examples,
+and connect each idea to Lemma. Check understanding before moving into harder
+topics. Do not assume the learner has read a textbook or knows SAT/SMT jargon.
+
+Suggested teaching sequence:
+1. Formal verification versus simulation: what “all allowed behaviors” means.
+2. Assertions, assumptions, covers, and how assumptions change the question.
+3. Concurrent SVA sampling, implication, delays, disable iff, and history.
+4. Counterexamples, vacuity, and how covers help interpret assertions.
+5. Bounded model checking versus k-induction; what proven, failed, and
+   inconclusive mean.
+6. A practical block-level verification plan and how to judge whether results
+   are meaningful.
+
+The articles are teaching material, not Lemma's normative specification. If an
+article describes a feature Lemma does not support, explain it as background
+and clearly mark it as outside Lemma's current profile. Do not modify project
+scope or documentation unless asked.
+
+LEMMA CONTEXT TO KEEP CONSISTENT
+
+- Lemma is a standalone open-source RTL formal-verification project, currently
+  at the documentation/architecture stage. Do not imply that an implementation
+  or working test suite already exists.
+- The current proof strategy is BMC plus k-induction. A bounded search with no
+  counterexample is not a proof. `proven` requires completed induction; if no
+  counterexample is found but induction does not complete, the result is
+  `inconclusive`.
+- Registers without supported RTL initialization start at 0 under Lemma's
+  explicit default-zero policy. This is a Lemma modeling convention, not a
+  guarantee about hardware power-up. Lemma warns about affected registers.
+- RTL may contain multiple clock domains, but each property uses one clock
+  domain and a domain-local dependency cone. Cross-domain-dependent properties
+  are rejected; Lemma does not perform CDC analysis.
+- A condition such as `srst` inside a clocked process is ordinary control logic.
+  Only an asynchronous reset in the process event control has separate event
+  semantics.
+- The v1 SVA profile is intentionally limited. It includes one target
+  assertion or cover per run plus assumptions, single-clock properties,
+  Boolean expressions, fixed/bounded delays, `|->`, `|=>`, `$past`, `$rose`,
+  `$fell`, `$stable`, and `disable iff`. Unbounded temporal operators,
+  repetition, immediate assertions, and multiclock properties are outside the
+  profile.
+- Lemma suppresses history-dependent checks until the required prior sample
+  exists. A user-written `past_valid` guard is optional in Lemma but useful for
+  portability to other tools.
+- The exact SAT/SMT solver and interface have not been chosen. Do not recommend
+  Yosys or proprietary tools as Lemma dependencies.
+
+NORMATIVE PROJECT DOCUMENTS
+
+Read these before answering questions about what Lemma supports:
+
+- ../mvp.md
+- ../rtl-support.md
+- ../sva-support.md
+- ../register-semantics.md
+- ../execution-and-assertion-semantics.md
+- ../proof-model.md
+- ../tool-flow.md
+- ../validation-criteria.md
+- architecture_checkpoint3.md
+
+READING LIST AND SHORT SUMMARIES
+
+1. A Gentle Introduction to Formal Verification
+   https://www.systemverilog.io/verification/gentle-introduction-to-formal-verification/
+
+   Starts from the difference between simulation and formal verification,
+   introduces assumptions, assertions, covers, counterexamples, and when a
+   designer might use formal. It is explicitly written to make the subject less
+   intimidating. Treat its illustrations of exhaustive state exploration as
+   conceptual; real engines use algorithms such as BMC and induction rather
+   than literally enumerating every path in parallel.
+
+2. SystemVerilog Assertions Basics
+   https://www.systemverilog.io/verification/sva-basics/
+
+   Introduces immediate versus concurrent assertions, clocked properties,
+   `disable iff`, implication, delays, sampled-value functions, examples, and
+   cover properties. Lemma v1 supports only a subset of this material. Focus on
+   concurrent assertions and the operators/functions listed in
+   ../sva-support.md; do not present repetition, immediate assertions, or other
+   advanced constructs as currently supported by Lemma.
+
+3. A Blueprint for Formal Verification
+   https://www.systemverilog.io/verification/blueprint-for-formal-verification/
+
+   Describes a practical workflow: get familiar with the tool and block, write
+   a testplan, add assumptions/checkers/covers, assess bounded depth, and review
+   coverage and over-constraint risks. Its command examples use Synopsys VC
+   Formal and are vendor-specific. Teach the workflow ideas only; do not ask
+   the learner to use those commands or infer that Lemma has those features.
+
+TUTOR STYLE
+
+- Prefer intuition and concrete traces over equations. Introduce a formula
+  only when it helps, and explain every symbol.
+- Use a tiny counter, handshake, or FIFO example before the FRISCV IP.
+- Explain that a counterexample is one legal behavior that violates a claim,
+  while a proof rules out all violating behaviors in the stated model.
+- Make assumptions and startup/reset conditions visible. Never imply that a
+  proof covers unconstrained hardware startup when Lemma's default-zero policy
+  is being used.
+- Distinguish “no failure found up to depth k” from “proven for all time.”
+- Present vendor-specific or advanced language features as optional background,
+  not as required knowledge for the first lessons.
