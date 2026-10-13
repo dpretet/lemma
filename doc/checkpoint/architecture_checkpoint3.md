@@ -18,17 +18,21 @@ background.
 For a future tutoring session, see
 [`formal_verification_tutorial_handoff.txt`](formal_verification_tutorial_handoff.txt).
 
-The owner's current intention is a C software project; the frontend, parser,
-solver dependency, and exact implementation architecture have not been
-selected. Do not use proprietary tools or Yosys. Keep parsing, elaboration, IR
-construction, and formal solving separate. Do not silently accept unsupported
-RTL or SVA.
+The implementation language is C, with CMake as the build system. The initial
+parser uses the vendored Tree-sitter C runtime and
+`tree-sitter-systemverilog` grammar; Unity unit tests run through CTest. The
+grammar is only a syntax front end and does not define Lemma's accepted RTL
+subset. The `tsoding/arena` library is vendored unchanged for Lemma-owned
+allocations, with assertions enabled in all build configurations. The current
+parser does not yet use it. The solver dependency and exact implementation
+architecture remain unselected. Do not use proprietary tools or Yosys. Keep
+parsing, elaboration, IR construction, and formal solving separate. Do not
+silently accept unsupported RTL or SVA.
 
-At this checkpoint the repository is still documentation-only: no Lemma
-implementation or executable test suite has been reviewed. The FRISCV
-inspection was static source analysis, not a compile or proof run. HEAD before
-adding this checkpoint was `2c3d43f` (`docs: define MVP validation acceptance
-gate`).
+The repository now includes a small C/CMake parser bootstrap and executable
+smoke tests for valid and malformed SystemVerilog syntax. It does not yet
+implement RTL-subset validation, elaboration, an IR, or formal solving. The
+FRISCV inspection was static source analysis, not a compile or proof run.
 
 ## 2. Documentation authority
 
@@ -170,7 +174,8 @@ configuration or rejected, never silently discarded.
    solver-independent transition IR is preferred; do not write a solver from
    scratch or depend on Yosys.
 2. Define the exact supported source configuration/preprocessor behavior and
-   settle the first normative RTL grammar slice.
+   the first normative RTL grammar slice. The bundled Tree-sitter grammar does
+   not imply support for all syntax it recognizes.
 3. Define the transition/property-monitor IR and how it encodes BMC and
    k-induction queries.
 4. Specify BMC depth growth, induction limits, timeouts, and the exact

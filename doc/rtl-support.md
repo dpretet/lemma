@@ -22,7 +22,12 @@ The initial target is Verilog/SystemVerilog RTL.
   implementation.
 - VHDL is out of scope for the initial version.
 
-The exact language standard and parser requirements are **TBD**.
+The initial parser implementation is C using the Tree-sitter runtime and the
+`tree-sitter-systemverilog` grammar. These are syntax-front-end choices only:
+the grammar may recognize constructs outside Lemma's supported subset, and
+such constructs must still be rejected by Lemma's validation. The exact
+language-standard conformance, accepted syntax, preprocessing behavior, and
+Verilog grammar requirements remain **TBD**.
 
 ## 3. Design units and hierarchy
 
