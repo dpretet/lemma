@@ -37,6 +37,20 @@ For each task:
 Do not generate large amounts of code or documentation unless requested.
 Prefer concise diagnostics and small, reviewable changes.
 
+Do not generate or modify code unless the user explicitly requests code
+changes. For exploratory or planning requests, discuss options without creating
+or changing source files.
+
+For design work, collaborate through dialogue: raise one focused question or
+proposal at a time, explain tradeoffs plainly, and wait for the user's response
+before treating a design choice as settled. Do not rush through multiple
+unresolved decisions or turn a discussion into a finalized design without the
+user's alignment.
+
+Ask the user to clarify any unclear request, requirement, or design point
+before proceeding. State assumptions explicitly; never resolve ambiguity
+implicitly.
+
 ## Architectural decisions
 
 Before adding a new language feature or dependency:

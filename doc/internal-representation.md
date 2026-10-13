@@ -136,7 +136,16 @@ subsequent property-model and proof-model stages. An IR consumer must preserve
 the circuit's input/state distinction and FFD transition behavior when building
 the proof model.
 
-## 7. Open details
+## 7. Schematic visualization
+
+A schematic view of an elaborated circuit should be based on this IR and show
+its ports, signals, combinational operations, and sequential state boundaries
+at the IR level. It is not a gate-level netlist: operators should not be
+decomposed into gates, and the view must not imply synthesis or optimization
+that the IR does not represent. The rendering format and interface are not
+specified here.
+
+## 8. Open details
 
 The following are intentionally not decided here and must be specified before
 the corresponding source constructs can be lowered:
