@@ -8,9 +8,8 @@ then report formal verification results.
 It specifies the responsibilities and expected outputs of each stage. The
 current parser implementation uses Tree-sitter; this does not make every
 construct recognized by its grammar part of Lemma's supported RTL subset. The
-circuit IR boundary is specified in
-[Internal Representation](internal-representation.md); this document does not
-prescribe a proof-engine implementation.
+document does not prescribe an internal representation or proof-engine
+implementation.
 
 ## 2. Overview
 
@@ -154,7 +153,7 @@ A job with one or more unsupported or invalid properties must not be reported as
 This document does not define:
 
 - The command-line interface or configuration-file syntax.
-- The proof-engine representation and solver encoding.
+- The internal representation format.
 - The exact solver, solver interface, and encoding implementation. The selected BMC plus k-induction strategy is defined in the proof-model specification.
 - The exact output format for logs and counterexamples.
 - The detailed semantics of RTL or SVA constructs.

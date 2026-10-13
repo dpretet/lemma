@@ -79,8 +79,6 @@ that those features are implemented yet.
 - [MVP specification](doc/mvp.md) — first milestone and acceptance boundary.
 - [RTL support](doc/rtl-support.md) — language subset, open questions, and
   incremental conformance-test roadmap.
-- [Internal representation](doc/internal-representation.md) — elaborated
-  circuit structure, combinational logic paths, and FFD state elements.
 - [SVA support](doc/sva-support.md) — intended assertion, assumption, cover,
   and temporal-operator subset.
 - [Register semantics](doc/register-semantics.md) — initialization, reset,

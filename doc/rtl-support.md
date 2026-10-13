@@ -127,10 +127,7 @@ At the IR boundary:
 - widths and concrete signal declarations must be known;
 - unsupported source constructs must not be silently discarded.
 
-The structural IR contract is documented in
-[internal-representation.md](internal-representation.md). Operator semantics
-and supported source constructs remain governed by this document and must be
-specified before those constructs are lowered.
+The IR format and its exact semantics are documented separately.
 
 ## 10. Initially unsupported or undecided features
 

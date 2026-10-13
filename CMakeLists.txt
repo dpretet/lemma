@@ -60,7 +60,7 @@ else()
     message(FATAL_ERROR "The arena target needs a compiler option to keep assert enabled")
 endif()
 
-add_library(lemma_core STATIC src/frontend/parser.c src/ir/ir.c)
+add_library(lemma_core STATIC src/frontend/parser.c)
 target_include_directories(lemma_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(lemma_core PUBLIC
     systemverilog_grammar
@@ -82,7 +82,6 @@ if(BUILD_TESTING)
     add_executable(lemma_unit_tests
         tests/unit/test_main.c
         tests/unit/test_parser.c
-        tests/unit/test_ir.c
         tests/unit/test_arena.c
         third_party/unity/src/unity.c
     )
