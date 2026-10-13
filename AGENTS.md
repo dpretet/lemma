@@ -19,7 +19,6 @@ Do not assume that an undecided feature is supported.
 ## Constraints
 
 - Do not introduce a dependency on proprietary tools.
-- Do not use Yosys.
 - Keep parsing, elaboration, IR construction, and formal solving clearly
   separated.
 - Do not silently accept or discard unsupported RTL.

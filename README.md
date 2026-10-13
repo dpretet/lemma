@@ -69,7 +69,7 @@ The project is being developed in small, specified and tested increments:
   reinterpreting them.
 - Treat the documented subset—not all syntax recognized by the parser—as the
   authority for future implementation.
-- Do not depend on proprietary tools or Yosys.
+- Do not depend on proprietary tools.
 
 ## Specifications and project docs
 

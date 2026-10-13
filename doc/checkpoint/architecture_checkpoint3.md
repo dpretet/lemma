@@ -25,8 +25,8 @@ grammar is only a syntax front end and does not define Lemma's accepted RTL
 subset. The `tsoding/arena` library is vendored unchanged for Lemma-owned
 allocations, with assertions enabled in all build configurations. The current
 parser does not yet use it. The solver dependency and exact implementation
-architecture remain unselected. Do not use proprietary tools or Yosys. Keep
-parsing, elaboration, IR construction, and formal solving separate. Do not
+architecture remain unselected. Do not use proprietary tools. Keep parsing,
+elaboration, IR construction, and formal solving separate. Do not
 silently accept unsupported RTL or SVA.
 
 The repository now includes a small C/CMake parser bootstrap and executable
@@ -172,7 +172,7 @@ configuration or rejected, never silently discarded.
 
 1. Select an open-source bit-vector solver/backend and its interface. A
    solver-independent transition IR is preferred; do not write a solver from
-   scratch or depend on Yosys.
+   scratch.
 2. Define the exact supported source configuration/preprocessor behavior and
    the first normative RTL grammar slice. The bundled Tree-sitter grammar does
    not imply support for all syntax it recognizes.

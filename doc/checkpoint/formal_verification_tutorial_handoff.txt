@@ -53,7 +53,7 @@ LEMMA CONTEXT TO KEEP CONSISTENT
   exists. A user-written `past_valid` guard is optional in Lemma but useful for
   portability to other tools.
 - The exact SAT/SMT solver and interface have not been chosen. Do not recommend
-  Yosys or proprietary tools as Lemma dependencies.
+  proprietary tools as Lemma dependencies.
 
 NORMATIVE PROJECT DOCUMENTS
 
