@@ -98,6 +98,13 @@ expressed as feedback from Q where required; it is not an implicit property of
 an ordinary combinational driver. An asynchronous reset is separate metadata,
 not a clocked condition folded into D.
 
+For supported sequential statements, procedural assignment order and branch
+priority must be reflected in the D expression. Within one process, a later
+executed assignment to the same register overrides an earlier executed
+assignment; an assignment in a branch that is not taken leaves the prior
+pending value unchanged. Multiple procedural drivers for a register are
+unsupported in the MVP and must be rejected before a valid FFD is constructed.
+
 This representation follows the register semantics: state updates are
 simultaneous, inputs are not persistent state, and Lemma's default-zero proof
 start policy applies to registers without supported RTL initialization. The IR
@@ -153,7 +160,8 @@ the corresponding source constructs can be lowered:
 - the supported operator set and exact bit-vector semantics;
 - signedness, expression sizing, casts, and unsized literal rules;
 - the accepted procedural statements and their lowering to expressions;
-- multiple-driver, partial-assignment, latch, and combinational-cycle rules;
+- other multiple-driver cases, partial-assignment, latch, and
+  combinational-cycle rules;
 - supported RTL initialization forms;
 - the precise IR serialization/API; and
 - future representations for `inout` ports, memories, arrays, and other

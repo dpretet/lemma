@@ -104,7 +104,31 @@ are deferred.
 
 Sequential processes compute next values from the current state. Register updates take effect simultaneously.
 
-If no branch assigns a value to a register at an active clock edge, the register retains its previous value. This includes conditional updates, such as an enable that is not asserted.
+Within one sequential process, assignments to the same register are evaluated
+in source order. If multiple assignments execute during an active clock event,
+the last executed assignment determines the register's next value. A
+conditional assignment that does not execute does not cancel an earlier
+assignment to that register in the process. For example:
+
+```systemverilog
+if (a)
+  q <= x;
+else
+  q <= z;
+
+if (c)
+  q <= b;
+```
+
+has the next-value expression `c ? b : (a ? x : z)`. The process's
+source-order and branch behavior is represented in the register's D expression.
+
+If no executed branch assigns a value to a register at an active clock edge,
+the register retains its previous value. This includes a conditional update
+whose condition is false when no earlier assignment in the same process has
+assigned that register. Multiple procedural processes driving the same
+register are unsupported in the MVP and must be diagnosed; they are not covered
+by this within-process priority rule.
 
 ## 6. Inputs and Assumptions
 

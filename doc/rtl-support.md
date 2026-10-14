@@ -100,20 +100,30 @@ Within a sequential block:
 
 - use nonblocking assignments (`<=`);
 - do not mix combinational and sequential behavior in the same process.
+- multiple assignments to the same register within one process are evaluated
+  in source order; when more than one assignment executes, the last executed
+  assignment determines that register's next value;
+- a conditional assignment that does not execute leaves any earlier assignment
+  to that register in the same process in effect. If no assignment executes,
+  the register retains its current value.
 
 Reset semantics are defined in [register-semantics.md](register-semantics.md).
 A sequential process may contain at most one asynchronous reset event control.
 Conditions in the process body—including a signal conventionally named
 `srst`—are ordinary RTL control logic, not additional reset events. Supported
-event controls and assignment semantics remain TBD.
+event controls and other assignment semantics remain TBD. This source-order
+priority rule applies only to assignments within one process; multiple
+procedural drivers for a register are unsupported in the MVP and must be
+diagnosed.
 
 ## 8. Process restrictions
 
 A single procedural process must be exclusively combinational or sequential.
 Mixing the two styles in one process is unsupported and must be diagnosed.
 
-The rules for incomplete assignments, inferred latches, multiple drivers,
-and conflicting assignments are **TBD**.
+The rules for incomplete combinational assignments, inferred latches, and
+conflicting assignments remain **TBD**. Multiple procedural drivers for a
+register are unsupported in the MVP and must be diagnosed.
 
 ## 9. Internal representation boundary
 
@@ -216,12 +226,14 @@ boundary cases, expected model, and rejection cases are documented.
    `always_comb`, `if` / `case`, and complete assignment behavior. Include
    rejection tests for unsupported statements, mixed process styles, and
    unintended latches.
-3. **Sequential state and resets:** nonblocking updates, simultaneous state
+3. **Sequential state and resets:** nonblocking updates, source-order priority
+   for repeated assignments within one clocked process, simultaneous state
    updates, retention, clock events, default-zero initialization warnings,
    explicit initialization, asynchronous reset events, and ordinary
    reset-named control conditions sampled at clock edges. Include the common
    asynchronous-reset-plus-synchronous-control pattern and rejection tests for
-   unsupported multiple asynchronous reset event controls.
+   multiple procedural drivers and unsupported multiple asynchronous reset
+   event controls.
 4. **Parameters, generate, and hierarchy:** constant-expression resolution,
    named parameter overrides, static generate branches/loops, nested module
    instances, parameterized widths, and useful diagnostics for failed

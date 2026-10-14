@@ -135,7 +135,14 @@ explicit extension of this specification.
 
 Sequential processes compute next values from the same pre-event state. Register updates take effect simultaneously at the end of the sequential evaluation phase.
 
-If no executed RTL branch assigns a value to a register at an applicable active clock event, the register retains its previous value. This includes conditional updates such as an inactive enable. Retention is an RTL consequence, not an implicit initialization rule.
+Within one sequential process, assignments to the same register are evaluated
+in source order. If multiple assignments execute at an applicable active clock
+event, the last executed assignment determines the next value. A conditional
+assignment that does not execute leaves any earlier executed assignment in
+that process in effect. If no executed assignment sets the register, it
+retains its previous value. This retention is an RTL consequence, not an
+implicit initialization rule. Multiple procedural processes driving the same
+register are unsupported in the MVP and must be diagnosed.
 
 ## 7. Inputs, assumptions, and protocols
 
