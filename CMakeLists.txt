@@ -7,6 +7,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
 include(CTest)
+find_package(Threads REQUIRED)
 
 set(TREE_SITTER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree-sitter/lib")
 set(SYSTEMVERILOG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree-sitter-systemverilog")
@@ -60,6 +61,13 @@ else()
     message(FATAL_ERROR "The arena target needs a compiler option to keep assert enabled")
 endif()
 
+add_library(logc STATIC third_party/logc/src/log.c)
+target_include_directories(logc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party/logc/src")
+target_link_libraries(logc PUBLIC Threads::Threads)
+
+add_library(cargs STATIC third_party/cargs/src/cargs.c)
+target_include_directories(cargs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cargs/include")
+
 add_library(lemma_core STATIC src/frontend/parser.c)
 target_include_directories(lemma_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(lemma_core PUBLIC
@@ -69,7 +77,7 @@ target_link_libraries(lemma_core PUBLIC
 )
 
 add_executable(lemma src/main.c)
-target_link_libraries(lemma PRIVATE lemma_core)
+target_link_libraries(lemma PRIVATE lemma_core logc cargs)
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(lemma_core PRIVATE -Wall -Wextra -Wpedantic)
@@ -96,7 +104,16 @@ if(BUILD_TESTING)
     add_test(NAME lemma_unit_tests COMMAND lemma_unit_tests)
     add_test(NAME lemma_parse_valid_fixture
         COMMAND lemma "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/valid.sv")
+    add_test(NAME lemma_accepts_end_of_options_marker COMMAND lemma --
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/valid.sv")
     add_test(NAME lemma_rejects_malformed_fixture
         COMMAND lemma "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/malformed.sv")
     set_tests_properties(lemma_rejects_malformed_fixture PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME lemma_requires_source_argument COMMAND lemma)
+    set_tests_properties(lemma_requires_source_argument PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME lemma_rejects_extra_source_arguments COMMAND lemma
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/valid.sv" extra.sv)
+    set_tests_properties(lemma_rejects_extra_source_arguments PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME lemma_rejects_unknown_cli_options COMMAND lemma --unknown)
+    set_tests_properties(lemma_rejects_unknown_cli_options PROPERTIES WILL_FAIL TRUE)
 endif()

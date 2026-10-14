@@ -1,8 +1,15 @@
 #include "lemma/parser.h"
+#include "cargs.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+static void print_usage(void)
+{
+    fprintf(stderr, "usage: lemma <source.sv>\n");
+}
 
 static char *read_file(const char *path, size_t *length)
 {
@@ -68,13 +75,26 @@ static TSNode first_syntax_error(TSNode node)
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: lemma <source.sv>\n");
+    cag_option_context arguments;
+    cag_option_init(&arguments, NULL, 0U, argc, argv);
+    while (cag_option_fetch(&arguments)) {
+        cag_option_print_error(&arguments, stderr);
+        print_usage();
         return EXIT_FAILURE;
     }
 
+    int source_index = cag_option_get_index(&arguments);
+    if (source_index < argc && strcmp(argv[source_index], "--") == 0) {
+        ++source_index;
+    }
+    if (argc - source_index != 1) {
+        print_usage();
+        return EXIT_FAILURE;
+    }
+    const char *source_path = argv[source_index];
+
     size_t source_length = 0U;
-    char *source = read_file(argv[1], &source_length);
+    char *source = read_file(source_path, &source_length);
     if (source == NULL) {
         return EXIT_FAILURE;
     }
@@ -91,12 +111,12 @@ int main(int argc, char **argv)
         TSNode error = first_syntax_error(root);
         TSPoint point = ts_node_start_point(error);
         fprintf(stderr, "%s:%u:%u: syntax error (%s)\n",
-                argv[1], point.row + 1U, point.column + 1U, ts_node_type(error));
+                source_path, point.row + 1U, point.column + 1U, ts_node_type(error));
         ts_tree_delete(tree);
         return EXIT_FAILURE;
     }
 
-    printf("parsed successfully: %s (%s)\n", argv[1], ts_node_type(root));
+    printf("parsed successfully: %s (%s)\n", source_path, ts_node_type(root));
     ts_tree_delete(tree);
     return EXIT_SUCCESS;
 }

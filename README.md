@@ -18,6 +18,7 @@ depending on proprietary tools.
 - The executable parses one SystemVerilog source file using vendored
   Tree-sitter sources, reports syntax errors with source locations, and reports
   successful parses.
+- The CLI uses vendored cargs to validate its single source-file argument.
 - Unity unit tests and parser smoke tests run through CTest.
 - Configuration and builds use vendored dependencies and do not download
   dependencies.
@@ -28,7 +29,8 @@ suitable for formal verification.
 
 ## Build, test, and try it
 
-Requirements: CMake 3.16 or newer, a C11 compiler, and Bash to run `flow.sh`.
+Requirements: CMake 3.16 or newer, a C11 compiler, POSIX threads, and Bash to
+run `flow.sh`.
 
 ```sh
 ./flow.sh build    # configure and build a Debug version
@@ -43,10 +45,11 @@ Parse the included valid fixture, or substitute your own `.sv` file:
 ./build/lemma tests/fixtures/valid.sv
 ```
 
-The current command accepts exactly one source path. It exits successfully
-after a syntax parse, or reports a syntax/file error and exits unsuccessfully.
-It does not run a proof. The test suite includes parser unit tests and valid and
-malformed syntax fixtures.
+The current command accepts exactly one source path. An optional `--` may
+precede it to mark the end of options. It exits successfully after a syntax
+parse, or reports a syntax/file error and exits unsuccessfully. It does not run
+a proof. The test suite includes parser unit tests and valid and malformed
+syntax fixtures.
 
 The release command creates `dist/lemma-<platform>-<architecture>.tar.gz` for
 the host OS and architecture. The archive contains the executable, a brief
@@ -96,7 +99,10 @@ that those features are implemented yet.
 
 ## Dependencies and license
 
-Tree-sitter, its SystemVerilog grammar, Unity, and the `tsoding/arena` allocator
-are vendored under [`third_party/`](third_party/). The allocator is currently
-not used by the parser. See the dependency notes for upstream versions and
-license details. Lemma is distributed under the [MIT License](LICENSE).
+Tree-sitter, its SystemVerilog grammar, Unity, the `tsoding/arena` allocator,
+`kurotych/logc`, and `likle/cargs` are vendored under
+[`third_party/`](third_party/). The allocator is currently not used by the
+parser, and the logger is linked into the CLI but not yet used for its messages.
+The CLI uses `likle/cargs` for argument parsing. `logc` requires POSIX threads.
+See the dependency notes for upstream revisions and license details. Lemma is
+distributed under the [MIT License](LICENSE).

@@ -68,6 +68,10 @@ EOF
             "${STAGE_DIR}/licenses/tree-sitter-systemverilog-LICENSE"
         cp "${ROOT_DIR}/third_party/tsoding-arena/LICENSE" \
             "${STAGE_DIR}/licenses/tsoding-arena-LICENSE"
+        cp "${ROOT_DIR}/third_party/logc/LICENSE" \
+            "${STAGE_DIR}/licenses/logc-LICENSE"
+        cp "${ROOT_DIR}/third_party/cargs/LICENSE.md" \
+            "${STAGE_DIR}/licenses/cargs-LICENSE"
 
         case "$(uname -s)" in
             Darwin) PLATFORM="macos" ;;
