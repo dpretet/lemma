@@ -130,14 +130,15 @@ broader FRISCV-inspired RTL roadmap is not an MVP acceptance requirement.
 
 1. **Input classification:** A supported flat-top example reaches proof
    execution. Malformed RTL, unsupported active syntax, unresolved required
-   parameters, and cross-domain-dependent properties are rejected at the
-   appropriate stage. Rejection must not become a proof result.
+   parameters, source preprocessing directives (including `` `include ``),
+   `bind` directives, and cross-domain-dependent properties are rejected at
+   the appropriate stage. Rejection must not become a proof result.
 2. **RTL semantics:** Tests establish default-zero proof-start values and
    source-located warnings, supported explicit RTL initialization, simultaneous
-    updates, retention, source-order priority for repeated assignments to one
-    register within a clocked process, rejection of multiple procedural drivers
-    for one register, supported asynchronous reset events, ordinary clocked
-    control conditions, and two-state handling of `X`/`Z` where applicable.
+   updates, retention, source-order priority for repeated assignments to one
+   register within a clocked process, rejection of multiple procedural drivers
+   for one register, supported asynchronous reset events, ordinary clocked
+   control conditions, and two-state handling of `X`/`Z` where applicable.
    Multi-clock RTL must be accepted for a domain-local property and rejected
    when the property dependency cone crosses domains.
 3. **Assertion semantics:** Tests cover an invariant, a failing assertion with

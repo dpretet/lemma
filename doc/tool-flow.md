@@ -31,7 +31,8 @@ from running.
 A verification job consists of:
 
 - RTL source files in the supported language subset.
-- Assertion source files, or assertions included in the RTL sources.
+- Assertion source files, or assertions written directly in the RTL sources.
+  Textual preprocessor `` `include `` directives are not expanded in the MVP.
 - The name of the top-level design unit.
 - The clock associated with the property being checked.
 - Any configuration required to resolve parameters and select the proof target.

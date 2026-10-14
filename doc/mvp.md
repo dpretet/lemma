@@ -47,6 +47,9 @@ The MVP excludes:
 
 - VHDL.
 - Hierarchical designs; only a single flat top is supported.
+- Preprocessor-driven source inclusion, macros, and conditional compilation.
+- `bind` directives for attaching assertions or checker modules; binding is
+  deferred until hierarchy and binding semantics are specified.
 - Properties whose signal-dependency cones span multiple clock domains.
 - SVA beyond the separately defined initial subset.
 - More than one target assertion or cover in one proof run; assumptions may accompany the single target.

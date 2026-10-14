@@ -152,6 +152,10 @@ of the initial supported subset:
 - dynamic or runtime-dependent elaboration;
 - unsynthesizable testbench constructs;
 - mixed combinational/sequential processes.
+- source preprocessing directives, including `` `include ``, macros, and
+  conditional compilation. These may be added later under an explicit job
+  configuration; the long-term target in Section 12 does not include them in
+  the MVP.
 
 Other constructs—including functions, tasks, interfaces, assertions,
 memories, arrays, structs, and `always_comb` / `always_ff`—remain **TBD**

@@ -183,6 +183,9 @@ The following constructs are not supported:
 - Multiclock properties or clocking events other than `@(posedge clock)`.
 - Advanced SVA constructs such as `first_match`, `intersect`, and sequence `or`/`and`.
 - Procedural immediate assertions.
+- `bind` directives for attaching properties or checker modules to design
+  scopes. Bind-based attachment is deferred until hierarchy and binding
+  semantics are specified.
 
 ## 9. Unsupported syntax
 
