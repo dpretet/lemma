@@ -19,6 +19,9 @@ The MVP supports:
   register within one clocked process, as defined by the register semantics.
   Multiple procedural drivers for one register are unsupported and must be
   diagnosed.
+- Source-located warnings for supported packed assignments that truncate
+  high-order bits; these assignments are modeled using the retained
+  least-significant bits.
 - The previously defined register semantics, including stable-state proof steps, abstract clock events, asynchronous reset events, ordinary clocked control conditions (including reset-named conditions), simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and Lemma's default-zero proof-start value for registers without a supported RTL initialization. Such registers must be identified by warnings and in the proof report.
 - The initial SVA subset defined separately.
 - BMC for counterexample search together with k-induction for safety assertions over all cycles. A bounded search with no counterexample is not a proof.

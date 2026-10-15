@@ -136,9 +136,21 @@ broader FRISCV-inspired RTL roadmap is not an MVP acceptance requirement.
 2. **RTL semantics:** Tests establish default-zero proof-start values and
    source-located warnings, supported explicit RTL initialization, simultaneous
    updates, retention, source-order priority for repeated assignments to one
-   register within a clocked process, rejection of multiple procedural drivers
-   for one register, supported asynchronous reset events, ordinary clocked
-   control conditions, and two-state handling of `X`/`Z` where applicable.
+    signal within a process, rejection of multiple procedural drivers for one
+    register, equivalent equations from complete `always @(*)` and `always_comb`
+    blocks, vector-valued `if` conditions using nonzero truth, supported
+    asynchronous reset events, ordinary clocked control
+   conditions, same-width signedness conversions using both cast and
+   system-function spellings, signed extension, unsigned zero extension, and
+   least-significant-bit truncation for signed and unsigned assignments with
+   source-located warnings, same-width unsigned vector bitwise AND, OR, XOR,
+   XNOR, and complement, unsigned vector reduction AND/NAND, OR/NOR, XOR/XNOR,
+    same-width unsigned addition, subtraction, and multiplication, unsigned
+    equality, inequality, and relational comparisons, concatenation result
+    widths and operand ordering, scalar results from logical `!`, `&&`, and
+    `||` on vector operands, constant and variable bit-selects, fixed and
+    `+:` part-selects with provably in-range indices, and two-state handling of
+    `X`/`Z` where applicable.
    Multi-clock RTL must be accepted for a domain-local property and rejected
    when the property dependency cone crosses domains.
 3. **Assertion semantics:** Tests cover an invariant, a failing assertion with

@@ -61,6 +61,9 @@ and must be explicit for each supported operator. Before an expression reaches
 the IR, implicit source-language sizing, signedness, and extension behavior
 must be resolved into concrete widths and explicit conversions as needed. The
 IR must not rely on a later stage to reinterpret SystemVerilog sizing rules.
+Supported signedness casts and assignment width conversions must therefore
+appear as explicit typed conversion nodes, including the resulting width and
+signedness.
 
 A combinational driver associates a target signal with an expression ID. The
 driver describes the full target signal; partial writes, procedural control
@@ -158,7 +161,8 @@ The following are intentionally not decided here and must be specified before
 the corresponding source constructs can be lowered:
 
 - the supported operator set and exact bit-vector semantics;
-- signedness, expression sizing, casts, and unsized literal rules;
+- general expression sizing, unsized literal rules, and casts or conversion
+  cases beyond those defined in the RTL subset;
 - the accepted procedural statements and their lowering to expressions;
 - other multiple-driver cases, partial-assignment, latch, and
   combinational-cycle rules;

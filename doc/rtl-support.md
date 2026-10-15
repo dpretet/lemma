@@ -50,8 +50,104 @@ Initial parameter support shall include:
 
 Parameter types (`parameter type`) are initially unsupported.
 
-The exact supported expression operators, signedness rules, unsized literal
-rules, and override forms are **TBD**.
+The exact supported expression operators, general expression-sizing rules,
+unsized literal rules, and override forms are **TBD**, except for the
+same-width unsigned bitwise operators, logical operators, basic arithmetic and
+comparisons, packed concatenation, constant packed bit/part-selects, signedness
+conversions, and direct assignment width conversions specified here.
+
+### Same-width unsigned bitwise operators
+
+For unsigned packed operands with the same concrete width, Lemma supports
+bitwise AND (`&`), OR (`|`), XOR (`^`), and XNOR (`~^` or `^~`). These binary
+operators produce an unsigned result of the operand width and operate
+bit-by-bit. Unary bitwise complement (`~`) is also supported; it inverts each
+bit and preserves the operand width and unsignedness. The two XNOR spellings
+have identical semantics.
+
+Mixed-width or signed operands remain TBD; these rules do not define implicit
+sizing or signedness conversion for bitwise operators.
+
+For an unsigned packed-vector operand, Lemma also supports reduction AND
+(`&`), NAND (`~&`), OR (`|`), NOR (`~|`), XOR (`^`), and XNOR (`~^` or `^~`).
+Each reduction operates across all operand bits and produces a one-bit unsigned
+result. NAND, NOR, and XNOR complement the corresponding reduction result; the
+two XNOR spellings have identical semantics.
+
+### Same-width unsigned basic arithmetic
+
+For two unsigned packed operands with the same concrete width `N`, Lemma
+supports addition (`+`), subtraction (`-`), and multiplication (`*`). Each
+result is an unsigned `N`-bit vector containing the mathematical result modulo
+`2^N`; bits beyond bit `N-1` are discarded. Mixed-width or signed operands,
+division, remainder, and other arithmetic operators remain TBD.
+
+### Same-width unsigned comparisons
+
+For two unsigned packed operands with the same concrete width, Lemma supports
+equality (`==`), inequality (`!=`), and relational comparisons (`<`, `<=`, `>`,
+`>=`). Each comparison produces a one-bit unsigned result. Relational
+comparisons use unsigned ordering. Mixed-width or signed operands and other
+comparison operators remain TBD.
+
+### Logical operators
+
+Lemma supports logical negation (`!`), logical AND (`&&`), and logical OR
+(`||`) on packed operands of known concrete widths. An operand is true when
+its value is nonzero; `!` negates that truth value, `&&` is true when both
+operands are true, and `||` is true when either operand is true. Each operator
+produces a one-bit unsigned result, regardless of operand width or signedness.
+These are logical operators, not bitwise operators; their evaluation follows
+Lemma's two-state interpretation of indeterminate bits.
+
+### Packed concatenation
+
+Lemma supports concatenation of packed signal operands using `{a, b, ...}`.
+The result is an unsigned packed vector whose width is the sum of the operand
+widths. Operands retain their declared widths and are ordered from most
+significant (leftmost) to least significant (rightmost); concatenation does not
+extend or truncate its operands. Replication and unsized operands remain TBD.
+
+### Constant packed bit-selects and part-selects
+
+For a descending packed vector, Lemma supports in-range constant bit-selects
+(`value[index]`) and fixed part-selects (`value[msb:lsb]`) with constant bounds.
+A bit-select produces one bit; a part-select produces `msb - lsb + 1` bits,
+preserving the selected bits' order. Select results are unsigned. Variable
+bit-selects (`value[index]`) and indexed part-selects using `+:` are also
+supported when their indices are unsigned expressions with concrete widths.
+The width of an indexed part-select must be a positive elaboration-time
+constant; its result width is that constant. For a descending packed vector,
+`value[base +: width]` selects `value[base + width - 1 : base]`, preserving
+that bit order in the result. The frontend must prove every possible selected
+index is within the packed vector's bounds. If it cannot, the design is invalid
+and must be rejected before proof. Indexed part-selects using `-:` remain TBD.
+
+### Signedness conversions and assignment width conversion
+
+Lemma supports the SystemVerilog signing casts `signed'(expr)` and
+`unsigned'(expr)`, and the system functions `$signed(expr)` and
+`$unsigned(expr)`. Each pair has the same effect: preserve the operand's bit
+width and bit pattern while setting the result's signedness to signed or
+unsigned, respectively.
+
+For a direct assignment from a packed signal or one of these cast/function
+results to a wider packed signal, Lemma extends the source to the destination
+width according to the source expression's signedness: signed sources are
+sign-extended; unsigned sources are zero-extended. Equal-width assignments
+preserve the bit pattern, while the destination keeps its declared signedness.
+
+For a direct assignment from a packed signal or cast/function result to a
+narrower packed signal, Lemma discards the most-significant bits and preserves
+the destination-width least-significant bits, regardless of source signedness.
+The destination keeps its declared signedness. RTL analysis must emit a
+source-located warning for each such narrowing assignment, stating that the
+most-significant bits are discarded and the represented value may change. The
+warning does not reject the assignment. The IR must represent the cast and any
+widening or truncation explicitly.
+
+Unsized literals and sizing or signedness rules for other expressions remain
+TBD and must not be inferred from these rules.
 
 ## 5. Generate constructs
 
@@ -76,13 +172,31 @@ The precise scoping, naming, and loop-validity rules are **TBD**.
 Combinational logic may be described using:
 
 - continuous `assign` statements;
-- combinational procedural blocks, such as `always @(*)`.
+- combinational procedural blocks using `always @(*)` or `always_comb`.
+
+For Lemma's stable-state circuit model, a supported `always_comb` block is
+lowered to combinational equations in the same way as a supported
+`always @(*)` block. Lemma does not model simulation scheduling, implicit
+sensitivity-list behavior, or time-zero execution as distinct circuit
+semantics. Both forms must obey the same supported combinational statement and
+driver rules.
 
 Within a combinational procedural block:
 
 - use blocking assignments (`=`);
 - do not use nonblocking assignments (`<=`);
 - do not describe sequential behavior.
+
+Blocking assignments take effect in source order. If multiple executed
+assignments in one process target the same variable, the last executed
+assignment determines its value for that process invocation. A conditional
+assignment that does not execute leaves the value established by earlier
+executed statements unchanged.
+
+For a supported procedural `if`, a packed condition is true when its value is
+nonzero and false when all bits are zero; the condition's signedness does not
+change this test. Indeterminate bits follow Lemma's two-state interpretation,
+so each bit is an unconstrained binary choice when evaluating the condition.
 
 The exact supported statement and expression forms are **TBD**.
 
@@ -151,14 +265,15 @@ of the initial supported subset:
 - `parameter type`;
 - dynamic or runtime-dependent elaboration;
 - unsynthesizable testbench constructs;
-- mixed combinational/sequential processes.
+- mixed combinational/sequential processes;
 - source preprocessing directives, including `` `include ``, macros, and
   conditional compilation. These may be added later under an explicit job
   configuration; the long-term target in Section 12 does not include them in
   the MVP.
 
-Other constructs—including functions, tasks, interfaces, assertions,
-memories, arrays, structs, and `always_comb` / `always_ff`—remain **TBD**
+Other constructs—including user-defined functions, system functions other than
+`$signed` / `$unsigned`, tasks, interfaces, assertions, memories, arrays,
+structs, and `always_ff`—remain **TBD**
 until explicitly specified.
 
 ## 11. Conformance tests
@@ -187,7 +302,7 @@ implemented or automatically included in the MVP:
   procedural blocks, including `always @(*)`, `always_comb`, and
   edge-triggered processes using nonblocking assignments.
 - Common control and expression constructs: `if` / `else`, `case`, bounded
-  procedural and generate loops, arithmetic, comparisons, bitwise and
+  procedural and generate loops, logical operators, arithmetic, comparisons, bitwise and
   reduction operators, concatenation, replication, signed casts, variable
   indexing, and indexed part-selects.
 - Common synthesizable SystemVerilog helpers, including `typedef enum logic`
@@ -227,9 +342,9 @@ boundary cases, expected model, and rejection cases are documented.
    common operators, signedness, expression sizing, `'0` / `'1`, concatenation,
    indexing, and part-selects.
 2. **Combinational processes:** blocking assignments in `always @(*)` and
-   `always_comb`, `if` / `case`, and complete assignment behavior. Include
-   rejection tests for unsupported statements, mixed process styles, and
-   unintended latches.
+   `always_comb`, source-order priority for repeated assignments to one signal,
+   `if` / `case`, and complete assignment behavior. Include rejection tests for
+   unsupported statements, mixed process styles, and unintended latches.
 3. **Sequential state and resets:** nonblocking updates, source-order priority
    for repeated assignments within one clocked process, simultaneous state
    updates, retention, clock events, default-zero initialization warnings,
