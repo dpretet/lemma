@@ -12,21 +12,6 @@ depending on proprietary tools.
 > specifications below describe the intended behavior, not features already
 > implemented.
 
-## What works today
-
-- A C11/CMake build produces the `lemma` command-line executable.
-- The executable parses one SystemVerilog source file using vendored
-  Tree-sitter sources, reports syntax errors with source locations, and reports
-  successful parses.
-- The CLI uses vendored cargs to validate its single source-file argument.
-- Unity unit tests and parser smoke tests run through CTest.
-- Configuration and builds use vendored dependencies and do not download
-  dependencies.
-
-The parser grammar recognizes syntax beyond Lemma's intended RTL subset. A
-successful parse therefore does **not** mean that the input is supported or
-suitable for formal verification.
-
 ## Build, test, and try it
 
 Requirements: CMake 3.16 or newer, a C11 compiler, POSIX threads, and Bash to
@@ -74,35 +59,42 @@ The project is being developed in small, specified and tested increments:
   authority for future implementation.
 - Do not depend on proprietary tools.
 
-## Specifications and project docs
+## Specifications
 
 These documents describe the intended scope and semantics; they do not imply
-that those features are implemented yet.
+that those features are implemented yet. Read them in this order for a
+book-like introduction to Lemma's design. The existing documents remain the
+authoritative sources; this chapter order is only a reading guide. Historical
+checkpoints and backup documents are intentionally excluded.
 
-- [MVP specification](doc/mvp.md) — first milestone and acceptance boundary.
-- [RTL support](doc/rtl-support.md) — language subset, open questions, and
-  incremental conformance-test roadmap.
-- [Internal representation](doc/internal-representation.md) — elaborated
-  circuit structure, combinational logic paths, and FFD state elements.
-- [SVA support](doc/sva-support.md) — intended assertion, assumption, cover,
-  and temporal-operator subset.
-- [Register semantics](doc/register-semantics.md) — initialization, reset,
-  state updates, and retention.
-- [Execution and assertion semantics](doc/execution-and-assertion-semantics.md)
-  — proof-state and clock-domain model.
-- [Proof model](doc/proof-model.md) — intended BMC and k-induction strategy.
-- [Tool flow](doc/tool-flow.md) — planned processing stages and results.
-- [Validation criteria](doc/validation-criteria.md) — evidence expected as
-  features are implemented.
-- [Vendored dependencies](third_party/README.md) — versions and licenses.
-- [Contributor instructions](AGENTS.md) — repository rules for development.
+### Part I — Scope and input language
+
+1. [MVP specification](doc/mvp.md) — first milestone and acceptance boundary.
+2. [RTL support](doc/rtl-support.md) — supported language subset, open
+   questions, and conformance-test roadmap.
+
+### Part II — Circuit and temporal semantics
+
+3. [Internal representation](doc/internal-representation.md) — elaborated
+   circuit structure, combinational logic, and FFD state elements.
+4. [Register semantics](doc/register-semantics.md) — initialization, reset,
+   state updates, and retention.
+5. [Execution and assertion semantics](doc/execution-and-assertion-semantics.md)
+   — proof-state transitions and clock-domain model.
+6. [SVA support](doc/sva-support.md) — assertion, assumption, cover, and
+   temporal-operator subset.
+
+### Part III — Proof flow and evidence
+
+7. [Tool flow](doc/tool-flow.md) — planned processing stages and results.
+8. [Proof model](doc/proof-model.md) — intended BMC and k-induction strategy.
+9. [Validation criteria](doc/validation-criteria.md) — evidence expected as
+   features are implemented.
+
 
 ## Dependencies and license
 
+Lemma is distributed under the [MIT License](LICENSE).
+
 Tree-sitter, its SystemVerilog grammar, Unity, the `tsoding/arena` allocator,
-`kurotych/logc`, and `likle/cargs` are vendored under
-[`third_party/`](third_party/). The allocator is currently not used by the
-parser, and the logger is linked into the CLI but not yet used for its messages.
-The CLI uses `likle/cargs` for argument parsing. `logc` requires POSIX threads.
-See the dependency notes for upstream revisions and license details. Lemma is
-distributed under the [MIT License](LICENSE).
+`kurotych/logc`, and `likle/cargs` are vendored under [`third_party/`](third_party/).
