@@ -1,61 +1,119 @@
 # Instructions for Coding Agents
 
-## Mission
+## Project and implementation status
 
-Help build a standalone open-source formal verification tool for a documented,
-limited subset of synthesizable Verilog/SystemVerilog RTL.
+Lemma is an open-source formal verification tool for a documented, limited
+subset of synthesizable Verilog/SystemVerilog RTL. The repository is primarily
+a C11 project. Its current implementation is at the parser/build-bootstrap
+stage: the `lemma` executable checks SystemVerilog syntax, but does not yet
+validate the supported RTL subset, elaborate designs, check assertions
+semantically, or prove properties. Do not describe planned behavior as already
+implemented.
 
-The project is currently defining its architecture and language subset.
-Do not assume that an undecided feature is supported.
+## C implementation
 
-## Source of truth
+- Follow the existing C style and the C11 configuration in `CMakeLists.txt`;
+  keep changes warning-clean under the configured compiler options.
+- Match the repository's simple house style: four-space indentation,
+  `snake_case` function names, and the surrounding brace convention. Do not
+  reformat unrelated code just to apply a style preference.
+- Make ownership and lifetime expectations clear at API boundaries, and release
+  resources on all applicable paths.
+- Check input and library-operation failures, and handle cleanup consistently on
+  error paths. Make size arithmetic and conversions between integer types
+  explicit and safe.
+- Keep functions focused and interfaces small. Prefer straightforward C over
+  unnecessary abstraction, hidden state, or unrelated cleanup.
+- Match surrounding formatting and naming. Document public API contracts,
+  especially ownership, valid inputs, and failure behavior.
+- Keep public interfaces in `include/lemma/` and implementation in the existing
+  `src/` structure. Avoid broad refactors unrelated to the task.
+- Keep parsing, elaboration, IR construction, and formal solving as distinct
+  stages; do not pull future-stage responsibilities into the parser.
+- Do not edit generated build outputs or vendored `third_party/` code unless the
+  task explicitly requires it.
 
-- Treat `doc/rtl-support.md` as the working RTL-subset specification.
-- If the specification is ambiguous or marked **TBD**, do not make the
-  decision implicitly in code. Explain the ambiguity and propose a focused
-  specification change first.
-- Keep documentation and implementation behavior consistent.
+### C safety review reference
 
-## Constraints
+Use the [SEI CERT C Coding Standard](https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard)
+as a review reference, not as a requirement for full compliance. Focus on
+applicable guidance for array and string bounds, integer overflow and
+conversions, memory ownership and lifetime, error handling, and API contracts.
+For review findings, explain the concrete risk and cite a CERT rule or
+recommendation when confident; distinguish must-fix issues from lower-priority
+recommendations. Do not report a violation mechanically without checking that
+it applies to the code.
 
-- Do not introduce a dependency on proprietary tools.
-- Keep parsing, elaboration, IR construction, and formal solving clearly
-  separated.
-- Do not silently accept or discard unsupported RTL.
-- Avoid broad refactors unrelated to the requested task.
+### C change go/no-go check
 
-## Working method
+Before considering a C change complete, check that:
 
-For each task:
+- it stays within the user's requested scope and preserves unrelated behavior;
+- ownership, lifetime, error handling, and integer-boundary behavior are clear;
+- relevant success and failure cases are covered by tests;
+- it builds without warnings under the configured options and `./flow.sh test`
+  passes.
 
-1. State the specific behavior being implemented or changed.
-2. Identify affected specification sections and tests.
-3. Make the smallest coherent change.
-4. Add or update tests, including relevant rejection cases.
-5. Report what changed, what was tested, and any unresolved issue.
+Do not call a change ready if it introduces compiler warnings, leaves resource
+cleanup unclear, weakens or removes tests to obtain a pass, or silently changes
+behavior outside the request. Report blockers rather than hiding them.
 
-Do not generate large amounts of code or documentation unless requested.
-Prefer concise diagnostics and small, reviewable changes.
+## RTL behavior and specifications
 
-Do not generate or modify code unless the user explicitly requests code
-changes. For exploratory or planning requests, discuss options without creating
-or changing source files.
+- Treat `doc/rtl-support.md` as the authority for the supported RTL subset.
+  Consult the relevant design documents under `doc/` for semantics and
+  architecture.
+- If a requirement is ambiguous or marked **TBD**, do not decide it implicitly
+  in code. Explain the ambiguity and propose a focused specification change;
+  wait for alignment when the choice affects project scope.
+- Do not silently accept, reinterpret, or discard unsupported RTL. Add relevant
+  rejection tests when implementing RTL-subset behavior.
+- Do not introduce dependencies on proprietary tools.
 
-For design work, collaborate through dialogue: raise one focused question or
-proposal at a time, explain tradeoffs plainly, and wait for the user's response
-before treating a design choice as settled. Do not rush through multiple
-unresolved decisions or turn a discussion into a finalized design without the
-user's alignment.
+## Working method and verification
 
-Ask the user to clarify any unclear request, requirement, or design point
-before proceeding. State assumptions explicitly; never resolve ambiguity
-implicitly.
+For user-authorized C source or test changes, use the project agents by default
+in this order: `task-preparer` → `builder` → `executor-reporter`. The main
+agent coordinates the handoffs and gives each agent the preceding result.
 
-## Architectural decisions
+- If the task preparer identifies an ambiguity, unresolved design choice, or
+  scope change, stop and get the user's alignment before implementation.
+- For a clear task already authorized by the user, do not ask for redundant
+  approval just to begin building.
+- Have the builder implement and perform its applicable verification. Then have
+  the executor-reporter independently run the exact handed-off validation
+  commands and explain the logs; do not run these stages concurrently.
+- Skip the trio for explanations, exploration, review-only requests, and
+  documentation-only edits. Follow a user's explicit request to use or skip a
+  stage when it differs from this default.
 
-Before adding a new language feature or dependency:
+For implementation work:
 
-- describe the proposed behavior and limitations;
-- identify its effect on elaboration and the IR;
-- update the relevant documentation;
-- wait for an explicit decision if the feature changes project scope.
+1. State the specific behavior or C change being made.
+2. Identify affected code, documentation/specification sections, and tests.
+3. Make the smallest coherent change and keep docs consistent with behavior.
+4. Add or update tests, including rejection cases where relevant.
+5. Run `./flow.sh test` for code or test changes. This configures and builds the
+   Debug tree before running CTest.
+6. Report what changed, the commands run and their outcomes, and any unresolved
+   issues.
+
+Use `./flow.sh build` to build without running tests. Use `./flow.sh release`
+for release/package work. `./flow.sh clean` removes `build/` and `dist/`; do
+not use it as routine verification.
+
+## Change authorization
+
+- Write or modify code only when the user explicitly requests implementation or
+  other code changes. A request to explain, inspect, review, or plan is not
+  permission to edit code.
+- Keep edits within the requested scope; do not bundle in unrequested cleanup,
+  refactoring, or behavior changes.
+- Do not delete existing code or tests, remove behavior, or delete files unless
+  the user explicitly authorizes that removal. If removal seems necessary but
+  was not requested, explain why and ask first.
+- Keep code, diagnostics, and documentation concise and reviewable. For design
+  work, raise one focused question or proposal at a time, explain tradeoffs, and
+  wait for the user's alignment before treating a choice as settled. Ask for
+  clarification when a request or requirement is unclear; state assumptions
+  explicitly.
