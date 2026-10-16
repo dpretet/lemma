@@ -9,8 +9,9 @@ fixture focuses on a small piece of the documented subset.
 - **Assignments and processes:** `continuous_assign_alias.sv`,
   `continuous_assign_boolean.sv`, `combinational_if_else_mux.sv`,
   `combinational_if_else_boolean.sv`, `combinational_always_comb_mux.sv`,
-  `combinational_assignment_order.sv`, `combinational_vector_if_condition.sv`,
-  and `combinational_case_mux.sv`.
+  `combinational_assignment_order.sv`,
+  `combinational_default_then_override.sv`,
+  `combinational_vector_if_condition.sv`, and `combinational_case_mux.sv`.
 - **Composition and fan-out:** `combinational_composed_netlist.sv`.
 - **Widths, signedness, and assignment conversion:**
   `vector_width_signedness_alias.sv`, `signed_to_unsigned_casts.sv`,

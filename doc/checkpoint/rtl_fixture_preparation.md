@@ -10,7 +10,7 @@ IR. It is a handoff note, not a replacement for the normative specifications.
 
 ## What is in place
 
-- Added 26 small standalone fixtures under `tests/fixtures/rtl/`, catalogued in
+- Added 27 small standalone fixtures under `tests/fixtures/rtl/`, catalogued in
   [`tests/fixtures/rtl/README.md`](../../tests/fixtures/rtl/README.md).
 - The fixtures cover continuous assignments; combinational `if` / `else`,
   `case`, `always @(*)`, and `always_comb`; procedural assignment ordering;
