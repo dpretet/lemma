@@ -19,6 +19,13 @@ tests, and documentation. For C changes, note existing conventions and relevant
 ownership, error-handling, and CERT C concerns. Use `./flow.sh test` as the
 default validation command for C code or test changes.
 
+At the start, read `doc/engineering-notes/index.md`, then inspect only topic
+notes relevant to the task. Include a concise “Relevant prior knowledge” section
+in the handoff with note paths, status, evidence, and applicability; if none
+apply, say so. Treat `provisional` and `open` notes as unresolved context, not
+facts or authorization to resume old work. Specifications and current code
+remain authoritative.
+
 When a task specifically changes RTL behavior or RTL fixtures, also consult
 `doc/rtl-support.md` and relevant design documents. Do not infer supported RTL
 behavior from parser acceptance.

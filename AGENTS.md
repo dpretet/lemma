@@ -70,6 +70,33 @@ behavior outside the request. Report blockers rather than hiding them.
   rejection tests when implementing RTL-subset behavior.
 - Do not introduce dependencies on proprietary tools.
 
+## Engineering memory
+
+- Use [`doc/engineering-notes/index.md`](doc/engineering-notes/index.md) as the
+  entry point to repository-owned, human-readable engineering memory. It
+  supplements the specifications and code; it never overrides them.
+- At the start of C source/test tasks and substantive debugging or
+  root-cause investigations, have `task-preparer` read the index and only the
+  notes relevant to the task. Include applicable prior knowledge and its status
+  and evidence in the handoff, or state that no relevant note was found.
+- Capture durable, reusable knowledge incrementally, as soon as it is
+  confirmed: the main agent records user-aligned design decisions, and the
+  builder records non-obvious implementation findings. These memory updates
+  are pre-authorized; do not ask the user separately or wait until the session's
+  final summary.
+- Mark entries as `accepted`, `verified`, `provisional`, or `open`. Include
+  context and links to relevant code, specifications, tests, or reproduction
+  evidence. A later session must not treat provisional or open entries as
+  settled facts.
+- Record only durable decisions, constraints, gotchas, and reproducible
+  diagnoses—not every task, raw transcripts, full logs, secrets, or
+  speculation. Do not duplicate normative specifications; update the
+  authoritative document when its requirements change. Add or update the topic
+  note and its index link together so checkpoints remain discoverable.
+- At task completion, report the memory note updated or state that no durable
+  knowledge needed recording. The executor-reporter supplies verified test
+  evidence to the main agent but does not edit memory.
+
 ## Working method and verification
 
 For user-authorized C source or test changes, use the project agents by default
@@ -83,9 +110,14 @@ agent coordinates the handoffs and gives each agent the preceding result.
 - Have the builder implement and perform its applicable verification. Then have
   the executor-reporter independently run the exact handed-off validation
   commands and explain the logs; do not run these stages concurrently.
+- For substantive debugging or root-cause investigations, use `task-preparer`
+  at the start to retrieve relevant memory even when no code change is planned.
+  If implementation becomes necessary, follow the full trio workflow once the
+  change is authorized.
 - Skip the trio for explanations, exploration, review-only requests, and
-  documentation-only edits. Follow a user's explicit request to use or skip a
-  stage when it differs from this default.
+  documentation-only edits, except that aligned durable design decisions are
+  still captured in engineering memory. Follow a user's explicit request to
+  use or skip a stage when it differs from this default.
 
 For implementation work:
 

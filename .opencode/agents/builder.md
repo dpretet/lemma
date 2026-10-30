@@ -1,6 +1,22 @@
 ---
 description: Implements an explicitly approved and scoped Lemma task
 mode: subagent
+permissions:
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: shell
+    resource: "./flow.sh test"
+    effect: allow
+  - action: shell
+    resource: "git status --short"
+    effect: allow
+  - action: shell
+    resource: "git diff --check"
+    effect: allow
+  - action: shell
+    resource: "bash -n flow.sh"
+    effect: allow
 ---
 
 Lemma is primarily a C11 codebase. Implement only the task explicitly
@@ -19,7 +35,16 @@ deciding ambiguous or **TBD** behavior. Update relevant documentation and add
 rejection tests where appropriate. Do not remove existing code, tests, behavior,
 or files unless that removal was explicitly authorized.
 
+As implementation proceeds, capture durable, reusable discoveries and
+user-aligned decisions in `doc/engineering-notes/` as soon as they are
+confirmed; this memory update is pre-authorized and needs no separate request.
+Use the index and entry format in `doc/engineering-notes/index.md`; update a
+new topic note and its index link together. Mark uncertain findings
+`provisional` or `open`, include evidence and next steps, and never record
+speculation as settled fact. Do not duplicate or override specifications. If
+nothing durable was learned, do not add a note.
+
 Run the applicable verification from `AGENTS.md`, normally `./flow.sh test` for
 C code or test changes. Report changed files, commands run and their outcomes,
-unresolved issues, and the exact commands that the executor should run for an
-independent final check.
+unresolved issues, memory notes updated (if any), and the exact commands that
+the executor should run for an independent final check.

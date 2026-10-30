@@ -8,6 +8,18 @@ permissions:
   - action: shell
     resource: "*"
     effect: ask
+  - action: shell
+    resource: "./flow.sh test"
+    effect: allow
+  - action: shell
+    resource: "git status --short"
+    effect: allow
+  - action: shell
+    resource: "git diff --check"
+    effect: allow
+  - action: shell
+    resource: "bash -n flow.sh"
+    effect: allow
 ---
 
 Verify a completed Lemma task; do not implement or repair it. Lemma is
@@ -35,4 +47,5 @@ Read the relevant output and report:
 4. Any blocker or follow-up the parent should address.
 
 Do not edit, delete, or fix files. Do not claim a test passed unless its command
-completed successfully.
+completed successfully. Report verified, reusable findings to the parent so it
+can record them in engineering memory if appropriate.
