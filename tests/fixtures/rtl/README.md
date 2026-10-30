@@ -1,29 +1,36 @@
 # RTL Fixture Sources
 
 These small, standalone SystemVerilog modules are the starting source corpus
-for developing Lemma's combinational RTL frontend and equation-based IR. Each
-fixture focuses on a small piece of the documented subset.
+for developing Lemma's RTL frontend and equation-based IR. Each fixture focuses
+on a small piece of the documented subset.
+
+The corpus contains 27 combinational `comb_*.sv` fixtures and 27 corresponding
+sequential `seq_*.sv` fixtures. Each sequential fixture registers the original
+module outputs with asynchronous reset; the three representative fixtures
+`seq_continuous_assign_alias.sv`, `seq_if_else_mux.sv`, and
+`seq_composed_netlist.sv` use active-high reset, and the other 24 use active-low
+reset.
 
 ## Current coverage
 
-- **Assignments and processes:** `continuous_assign_alias.sv`,
-  `continuous_assign_boolean.sv`, `combinational_if_else_mux.sv`,
-  `combinational_if_else_boolean.sv`, `combinational_always_comb_mux.sv`,
-  `combinational_assignment_order.sv`,
-  `combinational_default_then_override.sv`,
-  `combinational_vector_if_condition.sv`, and `combinational_case_mux.sv`.
-- **Composition and fan-out:** `combinational_composed_netlist.sv`.
+- **Assignments and processes:** `comb_continuous_assign_alias.sv`,
+  `comb_continuous_assign_boolean.sv`, `comb_if_else_mux.sv`,
+  `comb_if_else_boolean.sv`, `comb_always_comb_mux.sv`,
+  `comb_assignment_order.sv`,
+  `comb_default_then_override.sv`,
+  `comb_vector_if_condition.sv`, and `comb_case_mux.sv`.
+- **Composition and fan-out:** `comb_composed_netlist.sv`.
 - **Widths, signedness, and assignment conversion:**
-  `vector_width_signedness_alias.sv`, `signed_to_unsigned_casts.sv`,
-  `unsigned_to_signed_casts.sv`, `signed_sign_extend.sv`,
-  `unsigned_zero_extend.sv`, `signed_truncate.sv`, and
-  `unsigned_truncate.sv`.
-- **Vector operators:** `vector_bitwise_operators.sv`,
-  `vector_reduction_operators.sv`, `vector_logical_operators.sv`,
-  `vector_unsigned_add.sv`, `vector_unsigned_subtract.sv`,
-  `vector_unsigned_multiply.sv`, and `vector_unsigned_comparisons.sv`.
-- **Packed construction and selection:** `vector_concatenation.sv`,
-  `vector_constant_selects.sv`, and `vector_variable_selects.sv`.
+  `comb_vector_width_signedness_alias.sv`, `comb_signed_to_unsigned_casts.sv`,
+  `comb_unsigned_to_signed_casts.sv`, `comb_signed_sign_extend.sv`,
+  `comb_unsigned_zero_extend.sv`, `comb_signed_truncate.sv`, and
+  `comb_unsigned_truncate.sv`.
+- **Vector operators:** `comb_vector_bitwise_operators.sv`,
+  `comb_vector_reduction_operators.sv`, `comb_vector_logical_operators.sv`,
+  `comb_vector_unsigned_add.sv`, `comb_vector_unsigned_subtract.sv`,
+  `comb_vector_unsigned_multiply.sv`, and `comb_vector_unsigned_comparisons.sv`.
+- **Packed construction and selection:** `comb_vector_concatenation.sv`,
+  `comb_vector_constant_selects.sv`, and `comb_vector_variable_selects.sv`.
 
 See [`doc/rtl-support.md`](../../../doc/rtl-support.md) for the current subset
 and its remaining TBD areas. In particular, variable selections must be
@@ -32,10 +39,10 @@ mixed-width or signed operator sizing are not yet specified.
 
 ## Test status
 
-All current fixtures pass the Tree-sitter syntax parser. This only confirms that
-the grammar accepts the source; Lemma does not yet elaborate these files or
-build an IR. The fixtures are not registered as automated semantic tests and
-do not yet have machine-checked expected equations or IR structures.
+All 54 current fixtures pass the Tree-sitter syntax parser. This only confirms
+that the grammar accepts the source; Lemma does not yet elaborate these files
+or build an IR. The fixtures are not registered as automated semantic tests
+and do not yet have machine-checked expected equations or IR structures.
 
 Incomplete assignments, inferred latches, and other misconception/rejection
 cases are planned for a separate suite. Their behavior and diagnostics still

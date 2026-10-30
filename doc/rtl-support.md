@@ -225,10 +225,15 @@ Reset semantics are defined in [register-semantics.md](register-semantics.md).
 A sequential process may contain at most one asynchronous reset event control.
 Conditions in the process body—including a signal conventionally named
 `srst`—are ordinary RTL control logic, not additional reset events. Supported
-event controls and other assignment semantics remain TBD. This source-order
-priority rule applies only to assignments within one process; multiple
-procedural drivers for a register are unsupported in the MVP and must be
-diagnosed.
+MVP event controls are `@(posedge <clock>)`, optionally with one asynchronous
+reset as `@(posedge <clock> or posedge <reset>)` or
+`@(posedge <clock> or negedge <reset>)`. When a reset event is present, the
+process must test that reset with a condition matching its asserted polarity:
+`if (<reset>)` for `posedge <reset>` or `if (!<reset>)` for `negedge <reset>`.
+This does not specify semantics when clock and reset events coincide. Other
+assignment semantics remain TBD. This source-order priority rule applies only
+to assignments within one process; multiple procedural drivers for a register
+are unsupported in the MVP and must be diagnosed.
 
 ## 8. Process restrictions
 

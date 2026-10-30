@@ -10,8 +10,13 @@ IR. It is a handoff note, not a replacement for the normative specifications.
 
 ## What is in place
 
-- Added 27 small standalone fixtures under `tests/fixtures/rtl/`, catalogued in
+- Added 27 combinational `comb_*.sv` fixtures and 27 corresponding sequential
+  `seq_*.sv` fixtures under `tests/fixtures/rtl/`, catalogued in
   [`tests/fixtures/rtl/README.md`](../../tests/fixtures/rtl/README.md).
+- Each sequential fixture registers every original output with asynchronous
+  reset. Three representative fixtures use active-high reset
+  (`seq_continuous_assign_alias.sv`, `seq_if_else_mux.sv`, and
+  `seq_composed_netlist.sv`); the other 24 use active-low reset.
 - The fixtures cover continuous assignments; combinational `if` / `else`,
   `case`, `always @(*)`, and `always_comb`; procedural assignment ordering;
   vector conditions; composed drivers and fan-out; width and signedness
@@ -21,8 +26,8 @@ IR. It is a handoff note, not a replacement for the normative specifications.
   including `always_comb` equation lowering, signedness casts and assignment
   width conversion, operator result widths, and rejection of selects that may
   be out of range.
-- All fixture files were run through `./build/lemma` and passed Tree-sitter
-  syntax parsing.
+- All 54 fixture files were run through `./build/lemma` and passed Tree-sitter
+  syntax parsing. This remains syntax-only coverage.
 
 ## Current limitations
 
