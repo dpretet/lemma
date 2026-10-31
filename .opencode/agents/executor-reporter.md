@@ -2,12 +2,27 @@
 description: Runs approved validation commands and explains the results without editing
 mode: subagent
 permissions:
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
   - action: edit
     resource: "*"
     effect: deny
   - action: shell
     resource: "*"
     effect: ask
+  - action: shell
+    resource: "grep *"
+    effect: allow
+  - action: shell
+    resource: "rg *"
+    effect: allow
   - action: shell
     resource: "./flow.sh test"
     effect: allow

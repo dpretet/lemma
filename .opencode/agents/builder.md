@@ -2,9 +2,27 @@
 description: Implements an explicitly approved and scoped Lemma task
 mode: subagent
 permissions:
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*"
+    effect: allow
   - action: shell
     resource: "*"
     effect: ask
+  - action: shell
+    resource: "grep *"
+    effect: allow
+  - action: shell
+    resource: "rg *"
+    effect: allow
   - action: shell
     resource: "./flow.sh test"
     effect: allow
@@ -26,6 +44,18 @@ permissions:
   - action: shell
     resource: "printf *"
     effect: allow
+  - action: shell
+    resource: "cmake --build build *"
+    effect: allow
+  - action: shell
+    resource: "cc * -o build/*"
+    effect: allow
+  - action: shell
+    resource: "build/*"
+    effect: allow
+  - action: shell
+    resource: "./build/*"
+    effect: allow
 ---
 
 Lemma is primarily a C11 codebase. Implement only the task explicitly
@@ -36,7 +66,8 @@ editing.
 
 For C implementation work, keep changes small and consistent with the existing
 C11 style, architecture, API contracts, and relevant SEI CERT C guidance. Add
-or update C tests for the changed behavior and failure cases.
+or update C tests for the changed behavior and failure cases. Keep temporary
+compiler outputs and test helpers under `build/`.
 
 Only when the task changes RTL semantics or RTL fixtures, follow
 `doc/rtl-support.md` and relevant design documents; stop and ask rather than

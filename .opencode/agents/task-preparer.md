@@ -2,6 +2,15 @@
 description: Turns a Lemma request into a scoped plan and verification handoff
 mode: subagent
 permissions:
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
   - action: edit
     resource: "*"
     effect: deny
