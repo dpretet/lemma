@@ -16,6 +16,10 @@ Lemma supports the following concurrent property statements:
 - `assume property` — constrain the environment.
 - `cover property` — check whether a property is reachable.
 
+In v1, these statements must appear inline in the selected top module.
+Standalone assertion/checker source files and external attachment mechanisms
+are outside the MVP; see [RTL Support](rtl-support.md) and [MVP](mvp.md).
+
 One proof run selects exactly one target `assert property` or `cover property`.
 It may also include zero or more `assume property` constraints. Assumptions
 constrain the executions considered for the target; they are not additional

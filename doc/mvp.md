@@ -23,7 +23,8 @@ The MVP supports:
   high-order bits; these assignments are modeled using the retained
   least-significant bits.
 - The previously defined register semantics, including stable-state proof steps, abstract clock events, asynchronous reset events, ordinary clocked control conditions (including reset-named conditions), simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and Lemma's default-zero proof-start value for registers without a supported RTL initialization. Such registers must be identified by warnings and in the proof report.
-- The initial SVA subset defined separately.
+- The initial SVA subset defined separately, with supported properties written
+  inline in the selected top module.
 - BMC for counterexample search together with k-induction for safety assertions over all cycles. A bounded search with no counterexample is not a proof.
 - One target assertion or cover at a time, with zero or more `assume property` constraints.
 - Assertion outcomes of `proven`, `failed`, or `inconclusive`.
@@ -50,6 +51,7 @@ The MVP excludes:
 
 - VHDL.
 - Hierarchical designs; only a single flat top is supported.
+- Standalone SVA/checker source files or external assertion attachment.
 - Preprocessor-driven source inclusion, macros, and conditional compilation.
 - `bind` directives for attaching assertions or checker modules; binding is
   deferred until hierarchy and binding semantics are specified.

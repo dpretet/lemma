@@ -31,6 +31,10 @@ authoritative source and update the note.
 
 - [Repository engineering memory](agentic-memory.md) — accepted rationale and
   boundaries for this memory process.
+- [SVA placement for MVP](sva-placement.md) — accepted inline-only placement
+  decision and boundary for external assertion attachment.
+- [RTL test oracle format](test-oracle-format.md) — accepted test-oracle layers;
+  machine-readable format remains open.
 
 The design specifications remain the source of truth. Start with the
 [specification reading guide](../../README.md#specifications);

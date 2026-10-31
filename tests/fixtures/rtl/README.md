@@ -42,7 +42,14 @@ mixed-width or signed operator sizing are not yet specified.
 All 54 current fixtures pass the Tree-sitter syntax parser. This only confirms
 that the grammar accepts the source; Lemma does not yet elaborate these files
 or build an IR. The fixtures are not registered as automated semantic tests
-and do not yet have machine-checked expected equations or IR structures.
+and do not yet have machine-checked expected equations or IR structures. The
+first expected-result/SVA case is `seq_continuous_assign_alias.sv`:
+
+- Expected sequential structure: FFD with Q=`y`, D=`a`, clocked on posedge
+  `clk`, with active-high asynchronous reset `areset` to zero.
+- Inline assertion's intended future proof outcome: `proven`. This outcome is
+  recorded as an expectation only; Lemma does not semantically check the
+  assertion or prove it yet.
 
 Incomplete assignments, inferred latches, and other misconception/rejection
 cases are planned for a separate suite. Their behavior and diagnostics still

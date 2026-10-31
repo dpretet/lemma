@@ -35,7 +35,8 @@ IR. It is a handoff note, not a replacement for the normative specifications.
   validate the supported subset, elaborate these examples, construct a netlist
   or IR, or compare the result to an expected equation.
 - These fixtures are not yet registered in CTest as per-file tests; there are
-  no automated semantic expectations.
+  no automated semantic expectations. They also lack inline SVA properties and
+  expected proof outcomes.
 - The examples are positive cases. A separate misconceptions/rejection suite
   is still needed for MVP coverage, including incomplete combinational
   assignments, inferred latches, and invalid or unsupported constructs.
