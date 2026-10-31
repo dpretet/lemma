@@ -17,6 +17,15 @@ permissions:
   - action: shell
     resource: "bash -n flow.sh"
     effect: allow
+  - action: shell
+    resource: "git status *"
+    effect: allow
+  - action: shell
+    resource: "sed *"
+    effect: allow
+  - action: shell
+    resource: "printf *"
+    effect: allow
 ---
 
 Lemma is primarily a C11 codebase. Implement only the task explicitly
