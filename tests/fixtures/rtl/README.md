@@ -50,6 +50,7 @@ first expected-result/SVA case is `seq_continuous_assign_alias.sv`:
 - Inline assertion's intended future proof outcome: `proven`. This outcome is
   recorded as an expectation only; Lemma does not semantically check the
   assertion or prove it yet.
+- Inline assertion label: `target_continuous_assign_alias`.
 
 Incomplete assignments, inferred latches, and other misconception/rejection
 cases are planned for a separate suite. Their behavior and diagnostics still

@@ -21,9 +21,12 @@ Standalone assertion/checker source files and external attachment mechanisms
 are outside the MVP; see [RTL Support](rtl-support.md) and [MVP](mvp.md).
 
 One proof run selects exactly one target `assert property` or `cover property`.
-It may also include zero or more `assume property` constraints. Assumptions
-constrain the executions considered for the target; they are not additional
-assertions to prove.
+Each target assertion or cover must have a unique assertion label within the
+selected top module, and the verification job selects its target by that label.
+Other target statements in the module are not proof obligations for that run.
+The run may also include zero or more inline `assume property` constraints;
+all supported assumptions in the selected top constrain the target's
+executions and are not additional assertions to prove.
 
 Every target and assumption must specify the same single clock using
 `@(posedge clock)`. Its full signal-dependency cone must belong to that clock

@@ -45,10 +45,21 @@ Initial parameter support shall include:
 - `parameter` and `localparam`;
 - integer and bit-vector values with statically known widths;
 - constant expressions involving previously declared parameters;
-- parameter overrides at module instantiation;
+- named top-level parameter overrides supplied by the verification job as
+  fully known bit-vector values with explicit width and signedness (`X`/`Z` bits
+  are not allowed in the job map); these values are converted to the resolved
+  parameter type using standard SystemVerilog parameter-assignment conversion
+  rules;
+- omitted top-level overrides use the parameter's RTL-declared default;
+- parameter overrides at module instantiation where hierarchy is supported;
 - resolution of parameter values before final signal widths are determined.
 
 Parameter types (`parameter type`) are initially unsupported.
+
+If converting a job-provided override to the resolved parameter type discards
+high-order bits, RTL analysis must emit a warning identifying the parameter and
+stating that its value may change. The override is still applied using the
+standard conversion.
 
 The exact supported expression operators, general expression-sizing rules,
 unsized literal rules, and override forms are **TBD**, except for the

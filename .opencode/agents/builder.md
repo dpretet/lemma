@@ -24,6 +24,33 @@ permissions:
     resource: "rg *"
     effect: allow
   - action: shell
+    resource: "ls *"
+    effect: allow
+  - action: shell
+    resource: "pwd"
+    effect: allow
+  - action: shell
+    resource: "cat *"
+    effect: allow
+  - action: shell
+    resource: "head *"
+    effect: allow
+  - action: shell
+    resource: "tail *"
+    effect: allow
+  - action: shell
+    resource: "wc *"
+    effect: allow
+  - action: shell
+    resource: "git diff --stat"
+    effect: allow
+  - action: shell
+    resource: "git diff --name-only"
+    effect: allow
+  - action: shell
+    resource: "git diff -- *"
+    effect: allow
+  - action: shell
     resource: "./flow.sh test"
     effect: allow
   - action: shell

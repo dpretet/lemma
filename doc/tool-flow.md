@@ -26,6 +26,14 @@ Lemma processes a verification job through the following stages:
 Each stage must either produce its expected output or report an error that prevents later stages
 from running.
 
+Errors and warnings are returned as structured diagnostics rather than printed
+by frontend stages. A diagnostic identifies its stage, severity, stable code,
+message, named source, and source range in byte offsets and line/column form.
+The CLI is responsible for rendering diagnostics and selecting its process exit
+status. Its exit code is only a command-line summary; the structured job result
+is authoritative for the proof outcome. The exact exit-code mapping is outside
+this API contract.
+
 ## 3. Job Inputs
 
 A verification job consists of:
@@ -35,8 +43,13 @@ A verification job consists of:
   Standalone assertion source files are not accepted in the MVP, and textual
   preprocessor `` `include `` directives are not expanded.
 - The name of the top-level design unit.
-- The clock associated with the property being checked.
-- Any configuration required to resolve parameters and select the proof target.
+- The label of the target assertion or cover. The proof clock is taken from
+  that property's event control.
+- An optional named map of top-level parameter overrides, with each value
+  represented as a fully known bit-vector with explicit width and signedness
+  (`X`/`Z` bits are not allowed) and converted according to the parameter rules
+  in RTL Support. Parameters omitted from the map use their RTL-declared
+  defaults.
 
 The exact command-line interface and configuration-file format are outside the scope of this
 document.
@@ -123,6 +136,18 @@ and any future invariant-strengthening method remain unspecified.
 
 Lemma reports a result for each property and an overall job status.
 
+The job status is `completed`, `rejected`, or `internal_error`. `completed`
+means proof execution finished and may carry any proof outcome, including
+`inconclusive`; `rejected` means an input or validation error prevented proof;
+`internal_error` means Lemma could not complete the job. A proof outcome is
+present only for a completed job. Warnings may accompany a completed result.
+
+The CLI exit code indicates job execution status, not whether the property
+passed: completed jobs exit successfully regardless of proof outcome, while
+rejected and internal-error jobs exit unsuccessfully. Consumers use the
+structured proof result to determine whether a property was proven, failed, or
+inconclusive.
+
 For an assertion, report `proven`, `failed`, or `inconclusive`. For a cover,
 report `covered` with a witness, `unreachable` only when established by a
 complete analysis, or `inconclusive`. Do not report a bounded search with no
@@ -133,8 +158,13 @@ or an empty set of allowed executions must be diagnosed; they must not produce
 an unqualified `proven` result. If an implication is known to pass vacuously
 because its antecedent is unreachable, disclose that fact.
 
-When a property fails and a counterexample is available, Lemma should report enough information to
-identify the violating execution, including the relevant cycle and signal values.
+When a property fails or a cover is reached, the counterexample or witness
+shall record each event transition, its kind (selected clock edge or
+asynchronous reset), and full pre-event and post-event valuations of the
+modeled proof cone. At a selected clock edge, the pre-event valuation is the
+SVA sample; an asynchronous reset transition does not itself create an SVA
+sample. The post-event valuation is after register updates and combinational
+settling. Delta-only traces are insufficient.
 
 Errors encountered during parsing, elaboration, or model construction must be reported separately
 from proof results.

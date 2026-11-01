@@ -19,14 +19,15 @@ The MVP supports:
   register within one clocked process, as defined by the register semantics.
   Multiple procedural drivers for one register are unsupported and must be
   diagnosed.
-- Source-located warnings for supported packed assignments that truncate
-  high-order bits; these assignments are modeled using the retained
-  least-significant bits.
+- Warnings for supported packed assignments or top-level parameter overrides
+  that truncate high-order bits; the conversions are modeled using the
+  retained least-significant bits.
 - The previously defined register semantics, including stable-state proof steps, abstract clock events, asynchronous reset events, ordinary clocked control conditions (including reset-named conditions), simultaneous register updates, retention when no assignment occurs, unconstrained inputs unless explicitly assumed, and Lemma's default-zero proof-start value for registers without a supported RTL initialization. Such registers must be identified by warnings and in the proof report.
 - The initial SVA subset defined separately, with supported properties written
   inline in the selected top module.
 - BMC for counterexample search together with k-induction for safety assertions over all cycles. A bounded search with no counterexample is not a proof.
-- One target assertion or cover at a time, with zero or more `assume property` constraints.
+- One labeled target assertion or cover at a time, with zero or more inline
+  `assume property` constraints from the selected top module.
 - Assertion outcomes of `proven`, `failed`, or `inconclusive`.
 - Cover outcomes of `covered`, `unreachable` (only when established), or `inconclusive`.
 - A readable counterexample when a property fails.

@@ -12,5 +12,8 @@ module continuous_assign_alias (
         end
     end
 
-    assert property (@(posedge clk) disable iff (areset) 1'b1 |=> y == $past(a));
+    target_continuous_assign_alias: assert property (
+        @(posedge clk) disable iff (areset)
+        1'b1 |=> y == $past(a)
+    );
 endmodule

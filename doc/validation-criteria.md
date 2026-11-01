@@ -130,27 +130,25 @@ broader FRISCV-inspired RTL roadmap is not an MVP acceptance requirement.
 
 1. **Input classification:** A supported flat-top example reaches proof
    execution. Malformed RTL, unsupported active syntax, unresolved required
-   parameters, source preprocessing directives (including `` `include ``),
-   `bind` directives, and cross-domain-dependent properties are rejected at
-   the appropriate stage. Rejection must not become a proof result.
+   parameters, named top-level parameter overrides with fully known values,
+   source preprocessing directives (including `` `include ``), `bind`
+   directives, and cross-domain-dependent properties are rejected at the
+   appropriate stage. Rejection must not become a proof result.
 2. **RTL semantics:** Tests establish default-zero proof-start values and
    source-located warnings, supported explicit RTL initialization, simultaneous
    updates, retention, source-order priority for repeated assignments to one
-    signal within a process, rejection of multiple procedural drivers for one
-    register, equivalent equations from complete `always @(*)` and `always_comb`
-    blocks, vector-valued `if` conditions using nonzero truth, supported
-    asynchronous reset events, ordinary clocked control
-   conditions, same-width signedness conversions using both cast and
-   system-function spellings, signed extension, unsigned zero extension, and
-   least-significant-bit truncation for signed and unsigned assignments with
-   source-located warnings, same-width unsigned vector bitwise AND, OR, XOR,
-   XNOR, and complement, unsigned vector reduction AND/NAND, OR/NOR, XOR/XNOR,
-    same-width unsigned addition, subtraction, and multiplication, unsigned
-    equality, inequality, and relational comparisons, concatenation result
-    widths and operand ordering, scalar results from logical `!`, `&&`, and
-    `||` on vector operands, constant and variable bit-selects, fixed and
-    `+:` part-selects with provably in-range indices, and two-state handling of
-    `X`/`Z` where applicable.
+   signal within a process, rejection of multiple procedural drivers for one
+   register, equivalent equations from complete `always @(*)` and `always_comb`
+   blocks, vector-valued `if` conditions using nonzero truth, supported
+   asynchronous reset events, ordinary clocked control conditions, same-width
+   signedness conversions using both cast and system-function spellings, signed
+   extension, unsigned zero extension, and least-significant-bit truncation for
+   signed and unsigned assignments with source-located warnings. Tests also
+   cover same-width unsigned bitwise AND, OR, XOR, XNOR, and complement; unsigned
+   vector reductions; same-width unsigned arithmetic and comparisons;
+   concatenation width/order; and constant/variable bit-selects and fixed/`+:`
+   part-selects with provably in-range indices. Parameter-override truncation
+   warnings and two-state `X`/`Z` handling must also be covered.
    Multi-clock RTL must be accepted for a domain-local property and rejected
    when the property dependency cone crosses domains.
 3. **Assertion semantics:** Tests cover an invariant, a failing assertion with
@@ -168,10 +166,14 @@ broader FRISCV-inspired RTL roadmap is not an MVP acceptance requirement.
    k-induction base and step checks produce `proven`; and induction that does
    not complete without a counterexample produces `inconclusive`.
 6. **Reports and witnesses:** Reports identify the target, selected clock,
-   assumptions, default-zero registers, history warm-up samples, and any
-   relevant proof bounds or limitations. Counterexamples must match the model,
-   include relevant initial/input/reset/event values, and be checked against
-   the model before being presented as valid.
+   assumptions, default-zero registers, history warm-up samples, and relevant
+   proof bounds or limitations. Counterexamples and cover witnesses must
+   provide each event transition and full pre-event/post-event valuations of
+   the modeled proof cone, including inputs, state, and reset information. At a
+   selected clock edge the pre-event valuation is the SVA sample; an
+   asynchronous reset event is not itself an SVA sample. Delta-only traces are
+   insufficient. Traces must match the model and be checked before being
+   presented as valid.
 
 Each required test must state its expected stage and result classification.
 Small hand-checkable designs are sufficient; the complete FRISCV IP, broad
