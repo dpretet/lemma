@@ -91,6 +91,8 @@ if(BUILD_TESTING)
         tests/unit/test_main.c
         tests/unit/test_parser.c
         tests/unit/test_arena.c
+        tests/unit/test_trace_header.c
+        tests/unit/test_verification_header.c
         third_party/unity/src/unity.c
     )
     target_include_directories(lemma_unit_tests PRIVATE
