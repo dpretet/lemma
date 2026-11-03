@@ -17,6 +17,27 @@ permissions:
   - action: shell
     resource: "*"
     effect: deny
+  - action: shell
+    resource: "find *"
+    effect: allow
+  - action: shell
+    resource: "find * -delete*"
+    effect: deny
+  - action: shell
+    resource: "find * -exec*"
+    effect: deny
+  - action: shell
+    resource: "find * -ok*"
+    effect: deny
+  - action: shell
+    resource: "find * -fprint*"
+    effect: deny
+  - action: shell
+    resource: "find * -fls*"
+    effect: deny
+  - action: shell
+    resource: "find *>*"
+    effect: deny
 ---
 
 Prepare tasks for Lemma's C implementation; do not implement them. Treat this
@@ -50,4 +71,5 @@ Return a concise handoff with:
 
 Do not make design decisions for ambiguous or **TBD** RTL requirements. If the
 request is only exploratory, a review, or a plan, do not present it as approval
-to change code. Do not edit files or run shell commands.
+to change code. Do not edit files. Shell access is limited to read-only `find`
+queries; never use execution, deletion, or output-writing actions.

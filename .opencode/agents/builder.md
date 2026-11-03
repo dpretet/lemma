@@ -119,6 +119,27 @@ permissions:
   - action: shell
     resource: "./build/*"
     effect: allow
+  - action: shell
+    resource: "find *"
+    effect: allow
+  - action: shell
+    resource: "find * -delete*"
+    effect: deny
+  - action: shell
+    resource: "find * -exec*"
+    effect: deny
+  - action: shell
+    resource: "find * -ok*"
+    effect: deny
+  - action: shell
+    resource: "find * -fprint*"
+    effect: deny
+  - action: shell
+    resource: "find * -fls*"
+    effect: deny
+  - action: shell
+    resource: "find *>*"
+    effect: deny
 ---
 
 Lemma is primarily a C11 codebase. Implement only the task explicitly
@@ -130,7 +151,8 @@ editing.
 For C implementation work, keep changes small and consistent with the existing
 C11 style, architecture, API contracts, and relevant SEI CERT C guidance. Add
 or update C tests for the changed behavior and failure cases. Keep temporary
-compiler outputs and test helpers under `build/`.
+compiler outputs and test helpers under `build/`. Use `find` only to inspect
+files; do not use its execution, deletion, or output actions.
 
 Only when the task changes RTL semantics or RTL fixtures, follow
 `doc/rtl-support.md` and relevant design documents; stop and ask rather than

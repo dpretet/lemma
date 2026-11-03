@@ -24,6 +24,22 @@ implemented.
   explicit and safe.
 - Keep functions focused and interfaces small. Prefer straightforward C over
   unnecessary abstraction, hidden state, or unrelated cleanup.
+- Comments in C and header files are mandatory. Every function declaration in a
+  header and every function definition in a C file must have a concise comment
+  describing its purpose. Public and internal API comments must also state
+  relevant valid inputs, ownership/lifetime, and failure behavior; implementation
+  comments must explain non-obvious assumptions, return meanings, and invariants.
+  For long or multi-phase functions, add brief comments at meaningful code-block
+  boundaries. Do not narrate obvious statements line by line, but do not omit
+  comments merely because the function seems self-explanatory.
+- Use `//` for single-line comments and reserve `/* ... */` for multiline
+  comments.
+- Test cases require a readable description of the scenario and the contract or
+  behavior they verify; a comment that merely repeats the test name is not
+  sufficient. Describe important expected outcomes and, for rejection tests, the
+  failure stage or category. For table-driven tests, label the groups of cases
+  so readers can understand the rejection boundary without decoding each input
+  string in isolation.
 - Match surrounding formatting and naming. Document public API contracts,
   especially ownership, valid inputs, and failure behavior.
 - Keep public interfaces in `include/lemma/` and implementation in the existing

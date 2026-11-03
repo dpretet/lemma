@@ -2,6 +2,8 @@
 
 #include "lemma/verification.h"
 
+// These compile-time type checks ensure the public function declarations keep
+// their intended signatures; they do not require or link implementations.
 _Static_assert(
     _Generic(&lemma_run_job, lemma_result *(*)(const lemma_job *): 1, default: 0),
     "lemma_run_job declaration has the expected signature");
@@ -29,6 +31,10 @@ _Static_assert(
              default: 0),
     "lemma_result_proof declaration has the expected signature");
 
+// Build representative public records whose pointer fields refer to other
+// block-lifetime objects that remain alive during the assertions. Check key
+// fields and ensure the declared diagnostic-stage enum values are pairwise
+// distinct. This is a header declaration/layout test, not a job or proof test.
 void test_verification_header_declarations(void)
 {
     const lemma_diagnostic_stage diagnostic_stages[] = {

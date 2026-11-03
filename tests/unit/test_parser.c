@@ -2,6 +2,8 @@
 
 #include "unity.h"
 
+// Valid source must produce a tree without parser errors; this checks syntax
+// acceptance only and does not assert RTL-subset support, elaboration, or IR.
 void test_parses_valid_systemverilog(void)
 {
     static const char source[] = "module smoke(input logic clk); endmodule";
@@ -13,6 +15,8 @@ void test_parses_valid_systemverilog(void)
     ts_tree_delete(tree);
 }
 
+// Missing module punctuation remains represented as a tree-sitter error, so
+// callers can detect malformed syntax through the returned tree's root node.
 void test_reports_malformed_systemverilog(void)
 {
     static const char source[] = "module smoke(input logic clk) endmodule";

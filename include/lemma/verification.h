@@ -16,7 +16,7 @@ typedef struct lemma_source {
     size_t size;
 } lemma_source;
 
-/* Parameter values use the explicitly sized bit-vector representation. */
+// Parameter values use the explicitly sized bit-vector representation.
 typedef struct lemma_parameter_override {
     const char *name;
     lemma_bit_vector value;
@@ -102,7 +102,7 @@ typedef struct lemma_diagnostic {
     lemma_source_span span;
 } lemma_diagnostic;
 
-/* The target label and optional trace are owned by the containing result. */
+// The target label and optional trace are owned by the containing result.
 typedef struct lemma_proof_result {
     const char *target_label;
     lemma_property_kind target_kind;

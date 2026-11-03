@@ -39,11 +39,14 @@ mixed-width or signed operator sizing are not yet specified.
 
 ## Test status
 
-All 54 current fixtures pass the Tree-sitter syntax parser. This only confirms
-that the grammar accepts the source; Lemma does not yet elaborate these files
-or build an IR. The fixtures are not registered as automated semantic tests
-and do not yet have machine-checked expected equations or IR structures. The
-first expected-result/SVA case is `seq_continuous_assign_alias.sv`:
+All 54 current fixtures pass the Tree-sitter syntax parser. The two fixtures
+[`comb_continuous_assign_alias.sv`](comb_continuous_assign_alias.sv) and
+[`comb_vector_width_signedness_alias.sv`](comb_vector_width_signedness_alias.sv)
+are additionally checked by frontend unit tests through validation/elaboration
+and circuit-IR construction. The remaining 52 fixtures are syntax-only: they
+have not been checked against the supported RTL subset or lowered to IR. The
+IR tests check structure, not equations or proof behavior. The first
+expected-result/SVA case is `seq_continuous_assign_alias.sv`:
 
 - Expected sequential structure: FFD with Q=`y`, D=`a`, clocked on posedge
   `clk`, with active-high asynchronous reset `areset` to zero.

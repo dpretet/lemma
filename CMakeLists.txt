@@ -68,7 +68,13 @@ target_link_libraries(logc PUBLIC Threads::Threads)
 add_library(cargs STATIC third_party/cargs/src/cargs.c)
 target_include_directories(cargs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cargs/include")
 
-add_library(lemma_core STATIC src/frontend/parser.c)
+add_library(lemma_core STATIC
+    src/frontend/parser.c
+    src/frontend/frontend_ts.c
+    src/frontend/frontend_elaboration.c
+    src/frontend/frontend_ir.c
+)
+target_include_directories(lemma_core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/frontend")
 target_include_directories(lemma_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(lemma_core PUBLIC
     systemverilog_grammar
@@ -90,6 +96,7 @@ if(BUILD_TESTING)
     add_executable(lemma_unit_tests
         tests/unit/test_main.c
         tests/unit/test_parser.c
+        tests/unit/test_frontend.c
         tests/unit/test_arena.c
         tests/unit/test_trace_header.c
         tests/unit/test_verification_header.c
@@ -97,6 +104,10 @@ if(BUILD_TESTING)
     )
     target_include_directories(lemma_unit_tests PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/unity/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/frontend"
+    )
+    target_compile_definitions(lemma_unit_tests PRIVATE
+        LEMMA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
     )
     target_link_libraries(lemma_unit_tests PRIVATE lemma_core)
     if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")

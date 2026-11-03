@@ -16,16 +16,22 @@ job are later stages. Do not describe those planned stages as implemented.
 
 ## Current implementation and test corpus
 
-- The executable is at the parser/build-bootstrap stage. Tree-sitter syntax
-  parsing exists; the job API has declarations but no implementation. RTL
-  subset validation/elaboration and circuit-IR construction are not implemented.
+- The executable remains at the parser/build-bootstrap stage. The existing
+  Tree-sitter parser is syntax-only, and the public job API has declarations but
+  no implementation.
+- An internal first slice now implements parse, validation/elaboration, and
+  private circuit-IR construction for scalar and explicitly sized packed I/O
+  with direct, same-width continuous aliases. It does not implement the public
+  `lemma_run_job` path.
 - `include/lemma/trace.h` and `include/lemma/verification.h` define the public
   data/API outline. `lemma_run_job` is not implemented; the headers do not imply
   otherwise.
 - `tests/fixtures/rtl/` contains 27 combinational and 27 sequential fixtures.
-  All 54 pass syntax parsing only; no broad IR or proof expectations are
-  machine-checked. `seq_continuous_assign_alias.sv` records an expected FFD and
-  intended assertion outcome descriptively, not as a checked proof.
+  All 54 pass syntax parsing. The scalar and signed/unsigned four-bit alias
+  fixtures now also have checked frontend/IR tests; the other 52 fixtures have
+  no semantic IR or proof expectations checked. `seq_continuous_assign_alias.sv`
+  still records an expected FFD and intended assertion outcome descriptively,
+  not as a checked proof.
 - A previous narrow circuit-builder prototype was reverted at the user's
   request. Start from the current IR contract and the scoped work below, not
   that prototype.
@@ -80,22 +86,33 @@ that duplicates the IR. Keep elaboration as a separate pass; pass only compact
 resolved facts to IR construction if needed, then release them. Revisit this
 once pass interfaces and memory behavior are visible in code.
 
-## What remains before and during implementation
+## Implemented first profile
 
-1. **Choose a narrow, fully specified first vertical slice.** The grammar
-   accepts more than Lemma's subset. Start with constructs whose behavior is
-   actually defined in [`rtl-support.md`](../rtl-support.md); reject unsupported
-   constructs explicitly. Do not try to machine-check all 54 fixtures at once.
-2. **Connect parsing to named job sources.** The existing Tree-sitter parser is
-   syntax-only. Add internal source/job parsing and stage diagnostics without
-   exposing Tree-sitter objects or taking over file loading.
-3. **Implement RTL validation/elaboration for the chosen slice.** Select the
-   top, apply parameter overrides/defaults, and resolve only elaboration forms
-   whose conversion and semantics are specified.
-4. **Build and validate the private circuit IR.** Enforce ID resolution,
-   concrete positive widths, explicit expression types, FFD invariants, and
-   preservation of all accepted source behavior. Add success and rejection
-   tests at the parse, elaboration, and IR layers.
+The first profile is now documented in [`rtl-support.md`](../rtl-support.md)
+and exercised by the scalar and vector alias fixtures. It accepts one selected
+flat module with scalar or explicitly sized packed `wire`/`logic` I/O and direct
+same-width signal-to-output continuous assignments. Parameters, hierarchy,
+generate, procedural logic, internal declarations, and other module items are
+outside this incremental slice and are rejected.
+
+The internal stages are separately callable and testable. Validation creates
+only resolved port and alias facts; IR construction creates the owning arrays
+and array-position IDs. The implementation rejects malformed, out-of-profile,
+undriven, multiply-driven, width-mismatched, and cyclic aliases.
+
+## What remains
+
+1. Integrate internal stages with the public named-source job representation
+   only when the later SVA/proof path can uphold the result contract. The
+   current internal parser handles one source buffer; `lemma_run_job` remains a
+   declaration and must not report frontend-only success as `completed`.
+2. Expand the RTL slice incrementally: parameter/default and override
+   resolution, generate, hierarchy, richer expressions and operators, internal
+   signals, procedural combinational logic, and sequential FFD construction all
+   require their documented semantics and tests.
+3. Keep adding stage-specific success and rejection tests. The current alias
+   tests do not validate the other 52 fixtures, SVA property meaning, proof
+   outcomes, or traces.
 
 The current RTL-support document contains material TBDs that block broad
 acceptance, including exact general expression sizing and unsized-literal
@@ -113,26 +130,18 @@ the public contract.
 
 ## Handoff for the next coding task
 
-Use the project sequence `task-preparer` → `builder` → `executor-reporter` for
-C changes. Have the preparer identify a bounded, specification-backed first
-slice and relevant engineering notes. The builder should implement that slice,
-add accepted and rejection tests, and run `./flow.sh test`; the executor should
-independently run the exact validation commands. If the selected slice requires
-an unresolved RTL semantic choice, stop for alignment rather than broadening
-the subset implicitly.
+The scalar/vector alias slice is implemented. Next work should expand the
+frontend only to another bounded, specification-backed slice. Use the project
+sequence `task-preparer` → `builder` → `executor-reporter` for C changes; stop
+for alignment if the next feature depends on an RTL-support **TBD** rather than
+choosing semantics in code. Do not begin SVA/proof implementation as part of
+an RTL-only expansion.
 
 ## Working-tree note
 
-As of this checkpoint, the following work is uncommitted and must be preserved
-or deliberately committed by the owner:
-
-- `include/lemma/verification.h` and `tests/unit/test_verification_header.c`
-  contain the diagnostic-stage refinement;
-- `doc/engineering-notes/api-boundaries.md` and its index contain recent API
-  decisions;
-- `doc/engineering-notes/circuit-ir-storage.md` is a new provisional design
-  note; and
-- this checkpoint file is updated to capture the current frontend/IR handoff.
-
-The public API headers and prior API design notes are already committed; inspect
-current status rather than relying on this historical list after resuming.
+At checkpoint update, the working tree has uncommitted frontend/IR code, tests,
+the RTL-support and fixture documentation updates, engineering-note updates,
+and changes under `.opencode/agents/`. Inspect `git status --short` before
+editing or committing; preserve agent-configuration and other unrelated changes.
+The public API headers and earlier handoff/API decisions are committed. This
+checkpoint itself is updated alongside the current implementation work.

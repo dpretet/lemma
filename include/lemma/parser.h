@@ -5,7 +5,7 @@
 
 #include <tree_sitter/api.h>
 
-/* Parse SystemVerilog syntax. The caller owns the returned tree. */
+// Parse SystemVerilog syntax. The caller owns the returned tree.
 TSTree *lemma_parse_source(const char *source, size_t length);
 
 #endif

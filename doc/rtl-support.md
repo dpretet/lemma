@@ -13,6 +13,30 @@ not silently ignore them or guess their intended meaning.
 
 This document is a working specification. **TBD** items are not yet normative.
 
+### First implementation profile (incremental)
+
+The first frontend/IR implementation profile is a deliberately narrow starting
+slice, not a permanent product limit or a replacement for the broader target
+below. It accepts one selected, flat module with an ANSI port list containing
+scalar or explicitly sized packed `wire`/`logic` input and output ports. Packed
+range bounds must be concrete decimal integers; declared signedness is retained
+and omitted signedness is unsigned. A module may contain direct continuous
+assignments, each connecting one declared signal to an output port of the same
+width. Each output must have exactly one driver, input ports cannot be driven,
+and output-to-output alias cycles are rejected. Assignment right-hand sides
+must be simple signal references; expressions, selects, constants, and other
+non-signal forms are outside this profile.
+
+Parameters and parameter overrides, hierarchy, generate constructs,
+procedural logic, internal declarations, and all other module items are outside
+this slice and must be rejected rather than omitted from the circuit IR. The
+accepted examples are
+[`comb_continuous_assign_alias.sv`](../tests/fixtures/rtl/comb_continuous_assign_alias.sv)
+for scalar I/O and
+[`comb_vector_width_signedness_alias.sv`](../tests/fixtures/rtl/comb_vector_width_signedness_alias.sv)
+for signed and unsigned four-bit packed I/O. These examples do not narrow the
+broader RTL goals and TBD areas in this document.
+
 ## 2. Source languages
 
 The initial target is Verilog/SystemVerilog RTL.
