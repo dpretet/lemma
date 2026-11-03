@@ -1,5 +1,8 @@
 # Frontend and Circuit-IR Implementation Handoff
 
+> **Status: ACTIVE.** This is the current development handoff. Normative
+> specifications and current code take precedence over this summary.
+
 **Checkpoint date:** 2026-11-03
 
 ## Purpose and scope
@@ -56,10 +59,10 @@ The accepted design is recorded in
   outcome, including `inconclusive`.
 - The CLI/job adapter owns file loading, diagnostic rendering, and process exit
   status. The library analyzes supplied buffers and returns structured data.
-- The public diagnostic stage enum is being refined to distinguish job input,
-  parsing, RTL validation/elaboration, circuit IR, property model, proof model,
-  and proof execution. These enum edits and associated tests are currently
-  uncommitted; inspect `git status --short` before working.
+- The public diagnostic stage enum distinguishes job input, parsing, RTL
+  validation/elaboration, circuit IR, property model, proof model, and proof
+  execution. The declaration and its tests are committed in the public API
+  header change.
 
 ## Circuit IR baseline and storage choice
 
@@ -102,17 +105,17 @@ undriven, multiply-driven, width-mismatched, and cyclic aliases.
 
 ## What remains
 
-1. Integrate internal stages with the public named-source job representation
-   only when the later SVA/proof path can uphold the result contract. The
-   current internal parser handles one source buffer; `lemma_run_job` remains a
-   declaration and must not report frontend-only success as `completed`.
-2. Expand the RTL slice incrementally: parameter/default and override
-   resolution, generate, hierarchy, richer expressions and operators, internal
-   signals, procedural combinational logic, and sequential FFD construction all
-   require their documented semantics and tests.
-3. Keep adding stage-specific success and rejection tests. The current alias
-   tests do not validate the other 52 fixtures, SVA property meaning, proof
-   outcomes, or traces.
+1. First make parsing, RTL validation/elaboration, and IR construction a
+   coherent, reusable frontend. The current scalar/vector alias path is a
+   bootstrap example, not evidence that these stages are generally complete.
+2. Keep the stages independently testable and strengthen coverage at each
+   boundary. The current alias tests do not validate the other 52 fixtures, SVA
+   property meaning, proof outcomes, or traces.
+3. Only after the frontend path is solid, expand parameters/defaults, generate,
+   hierarchy, richer expressions/operators, internal signals, procedural logic,
+   and sequential FFD construction in specification-backed slices. The public
+   `lemma_run_job` remains a declaration until property/proof stages can honor
+   its result contract.
 
 The current RTL-support document contains material TBDs that block broad
 acceptance, including exact general expression sizing and unsized-literal
@@ -130,18 +133,18 @@ the public contract.
 
 ## Handoff for the next coding task
 
-The scalar/vector alias slice is implemented. Next work should expand the
-frontend only to another bounded, specification-backed slice. Use the project
-sequence `task-preparer` → `builder` → `executor-reporter` for C changes; stop
-for alignment if the next feature depends on an RTL-support **TBD** rather than
+The scalar/vector alias slice is implemented, but the user's priority is now to
+make parsing, validation/elaboration, and IR construction into a coherent
+frontend before expanding operator semantics. Use the project sequence
+`task-preparer` → `builder` → `executor-reporter` for C changes; stop for
+alignment if a required behavior depends on an RTL-support **TBD** rather than
 choosing semantics in code. Do not begin SVA/proof implementation as part of
-an RTL-only expansion.
+frontend work.
 
 ## Working-tree note
 
-At checkpoint update, the working tree has uncommitted frontend/IR code, tests,
-the RTL-support and fixture documentation updates, engineering-note updates,
-and changes under `.opencode/agents/`. Inspect `git status --short` before
-editing or committing; preserve agent-configuration and other unrelated changes.
-The public API headers and earlier handoff/API decisions are committed. This
-checkpoint itself is updated alongside the current implementation work.
+At this checkpoint update, the frontend/IR implementation, tests, RTL-support
+profile, public API headers, test documentation, and agent instructions are
+committed in `91c8eff`. The working tree has only uncommitted edits to this
+checkpoint and the circuit-IR engineering note/index. Confirm with
+`git status --short` before editing or committing.

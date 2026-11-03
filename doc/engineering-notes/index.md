@@ -41,8 +41,8 @@ authoritative source and update the note.
   encoding and serialization remain open.
 - [Circuit IR storage](circuit-ir-storage.md) — accepted private C storage
   outline using one owning object and array-position IDs, plus the first
-  scalar/vector alias slice; elaboration handoff and allocator policy remain
-  provisional/open.
+  scalar/vector alias slice and frontend-first implementation order; elaboration
+  handoff and allocator policy remain provisional/open.
 
 The design specifications remain the source of truth. Start with the
 [specification reading guide](../../README.md#specifications);

@@ -1,5 +1,9 @@
 # Lemma Architecture Checkpoint 1
 
+> **Status: HISTORICAL.** Preserve this as development history only. Do not use
+> its status, open questions, or suggested next steps as current; see
+> [`README.md`](README.md) for the active handoff.
+
 ## Purpose
 
 Lemma is an independent open-source formal verification tool for synthesizable RTL, focused on

@@ -154,6 +154,48 @@ void test_frontend_builds_signed_and_unsigned_vector_alias_fixture_ir(void)
     lemma_circuit_destroy(circuit);
 }
 
+// Comments around the design unit, port header, body, and file tail are trivia;
+// the remaining alias still builds the expected two-port circuit IR.
+void test_frontend_ignores_comments_around_alias_module(void)
+{
+    static const char source[] =
+        "// leading line comment\n"
+        "module /* header block comment */ commented_alias (\n"
+        "    input /* port header comment */ wire a,\n"
+        "    /* port-list comment */ output wire y\n"
+        ");\n"
+        "    // body line comment\n"
+        "    assign /* assignment comment */ y = a;\n"
+        "endmodule\n"
+        "// trailing line comment\n"
+        "/* trailing block comment */\n";
+    lemma_frontend_diagnostic diagnostic = {0};
+    lemma_parsed_design *parsed = lemma_frontend_parse(source, sizeof(source) - 1U,
+                                                       &diagnostic);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(parsed, diagnostic.message);
+    lemma_elaborated_design *elaborated = lemma_frontend_elaborate(
+        parsed, "commented_alias", &diagnostic);
+    TEST_ASSERT_NOT_NULL_MESSAGE(elaborated, diagnostic.message);
+    lemma_circuit *circuit = lemma_frontend_build_ir(parsed, elaborated, &diagnostic);
+    TEST_ASSERT_NOT_NULL_MESSAGE(circuit, diagnostic.message);
+    TEST_ASSERT_EQUAL_STRING("commented_alias", circuit->module_name);
+    TEST_ASSERT_EQUAL_UINT(2U, circuit->port_count);
+    TEST_ASSERT_EQUAL_UINT(2U, circuit->signal_count);
+    TEST_ASSERT_EQUAL_UINT(1U, circuit->expression_count);
+    TEST_ASSERT_EQUAL_UINT(1U, circuit->driver_count);
+    TEST_ASSERT_EQUAL_STRING("a", circuit->signals[0].name);
+    TEST_ASSERT_EQUAL(LEMMA_IR_PORT_INPUT, circuit->ports[0].direction);
+    TEST_ASSERT_EQUAL_STRING("y", circuit->signals[1].name);
+    TEST_ASSERT_EQUAL(LEMMA_IR_PORT_OUTPUT, circuit->ports[1].direction);
+    TEST_ASSERT_EQUAL_UINT(0U, circuit->expressions[0].signal_id);
+    TEST_ASSERT_EQUAL_UINT(1U, circuit->drivers[0].target_signal_id);
+
+    lemma_circuit_destroy(circuit);
+    lemma_frontend_elaborate_destroy(elaborated);
+    lemma_parsed_design_destroy(parsed);
+}
+
 // Malformed syntax is rejected by parsing itself, before RTL validation or IR
 // construction, and reports a parsing-stage syntax diagnostic with a span.
 void test_frontend_rejects_malformed_source_at_parse_stage(void)

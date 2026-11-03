@@ -8,6 +8,8 @@ void test_reports_malformed_systemverilog(void);
 void test_frontend_builds_scalar_alias_fixture_ir(void);
 // Preserve widths and signedness for the profile's vector alias fixtures.
 void test_frontend_builds_signed_and_unsigned_vector_alias_fixture_ir(void);
+// Comments are trivia throughout a valid alias module and preserve its IR.
+void test_frontend_ignores_comments_around_alias_module(void);
 // Reject malformed source during parsing, before RTL validation or IR.
 void test_frontend_rejects_malformed_source_at_parse_stage(void);
 // Reject constructs outside the initial scalar/vector alias profile.
@@ -41,6 +43,7 @@ int main(void)
     RUN_TEST(test_reports_malformed_systemverilog);
     RUN_TEST(test_frontend_builds_scalar_alias_fixture_ir);
     RUN_TEST(test_frontend_builds_signed_and_unsigned_vector_alias_fixture_ir);
+    RUN_TEST(test_frontend_ignores_comments_around_alias_module);
     RUN_TEST(test_frontend_rejects_malformed_source_at_parse_stage);
     RUN_TEST(test_frontend_rejects_out_of_profile_constructs);
     RUN_TEST(test_frontend_rejects_multiple_modules);

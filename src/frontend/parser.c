@@ -4,6 +4,8 @@
 
 #include <tree_sitter/tree-sitter-systemverilog.h>
 
+// Parse borrowed source bytes of at most UINT32_MAX length into a caller-owned
+// tree; return NULL for invalid input or when the parser cannot produce one.
 TSTree *lemma_parse_source(const char *source, size_t length)
 {
     if (source == NULL || length > UINT32_MAX) {

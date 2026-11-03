@@ -4,13 +4,43 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Count named children while excluding Tree-sitter extras such as comments.
+static uint32_t named_non_extra_child_count(TSNode node)
+{
+    uint32_t count = 0U;
+    uint32_t named_children = ts_node_named_child_count(node);
+    for (uint32_t index = 0U; index < named_children; ++index) {
+        if (!ts_node_is_extra(ts_node_named_child(node, index))) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+// Return the indexed non-extra named child, or a null node when out of range.
+static TSNode named_non_extra_child(TSNode node, uint32_t wanted_index)
+{
+    uint32_t named_children = ts_node_named_child_count(node);
+    uint32_t index_without_extras = 0U;
+    for (uint32_t index = 0U; index < named_children; ++index) {
+        TSNode child = ts_node_named_child(node, index);
+        if (!ts_node_is_extra(child)) {
+            if (index_without_extras == wanted_index) {
+                return child;
+            }
+            ++index_without_extras;
+        }
+    }
+    return (TSNode){0};
+}
+
 // Count direct named children whose syntax type matches type.
 static size_t named_child_type_count(TSNode node, const char *type)
 {
     size_t count = 0U;
-    uint32_t child_count = ts_node_named_child_count(node);
+    uint32_t child_count = named_non_extra_child_count(node);
     for (uint32_t index = 0U; index < child_count; ++index) {
-        if (strcmp(ts_node_type(ts_node_named_child(node, index)), type) == 0) {
+        if (strcmp(ts_node_type(named_non_extra_child(node, index)), type) == 0) {
             ++count;
         }
     }
@@ -21,20 +51,20 @@ static size_t named_child_type_count(TSNode node, const char *type)
 static int valid_port_syntax(TSNode declaration)
 {
     // Require one supported header; parse_port checks the identifier separately.
-    if (ts_node_named_child_count(declaration) != 2U) {
+    if (named_non_extra_child_count(declaration) != 2U) {
         return 0;
     }
     TSNode header = {0};
-    uint32_t declaration_children = ts_node_named_child_count(declaration);
+    uint32_t declaration_children = named_non_extra_child_count(declaration);
     for (uint32_t index = 0U; index < declaration_children; ++index) {
-        TSNode child = ts_node_named_child(declaration, index);
+        TSNode child = named_non_extra_child(declaration, index);
         const char *type = ts_node_type(child);
         if (strcmp(type, "variable_port_header") == 0 ||
             strcmp(type, "net_port_header") == 0) {
             header = child;
         }
     }
-    if (ts_node_is_null(header) || ts_node_named_child_count(header) != 2U ||
+    if (ts_node_is_null(header) || named_non_extra_child_count(header) != 2U ||
         named_child_type_count(header, "port_direction") != 1U) {
         return 0;
     }
@@ -44,21 +74,21 @@ static int valid_port_syntax(TSNode declaration)
             return 0;
         }
         TSNode type = {0};
-        for (uint32_t index = 0U; index < ts_node_named_child_count(header); ++index) {
-            TSNode child = ts_node_named_child(header, index);
+        for (uint32_t index = 0U; index < named_non_extra_child_count(header); ++index) {
+            TSNode child = named_non_extra_child(header, index);
             if (strcmp(ts_node_type(child), "variable_port_type") == 0) {
                 type = child;
             }
         }
-        if (ts_node_named_child_count(type) != 1U ||
+        if (named_non_extra_child_count(type) != 1U ||
             named_child_type_count(type, "data_type") != 1U) {
             return 0;
         }
-        TSNode data_type = ts_node_named_child(type, 0U);
-        if (ts_node_named_child_count(data_type) < 1U ||
-            ts_node_named_child_count(data_type) > 2U ||
+        TSNode data_type = named_non_extra_child(type, 0U);
+        if (named_non_extra_child_count(data_type) < 1U ||
+            named_non_extra_child_count(data_type) > 2U ||
             named_child_type_count(data_type, "integer_vector_type") != 1U ||
-            ts_node_named_child_count(data_type) !=
+            named_non_extra_child_count(data_type) !=
                 1U + named_child_type_count(data_type, "packed_dimension")) {
             return 0;
         }
@@ -70,13 +100,13 @@ static int valid_port_syntax(TSNode declaration)
         return 0;
     }
     TSNode type = {0};
-    for (uint32_t index = 0U; index < ts_node_named_child_count(header); ++index) {
-        TSNode child = ts_node_named_child(header, index);
+    for (uint32_t index = 0U; index < named_non_extra_child_count(header); ++index) {
+        TSNode child = named_non_extra_child(header, index);
         if (strcmp(ts_node_type(child), "net_port_type") == 0) {
             type = child;
         }
     }
-    size_t type_children = ts_node_named_child_count(type);
+    size_t type_children = named_non_extra_child_count(type);
     size_t implicit_count = named_child_type_count(type, "data_type_or_implicit");
     if (type_children < 1U || type_children > 2U ||
         named_child_type_count(type, "net_type") != 1U || implicit_count > 1U ||
@@ -86,18 +116,18 @@ static int valid_port_syntax(TSNode declaration)
     if (implicit_count == 1U) {
         TSNode implicit = {0};
         for (uint32_t index = 0U; index < type_children; ++index) {
-            TSNode child = ts_node_named_child(type, index);
+            TSNode child = named_non_extra_child(type, index);
             if (strcmp(ts_node_type(child), "data_type_or_implicit") == 0) {
                 implicit = child;
             }
         }
-        if (ts_node_named_child_count(implicit) != 1U) {
+        if (named_non_extra_child_count(implicit) != 1U) {
             return 0;
         }
-        TSNode implicit_type = ts_node_named_child(implicit, 0U);
+        TSNode implicit_type = named_non_extra_child(implicit, 0U);
         if (strcmp(ts_node_type(implicit_type), "implicit_data_type") != 0 ||
-            ts_node_named_child_count(implicit_type) > 1U ||
-            (ts_node_named_child_count(implicit_type) == 1U &&
+            named_non_extra_child_count(implicit_type) > 1U ||
+            (named_non_extra_child_count(implicit_type) == 1U &&
              named_child_type_count(implicit_type, "packed_dimension") != 1U)) {
             return 0;
         }
@@ -141,9 +171,9 @@ static int range_width(const lemma_parsed_design *parsed, TSNode dimension,
     }
     TSNode bounds[2] = {{0}};
     size_t bound_count = 0U;
-    uint32_t children = ts_node_named_child_count(range);
+    uint32_t children = named_non_extra_child_count(range);
     for (uint32_t index = 0U; index < children && bound_count < 2U; ++index) {
-        TSNode child = ts_node_named_child(range, index);
+        TSNode child = named_non_extra_child(range, index);
         if (strcmp(ts_node_type(child), "constant_expression") == 0) {
             bounds[bound_count++] = child;
         }
@@ -307,21 +337,21 @@ static int direct_identifier(TSNode node, const char *parent_type,
                              TSNode *identifier)
 {
     if (strcmp(ts_node_type(node), parent_type) != 0 ||
-        ts_node_named_child_count(node) != 1U) {
+        named_non_extra_child_count(node) != 1U) {
         return 0;
     }
-    TSNode child = ts_node_named_child(node, 0U);
+    TSNode child = named_non_extra_child(node, 0U);
     if (strcmp(ts_node_type(child), "simple_identifier") == 0) {
         *identifier = child;
         return 1;
     }
     if (strcmp(parent_type, "expression") == 0 &&
         strcmp(ts_node_type(child), "primary") == 0 &&
-        ts_node_named_child_count(child) == 1U) {
-        TSNode primary_child = ts_node_named_child(child, 0U);
+        named_non_extra_child_count(child) == 1U) {
+        TSNode primary_child = named_non_extra_child(child, 0U);
         if (strcmp(ts_node_type(primary_child), "hierarchical_identifier") == 0 &&
-            ts_node_named_child_count(primary_child) == 1U) {
-            TSNode name = ts_node_named_child(primary_child, 0U);
+            named_non_extra_child_count(primary_child) == 1U) {
+            TSNode name = named_non_extra_child(primary_child, 0U);
             if (strcmp(ts_node_type(name), "simple_identifier") == 0) {
                 *identifier = name;
                 return 1;
@@ -341,38 +371,38 @@ static int parse_assignment(const lemma_parsed_design *parsed,
                             lemma_frontend_diagnostic *diagnostic)
 {
     // Narrow the syntax to one net assignment with a direct signal alias.
-    if (ts_node_named_child_count(continuous_assign) != 1U) {
+    if (named_non_extra_child_count(continuous_assign) != 1U) {
         frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.assignment_form", "continuous assignment timing controls are unsupported",
                        continuous_assign);
         return 0;
     }
     TSNode assignments = {0};
-    uint32_t children = ts_node_named_child_count(continuous_assign);
+    uint32_t children = named_non_extra_child_count(continuous_assign);
     for (uint32_t index = 0U; index < children; ++index) {
-        TSNode child = ts_node_named_child(continuous_assign, index);
+        TSNode child = named_non_extra_child(continuous_assign, index);
         if (strcmp(ts_node_type(child), "list_of_net_assignments") == 0) {
             assignments = child;
             break;
         }
     }
-    if (ts_node_is_null(assignments) || ts_node_named_child_count(assignments) != 1U) {
+    if (ts_node_is_null(assignments) || named_non_extra_child_count(assignments) != 1U) {
         frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.assignment_form", "each continuous assignment must contain one alias",
                        continuous_assign);
         return 0;
     }
 
-    TSNode assignment = ts_node_named_child(assignments, 0U);
+    TSNode assignment = named_non_extra_child(assignments, 0U);
     if (strcmp(ts_node_type(assignment), "net_assignment") != 0 ||
-        ts_node_named_child_count(assignment) != 2U) {
+        named_non_extra_child_count(assignment) != 2U) {
         frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.assignment_form", "continuous assignment must be a simple signal alias",
                        assignment);
         return 0;
     }
-    TSNode left = ts_node_named_child(assignment, 0U);
-    TSNode right = ts_node_named_child(assignment, 1U);
+    TSNode left = named_non_extra_child(assignment, 0U);
+    TSNode right = named_non_extra_child(assignment, 1U);
     TSNode target_name = {0};
     TSNode source_name = {0};
     if (!direct_identifier(left, "net_lvalue", &target_name) ||
@@ -501,20 +531,20 @@ lemma_elaborated_design *lemma_frontend_elaborate(
 
     // Select and identify the sole flat ANSI module for the requested top.
     TSNode root = ts_tree_root_node(parsed->tree);
-    if (ts_node_named_child_count(root) != 1U) {
+    if (named_non_extra_child_count(root) != 1U) {
         frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.flat_design", "source must contain exactly one flat module",
                        root);
         return NULL;
     }
-    TSNode module = ts_node_named_child(root, 0U);
+    TSNode module = named_non_extra_child(root, 0U);
     if (strcmp(ts_node_type(module), "module_declaration") != 0 ||
-        ts_node_named_child_count(module) < 1U) {
+        named_non_extra_child_count(module) < 1U) {
         frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.design_unit", "source must contain one module declaration", module);
         return NULL;
     }
-    TSNode header = ts_node_named_child(module, 0U);
+    TSNode header = named_non_extra_child(module, 0U);
     if (strcmp(ts_node_type(header), "module_ansi_header") != 0) {
         frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.module_header", "module must use an ANSI port header", header);
@@ -522,9 +552,9 @@ lemma_elaborated_design *lemma_frontend_elaborate(
     }
     TSNode module_name = {0};
     TSNode port_list = {0};
-    uint32_t header_children = ts_node_named_child_count(header);
+    uint32_t header_children = named_non_extra_child_count(header);
     for (uint32_t index = 0U; index < header_children; ++index) {
-        TSNode child = ts_node_named_child(header, index);
+        TSNode child = named_non_extra_child(header, index);
         const char *type = ts_node_type(child);
         if (strcmp(type, "simple_identifier") == 0) {
             module_name = child;
@@ -556,9 +586,9 @@ lemma_elaborated_design *lemma_frontend_elaborate(
 
     // Validate declared ports and module items, including allocation bounds.
     size_t port_count = 0U;
-    uint32_t port_children = ts_node_named_child_count(port_list);
+    uint32_t port_children = named_non_extra_child_count(port_list);
     for (uint32_t index = 0U; index < port_children; ++index) {
-        TSNode child = ts_node_named_child(port_list, index);
+        TSNode child = named_non_extra_child(port_list, index);
         if (strcmp(ts_node_type(child), "ansi_port_declaration") != 0) {
             frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                            "rtl.port_form", "only explicit ANSI port declarations are supported", child);
@@ -573,9 +603,9 @@ lemma_elaborated_design *lemma_frontend_elaborate(
     }
 
     size_t continuous_count = 0U;
-    uint32_t module_children = ts_node_named_child_count(module);
+    uint32_t module_children = named_non_extra_child_count(module);
     for (uint32_t index = 1U; index < module_children; ++index) {
-        TSNode child = ts_node_named_child(module, index);
+        TSNode child = named_non_extra_child(module, index);
         if (strcmp(ts_node_type(child), "continuous_assign") != 0) {
             frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                            "rtl.unsupported_construct",
@@ -614,7 +644,7 @@ lemma_elaborated_design *lemma_frontend_elaborate(
 
     // Resolve port fields and reject duplicate names before assignments.
     for (size_t index = 0U; index < port_count; ++index) {
-        TSNode declaration = ts_node_named_child(port_list, (uint32_t)index);
+        TSNode declaration = named_non_extra_child(port_list, (uint32_t)index);
         if (!parse_port(parsed, declaration, &elaborated->signals[index], diagnostic)) {
             free(has_driver);
             lemma_frontend_elaborate_destroy(elaborated);
@@ -637,7 +667,7 @@ lemma_elaborated_design *lemma_frontend_elaborate(
 
     // Resolve aliases, then require every output to have exactly one driver.
     for (uint32_t index = 1U; index < module_children; ++index) {
-        TSNode child = ts_node_named_child(module, index);
+        TSNode child = named_non_extra_child(module, index);
         if (!parse_assignment(parsed, elaborated, child, has_driver, diagnostic)) {
             free(has_driver);
             lemma_frontend_elaborate_destroy(elaborated);
@@ -647,7 +677,7 @@ lemma_elaborated_design *lemma_frontend_elaborate(
     for (size_t index = 0U; index < elaborated->signal_count; ++index) {
         if (elaborated->signals[index].direction == LEMMA_IR_PORT_OUTPUT &&
             has_driver[index] == 0U) {
-            TSNode declaration = ts_node_named_child(port_list, (uint32_t)index);
+            TSNode declaration = named_non_extra_child(port_list, (uint32_t)index);
             free(has_driver);
             lemma_frontend_elaborate_destroy(elaborated);
             frontend_set_diagnostic(diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,

@@ -123,20 +123,31 @@ typedef struct lemma_result {
 } lemma_result;
 
 /*
- * Declares the verification-job interface. Job execution is not yet
- * implemented by the parser-stage executable.
- *
- * Ordinary job outcomes are returned in a non-NULL result. NULL indicates
- * that a result object could not be created. Input buffers are borrowed only
- * for this call; returned result data is owned until lemma_result_destroy.
+ * Run a verification job. Ordinary outcomes are returned in a non-NULL result;
+ * NULL indicates that a result object could not be created. Input buffers are
+ * borrowed for this call, and returned data is owned until destroyed. Job
+ * execution is not yet implemented by the parser-stage executable.
  */
 lemma_result *lemma_run_job(const lemma_job *job);
 
+// Destroy a caller-owned job result and release its storage; do not access it
+// after destruction.
 void lemma_result_destroy(lemma_result *result);
 
+// Return the status value from a valid, live result owned by the caller.
 lemma_job_status lemma_result_status(const lemma_result *result);
+
+// Return the diagnostic count from a valid, live result owned by the caller.
 size_t lemma_result_diagnostic_count(const lemma_result *result);
+
+// Return the read-only diagnostics array from a valid, live result; its
+// contents are owned by that result and remain valid until destruction. The
+// pointer is NULL when the result has no diagnostics.
 const lemma_diagnostic *lemma_result_diagnostics(const lemma_result *result);
+
+// Return the optional proof field from a valid, live result; any returned proof
+// and its data are owned by that result and remain valid until destruction. The
+// pointer is NULL when no proof result is available.
 const lemma_proof_result *lemma_result_proof(const lemma_result *result);
 
 #endif

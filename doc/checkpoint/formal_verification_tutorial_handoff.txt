@@ -1,5 +1,7 @@
 LEMMA FORMAL VERIFICATION TUTORIAL — SESSION HANDOFF
 Prepared: 2026-10-13
+Status: HISTORICAL — preserve as session history only. Do not use its project
+status or next steps as current; see README.md for the active checkpoint.
 
 PURPOSE
 

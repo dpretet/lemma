@@ -13,6 +13,10 @@
   same-width continuous signal aliases. The normative input profile is in
   [`rtl-support.md`](../rtl-support.md); this is an incremental starting slice,
   not a permanent restriction on the supported subset.
+- **Decision:** Prioritize making parsing, RTL validation/elaboration, and IR
+  construction a reusable end-to-end frontend before expanding the operator or
+  procedural subset. The alias slice is a bootstrap example, not completion of
+  those stages.
 - **Provisional:** Do not create a full materialized elaborated-design object
   that duplicates the circuit IR. Keep elaboration as a separate validation and
   resolution pass over the parsed design. If needed, pass only a small temporary

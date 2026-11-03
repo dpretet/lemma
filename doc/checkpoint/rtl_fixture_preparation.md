@@ -1,5 +1,9 @@
 # RTL Fixture Preparation Checkpoint
 
+> **Status: HISTORICAL.** Preserve this as development history only. Its
+> implementation status and suggested next steps are stale; see
+> [`README.md`](README.md) for the active handoff.
+
 **Checkpoint date:** 2026-10-15
 
 ## Purpose

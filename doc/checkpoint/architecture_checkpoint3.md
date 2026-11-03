@@ -1,5 +1,9 @@
 # Lemma Architecture Checkpoint 3
 
+> **Status: HISTORICAL.** Preserve this as development history only. Do not use
+> its status, open questions, or suggested next steps as current; see
+> [`README.md`](README.md) for the active handoff.
+
 **Purpose:** Resume the architecture and specification activity in a future
 session. This is a handoff summary, not a replacement for the normative
 specifications linked below.

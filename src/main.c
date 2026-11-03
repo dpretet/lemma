@@ -6,11 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Print the command-line form expected by the parser-stage executable.
 static void print_usage(void)
 {
     fprintf(stderr, "usage: lemma <source.sv>\n");
 }
 
+// Read a file into owned NUL-terminated storage, returning its byte length.
+// Reject files that cannot fit the parser's uint32_t input-length limit.
 static char *read_file(const char *path, size_t *length)
 {
     FILE *file = fopen(path, "rb");
@@ -56,6 +59,7 @@ static char *read_file(const char *path, size_t *length)
     return contents;
 }
 
+// Find the first syntax error or missing node in source order, if any.
 static TSNode first_syntax_error(TSNode node)
 {
     if (ts_node_is_error(node) || ts_node_is_missing(node)) {
@@ -73,6 +77,7 @@ static TSNode first_syntax_error(TSNode node)
     return (TSNode){0};
 }
 
+// Parse one source file and report syntax diagnostics; return process status.
 int main(int argc, char **argv)
 {
     cag_option_context arguments;
@@ -102,7 +107,7 @@ int main(int argc, char **argv)
     TSTree *tree = lemma_parse_source(source, source_length);
     free(source);
     if (tree == NULL) {
-        fprintf(stderr, "%s: parser could not process the source\n", argv[1]);
+        fprintf(stderr, "%s: parser could not process the source\n", source_path);
         return EXIT_FAILURE;
     }
 

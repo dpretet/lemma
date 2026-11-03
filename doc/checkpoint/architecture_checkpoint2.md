@@ -1,5 +1,9 @@
 # Lemma Formal RTL Verification — Project Checkpoint
 
+> **Status: HISTORICAL.** Preserve this as development history only. Do not use
+> its status, open questions, or suggested next steps as current; see
+> [`README.md`](README.md) for the active handoff.
+
 **Checkpoint status:** Semantics decisions captured from the supplied project discussion; broader product scope remains partly unconfirmed.
 
 ## 1. Project purpose

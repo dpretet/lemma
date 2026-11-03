@@ -17,13 +17,15 @@ This document is a working specification. **TBD** items are not yet normative.
 
 The first frontend/IR implementation profile is a deliberately narrow starting
 slice, not a permanent product limit or a replacement for the broader target
-below. It accepts one selected, flat module with an ANSI port list containing
-scalar or explicitly sized packed `wire`/`logic` input and output ports. Packed
-range bounds must be concrete decimal integers; declared signedness is retained
-and omitted signedness is unsigned. A module may contain direct continuous
-assignments, each connecting one declared signal to an output port of the same
-width. Each output must have exactly one driver, input ports cannot be driven,
-and output-to-output alias cycles are rejected. Assignment right-hand sides
+below. Comments and whitespace are trivia: they do not count as design units
+or module items. It accepts one selected, flat module with an ANSI port list
+containing scalar or explicitly sized packed `wire`/`logic` input and output
+ports. Packed range bounds must be concrete decimal integers; declared
+signedness is retained and omitted signedness is unsigned. A module may contain
+direct continuous assignments, each connecting one declared signal to an
+output port of the same width. Each output must have exactly one driver, input
+ports cannot be driven, and output-to-output alias cycles are rejected.
+Assignment right-hand sides
 must be simple signal references; expressions, selects, constants, and other
 non-signal forms are outside this profile.
 

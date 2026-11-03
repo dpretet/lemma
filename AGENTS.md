@@ -91,6 +91,19 @@ behavior outside the request. Report blockers rather than hiding them.
 - Use [`doc/engineering-notes/index.md`](doc/engineering-notes/index.md) as the
   entry point to repository-owned, human-readable engineering memory. It
   supplements the specifications and code; it never overrides them.
+- When resuming a checkpointed task, read [`doc/checkpoint/README.md`](doc/checkpoint/README.md)
+  first, then read only the checkpoint it marks **ACTIVE** if it is relevant to
+  the task. Treat that checkpoint as a dated handoff, not as a source of truth:
+  verify current status against the worktree, code, engineering notes, and
+  normative specifications.
+- Checkpoints marked **HISTORICAL** are archival. Do not consult them to infer
+  current implementation status, decisions, or next steps unless the user asks
+  for historical context or the task specifically requires tracing a past
+  decision. If consulted, cross-check any still-relevant claim against current
+  code and specifications.
+- When creating or superseding a checkpoint, update `doc/checkpoint/README.md`
+  so it identifies the single active handoff and marks replaced checkpoints
+  historical.
 - At the start of C source/test tasks and substantive debugging or
   root-cause investigations, have `task-preparer` read the index and only the
   notes relevant to the task. Include applicable prior knowledge and its status
