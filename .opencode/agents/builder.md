@@ -51,6 +51,42 @@ permissions:
     resource: "git diff -- *"
     effect: allow
   - action: shell
+    resource: "git diff"
+    effect: allow
+  - action: shell
+    resource: "git diff --cached --check"
+    effect: allow
+  - action: shell
+    resource: "git diff --cached --stat"
+    effect: allow
+  - action: shell
+    resource: "git diff --cached --name-only"
+    effect: allow
+  - action: shell
+    resource: "git diff --cached -- *"
+    effect: allow
+  - action: shell
+    resource: "git log --oneline"
+    effect: allow
+  - action: shell
+    resource: "git log --oneline -- *"
+    effect: allow
+  - action: shell
+    resource: "git show --stat"
+    effect: allow
+  - action: shell
+    resource: "git show --stat HEAD"
+    effect: allow
+  - action: shell
+    resource: "git branch --show-current"
+    effect: allow
+  - action: shell
+    resource: "git rev-parse --show-toplevel"
+    effect: allow
+  - action: shell
+    resource: "git ls-files *"
+    effect: allow
+  - action: shell
     resource: "./flow.sh test"
     effect: allow
   - action: shell

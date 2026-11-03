@@ -36,8 +36,8 @@ authoritative source and update the note.
 - [RTL test oracle format](test-oracle-format.md) — accepted test-oracle layers;
   machine-readable format remains open.
 - [Public API and frontend boundaries](api-boundaries.md) — accepted Tree-sitter
-  encapsulation, internal stage separation, and file-loading boundary; API
-  signatures and serialization remain open.
+  encapsulation, internal stage separation, job/result and diagnostic layouts;
+  target-label encoding and serialization remain open.
 
 The design specifications remain the source of truth. Start with the
 [specification reading guide](../../README.md#specifications);
