@@ -9,9 +9,11 @@
   provisional (including asynchronous-reset transitions in traces); open
   (target-label encoding, result serialization, and NULL-argument behavior)
 - **Date:** 2026-11-01
-- **Context:** Lemma is beginning its RTL frontend and equation-based circuit IR;
-  the current parser API exposes Tree-sitter's `TSTree` directly.
-- **Decision:** Keep Tree-sitter types private to the frontend. The stable public
+- **Context:** Lemma is beginning its RTL frontend and equation-based circuit IR.
+  The internal parser helper returns Tree-sitter's `TSTree`; its header is not
+  installed by the current build.
+- **Decision:** Keep Tree-sitter types out of the stable verification-job API.
+  Internal frontend parser helpers may use Tree-sitter types. The stable public
   API is a top-level verification-job interface. Internally, parsing, RTL
   elaboration/validation, circuit IR construction, SVA property modeling, and
   proof modeling remain separate and independently testable stages.
