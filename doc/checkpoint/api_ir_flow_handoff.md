@@ -64,6 +64,21 @@ The accepted design is recorded in
   execution. The declaration and its tests are committed in the public API
   header change.
 
+## Open public API boundary
+
+The accepted design keeps Tree-sitter private, but
+[`include/lemma/parser.h`](../../include/lemma/parser.h) still includes the
+Tree-sitter API and exposes `lemma_parse_source` returning `TSTree *`. The new
+verification API in `include/lemma/verification.h` does not expose Tree-sitter,
+but the standalone parser header remains a public-facing exception.
+
+Before stabilizing or implementing the verification-job API, resolve this
+mismatch. The proposed direction is to move the parser declaration to a private
+header under `src/frontend/` and keep the supported public interface at the
+verification-job level. The CLI and parser tests can use the private parser
+interface during the bootstrap phase. This is an open follow-up, not a change
+made by this checkpoint.
+
 ## Circuit IR baseline and storage choice
 
 [`internal-representation.md`](../internal-representation.md) is the authority

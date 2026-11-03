@@ -128,6 +128,14 @@ behavior outside the request. Report blockers rather than hiding them.
 
 ## Working method and verification
 
+Before creating any Git commit, load and follow
+[`commit-message`](.opencode/skills/commit-message/SKILL.md). Every commit must
+use its required prefixed subject and explanatory body; the skill does not
+authorize committing without the user's request.
+Keep every physical subject and body line at or below 100 characters. Do not
+add a boilerplate `Validation: git diff --check` footer; include relevant test
+results in explanatory prose only when they help explain the change.
+
 For user-authorized C source or test changes, use the project agents by default
 in this order: `task-preparer` → `builder` → `executor-reporter`. The main
 agent coordinates the handoffs and gives each agent the preceding result.
