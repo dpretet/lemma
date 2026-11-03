@@ -3,8 +3,9 @@
 - **Status:** accepted (stage, source, diagnostic, IR-visibility, outcome,
   public result layout, diagnostic read-only array and field layout,
   diagnostic span representation, result ownership and return shape,
-  job-status, public function declarations, clock-selection, parameter-value,
-  and trace-content boundaries, and shared arbitrary-width bit-vector type);
+  diagnostic-stage granularity, job-status, public function declarations,
+  clock-selection, parameter-value, and trace-content boundaries, and shared
+  arbitrary-width bit-vector type);
   provisional (including asynchronous-reset transitions in traces); open
   (target-label encoding, result serialization, and NULL-argument behavior)
 - **Date:** 2026-11-01
@@ -37,6 +38,10 @@
   offsets and Tree-sitter-compatible zero-based row and byte-column positions.
   The end byte/position is exclusive. Tree-sitter types do not appear in the
   public verification header.
+- **Decision:** Public diagnostic stages distinguish job input, parsing, RTL
+  validation/elaboration, circuit IR construction, SVA property modeling, proof
+  modeling, and proof execution. The circuit IR, property model, and proof model
+  remain separate stages; diagnostics identify the stage that produced them.
 - **Decision:** Job completion and proof outcome are distinct. Parse,
   elaboration, or validation failures return diagnostics without a proof
   classification; `failed` is reserved for a counterexample to a successfully
@@ -46,6 +51,8 @@
   proof result is absent for `rejected` or `internal_error` jobs. The structured
   result is authoritative; the CLI exit code summarizes job execution, not
   proof success (`completed` exits successfully, other job statuses do not).
+- **Decision:** A `completed` job always has a proof result for its selected
+  target. A `rejected` or `internal_error` job has no proof result.
 - **Decision:** A job result contains structured diagnostics and an optional
   proof result. The proof result identifies the selected target label/kind and
   outcome, with a full trace when the outcome provides a counterexample or
@@ -71,6 +78,9 @@
 - **Decision:** The public job structures provide named source buffers and
   optional named parameter overrides. An override reuses `lemma_bit_vector`;
   the source and parameter input storage is borrowed only during the job call.
+- **Decision:** `property_label` is supplied as a NUL-terminated C string and
+  matches the parsed target label exactly and case-sensitively within the
+  selected top. The selected target label is copied into the result.
 - **Decision:** The public header declares `lemma_run_job`, result destruction,
   and status/diagnostic/proof accessors. This API declaration does not imply
   that the parser-stage executable implements verification jobs.

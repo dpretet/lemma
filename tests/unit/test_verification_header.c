@@ -31,6 +31,15 @@ _Static_assert(
 
 void test_verification_header_declarations(void)
 {
+    const lemma_diagnostic_stage diagnostic_stages[] = {
+        LEMMA_DIAGNOSTIC_STAGE_JOB,
+        LEMMA_DIAGNOSTIC_STAGE_PARSING,
+        LEMMA_DIAGNOSTIC_STAGE_RTL_VALIDATION_ELABORATION,
+        LEMMA_DIAGNOSTIC_STAGE_CIRCUIT_IR,
+        LEMMA_DIAGNOSTIC_STAGE_PROPERTY_MODEL,
+        LEMMA_DIAGNOSTIC_STAGE_PROOF_MODEL,
+        LEMMA_DIAGNOSTIC_STAGE_PROOF_EXECUTION
+    };
     const unsigned char source_data[] = "module top; endmodule";
     const unsigned char parameter_bytes[] = {0x03U};
     const lemma_parameter_override parameter = {
@@ -51,7 +60,7 @@ void test_verification_header_declarations(void)
         1U
     };
     const lemma_diagnostic diagnostic = {
-        LEMMA_DIAGNOSTIC_STAGE_PARSE,
+        LEMMA_DIAGNOSTIC_STAGE_PARSING,
         LEMMA_DIAGNOSTIC_SEVERITY_ERROR,
         "parse-error",
         "invalid syntax",
@@ -83,7 +92,7 @@ void test_verification_header_declarations(void)
 
     TEST_ASSERT_EQUAL_UINT(1U, job.source_count);
     TEST_ASSERT_EQUAL_STRING("WIDTH", job.parameter_overrides[0].name);
-    TEST_ASSERT_EQUAL(LEMMA_DIAGNOSTIC_STAGE_PARSE, diagnostic.stage);
+    TEST_ASSERT_EQUAL(LEMMA_DIAGNOSTIC_STAGE_PARSING, diagnostic.stage);
     TEST_ASSERT_TRUE(diagnostic.has_span);
     TEST_ASSERT_EQUAL_UINT(13U, diagnostic.span.end_byte);
     TEST_ASSERT_NULL(job_diagnostic.source_name);
@@ -92,4 +101,14 @@ void test_verification_header_declarations(void)
     TEST_ASSERT_EQUAL(LEMMA_PROOF_OUTCOME_INCONCLUSIVE, proof.outcome);
     TEST_ASSERT_EQUAL(LEMMA_JOB_STATUS_REJECTED, result.status);
     TEST_ASSERT_NULL(result.proof);
+
+    for (size_t i = 0U;
+         i < sizeof(diagnostic_stages) / sizeof(diagnostic_stages[0]);
+         ++i) {
+        for (size_t j = i + 1U;
+             j < sizeof(diagnostic_stages) / sizeof(diagnostic_stages[0]);
+             ++j) {
+            TEST_ASSERT_TRUE(diagnostic_stages[i] != diagnostic_stages[j]);
+        }
+    }
 }
