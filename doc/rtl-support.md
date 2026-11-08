@@ -29,6 +29,14 @@ Assignment right-hand sides
 must be simple signal references; expressions, selects, constants, and other
 non-signal forms are outside this profile.
 
+An ANSI port may also be written as a bare identifier after a fully specified
+supported port declaration, for example `input logic signed [3:0] a, b`. The
+bare identifier inherits the effective direction, net/data type, signedness,
+and packed dimensions of the preceding port; consecutive bare identifiers
+continue to inherit those attributes. Partial omissions, such as specifying a
+direction but omitting a required `wire`/`logic` type, are outside this profile
+and must be rejected.
+
 Parameters and parameter overrides, hierarchy, generate constructs,
 procedural logic, internal declarations, and all other module items are outside
 this slice and must be rejected rather than omitted from the circuit IR. The

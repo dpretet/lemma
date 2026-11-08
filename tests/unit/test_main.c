@@ -1,53 +1,114 @@
 #include "unity.h"
 
-// Confirm valid syntax produces a tree without parser errors.
-void test_parses_valid_systemverilog(void);
-// Confirm malformed syntax is recorded as a tree-sitter error.
-void test_reports_malformed_systemverilog(void);
-// Build IR for a scalar direct-alias fixture in the initial alias profile.
-void test_frontend_builds_scalar_alias_fixture_ir(void);
-// Preserve widths and signedness for the profile's vector alias fixtures.
-void test_frontend_builds_signed_and_unsigned_vector_alias_fixture_ir(void);
-// Comments are trivia throughout a valid alias module and preserve its IR.
-void test_frontend_ignores_comments_around_alias_module(void);
-// Reject malformed source during parsing, before RTL validation or IR.
-void test_frontend_rejects_malformed_source_at_parse_stage(void);
-// Reject constructs outside the initial scalar/vector alias profile.
-void test_frontend_rejects_out_of_profile_constructs(void);
-// Reject a flat design containing more than one module.
-void test_frontend_rejects_multiple_modules(void);
-// Reject a design when the requested top module is not present.
-void test_frontend_requires_selected_flat_module(void);
+//--------------------------------------------------------
+// Test that the Tree-sitter parser returns an owned handle for valid syntax.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_parser_accepts_valid_module_source(void);
+//--------------------------------------------------------
+// Test that malformed module syntax is rejected with a parsing diagnostic.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_parser_rejects_malformed_module_source(void);
+//--------------------------------------------------------
+// Test that a null source buffer is rejected before parser setup.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_parser_rejects_null_source_buffer(void);
+//--------------------------------------------------------
+// Test that the scalar direct-alias fixture lowers to the expected circuit.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_builds_scalar_alias_fixture(void);
+//--------------------------------------------------------
+// Test that the vector alias fixture preserves width and signedness.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_builds_signed_vector_alias_fixture(void);
+//--------------------------------------------------------
+// Test that bare ANSI ports inherit fully specified preceding attributes.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_inherits_complete_ansi_port_attributes(void);
+//--------------------------------------------------------
+// Test that unsupported RTL constructs are rejected during elaboration.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_rejects_unsupported_constructs(void);
+//--------------------------------------------------------
+// Test that syntax extraction visits grouped declarations and nested statements.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_visits_module_declarations_and_process_statements(void);
+//--------------------------------------------------------
+// Test that syntax visitor stop and failure actions end traversal immediately.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_syntax_visitor_stops_and_fails_immediately(void);
+
+//--------------------------------------------------------
 // Check arena growth, reset-based reuse, and preservation of prior data.
+//
+// @returns: None.
+//--------------------------------------------------------
 void test_arena_grows_without_invalidating_prior_allocations(void);
+//--------------------------------------------------------
 // Exercise record declarations from the public trace header.
+//
+// @returns: None.
+//--------------------------------------------------------
 void test_trace_declarations(void);
+//--------------------------------------------------------
 // Exercise record and function declarations from the verification header.
+//
+// @returns: None.
+//--------------------------------------------------------
 void test_verification_header_declarations(void);
 
-// Unity setup hook; these tests currently need no per-test initialization.
+//--------------------------------------------------------
+// Initialize test state; these tests currently need no per-test setup.
+//
+// @returns: None.
+//--------------------------------------------------------
 void setUp(void)
 {
 }
 
-// Unity teardown hook; each test releases any resources it creates itself.
+//--------------------------------------------------------
+// Tear down test state; each test releases its own resources.
+//
+// @returns: None.
+//--------------------------------------------------------
 void tearDown(void)
 {
 }
 
-// Register and run the unit tests; their registration order is not semantic.
+//--------------------------------------------------------
+// Register and run the unit tests; registration order is not semantic.
+//
+// @returns: Unity's test-runner status.
+//--------------------------------------------------------
 int main(void)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_parses_valid_systemverilog);
-    RUN_TEST(test_reports_malformed_systemverilog);
-    RUN_TEST(test_frontend_builds_scalar_alias_fixture_ir);
-    RUN_TEST(test_frontend_builds_signed_and_unsigned_vector_alias_fixture_ir);
-    RUN_TEST(test_frontend_ignores_comments_around_alias_module);
-    RUN_TEST(test_frontend_rejects_malformed_source_at_parse_stage);
-    RUN_TEST(test_frontend_rejects_out_of_profile_constructs);
-    RUN_TEST(test_frontend_rejects_multiple_modules);
-    RUN_TEST(test_frontend_requires_selected_flat_module);
+    RUN_TEST(test_parser_accepts_valid_module_source);
+    RUN_TEST(test_parser_rejects_malformed_module_source);
+    RUN_TEST(test_parser_rejects_null_source_buffer);
+    RUN_TEST(test_frontend_builds_scalar_alias_fixture);
+    RUN_TEST(test_frontend_builds_signed_vector_alias_fixture);
+    RUN_TEST(test_frontend_inherits_complete_ansi_port_attributes);
+    RUN_TEST(test_frontend_rejects_unsupported_constructs);
+    RUN_TEST(test_frontend_visits_module_declarations_and_process_statements);
+    RUN_TEST(test_frontend_syntax_visitor_stops_and_fails_immediately);
     RUN_TEST(test_arena_grows_without_invalidating_prior_allocations);
     RUN_TEST(test_trace_declarations);
     RUN_TEST(test_verification_header_declarations);

@@ -69,6 +69,7 @@ add_library(cargs STATIC third_party/cargs/src/cargs.c)
 target_include_directories(cargs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cargs/include")
 
 add_library(lemma_core STATIC
+    src/frontend/frontend.c
     src/frontend/parser.c
     src/frontend/frontend_ts.c
     src/frontend/frontend_elaboration.c
@@ -104,7 +105,6 @@ if(BUILD_TESTING)
     )
     target_include_directories(lemma_unit_tests PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/unity/src"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/frontend"
     )
     target_compile_definitions(lemma_unit_tests PRIVATE
         LEMMA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
@@ -115,12 +115,12 @@ if(BUILD_TESTING)
     endif()
 
     add_test(NAME lemma_unit_tests COMMAND lemma_unit_tests)
-    add_test(NAME lemma_parse_valid_fixture
-        COMMAND lemma "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/valid.sv")
+    add_test(NAME lemma_builds_frontend_fixture COMMAND lemma
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/rtl/comb_continuous_assign_alias.sv")
     add_test(NAME lemma_accepts_end_of_options_marker COMMAND lemma --
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/valid.sv")
-    add_test(NAME lemma_rejects_malformed_fixture
-        COMMAND lemma "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/malformed.sv")
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/rtl/comb_continuous_assign_alias.sv")
+    add_test(NAME lemma_rejects_malformed_fixture COMMAND lemma
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/malformed.sv")
     set_tests_properties(lemma_rejects_malformed_fixture PROPERTIES WILL_FAIL TRUE)
     add_test(NAME lemma_requires_source_argument COMMAND lemma)
     set_tests_properties(lemma_requires_source_argument PROPERTIES WILL_FAIL TRUE)

@@ -1,29 +1,55 @@
-#include "lemma/parser.h"
+#include "lemma/frontend_parse.h"
 
 #include "unity.h"
 
-// Valid source must produce a tree without parser errors; this checks syntax
-// acceptance only and does not assert RTL-subset support, elaboration, or IR.
-void test_parses_valid_systemverilog(void)
+#include <string.h>
+
+//--------------------------------------------------------
+// Accept a complete module and return a parsed handle while its source lives.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_parser_accepts_valid_module_source(void)
 {
-    static const char source[] = "module smoke(input logic clk); endmodule";
-    TSTree *tree = lemma_parse_source(source, sizeof(source) - 1U);
+    static const char source[] = "module top(input wire a); endmodule";
+    lemma_frontend_diagnostic diagnostic = {0};
+    lemma_parsed_source *parsed = lemma_frontend_parse(
+        source, sizeof(source) - 1U, &diagnostic);
 
-    TEST_ASSERT_NOT_NULL(tree);
-    TEST_ASSERT_FALSE(ts_node_has_error(ts_tree_root_node(tree)));
-
-    ts_tree_delete(tree);
+    TEST_ASSERT_NOT_NULL_MESSAGE(parsed, diagnostic.message);
+    TEST_ASSERT_NULL(diagnostic.code);
+    lemma_parsed_source_destroy(parsed);
 }
 
-// Missing module punctuation remains represented as a tree-sitter error, so
-// callers can detect malformed syntax through the returned tree's root node.
-void test_reports_malformed_systemverilog(void)
+//--------------------------------------------------------
+// Reject malformed syntax at parsing and report a source-located diagnostic.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_parser_rejects_malformed_module_source(void)
 {
-    static const char source[] = "module smoke(input logic clk) endmodule";
-    TSTree *tree = lemma_parse_source(source, sizeof(source) - 1U);
+    static const char source[] = "module broken(input wire a) endmodule";
+    lemma_frontend_diagnostic diagnostic = {0};
+    lemma_parsed_source *parsed = lemma_frontend_parse(
+        source, sizeof(source) - 1U, &diagnostic);
 
-    TEST_ASSERT_NOT_NULL(tree);
-    TEST_ASSERT_TRUE(ts_node_has_error(ts_tree_root_node(tree)));
+    TEST_ASSERT_NULL(parsed);
+    TEST_ASSERT_EQUAL(LEMMA_FRONTEND_STAGE_PARSING, diagnostic.stage);
+    TEST_ASSERT_NOT_NULL(diagnostic.code);
+    TEST_ASSERT_TRUE(diagnostic.has_span);
+}
 
-    ts_tree_delete(tree);
+//--------------------------------------------------------
+// Reject a null input buffer before passing it to Tree-sitter.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_parser_rejects_null_source_buffer(void)
+{
+    lemma_frontend_diagnostic diagnostic = {0};
+    lemma_parsed_source *parsed = lemma_frontend_parse(NULL, 0U, &diagnostic);
+
+    TEST_ASSERT_NULL(parsed);
+    TEST_ASSERT_EQUAL(LEMMA_FRONTEND_STAGE_PARSING, diagnostic.stage);
+    TEST_ASSERT_EQUAL_STRING("parse.invalid_input", diagnostic.code);
 }

@@ -31,18 +31,23 @@ authoritative source and update the note.
 
 - [Repository engineering memory](agentic-memory.md) — accepted rationale and
   boundaries for this memory process.
+- [Agent plan review](agent-plan-review.md) — provisional, optional independent
+  review of task-preparer handoffs before implementation.
 - [SVA placement for MVP](sva-placement.md) — accepted inline-only placement
   decision and boundary for external assertion attachment.
 - [RTL test oracle format](test-oracle-format.md) — accepted test-oracle layers;
   machine-readable format remains open.
 - [Public API and frontend boundaries](api-boundaries.md) — accepted Tree-sitter
   encapsulation, internal stage separation, job/result and proof-status
-  contract, diagnostic layouts/stages, and target selection; target-label
-  encoding and serialization remain open.
+  contract, diagnostic layouts/stages, borrowed module/process syntax visitor
+  with declaration-group/declarator events, nested grammar visitors, CLI entry
+  flow, direct elaboration-to-IR builder handoff, and stack-depth robustness
+  priority; target-label encoding, serialization, two verified frontend
+  acceptance gaps, and traversal mitigation remain open.
 - [Circuit IR storage](circuit-ir-storage.md) — accepted private C storage
   outline using one owning object and array-position IDs, plus the first
-  scalar/vector alias slice and frontend-first implementation order; elaboration
-  handoff and allocator policy remain provisional/open.
+  scalar/vector alias slice, frontend-first implementation order, and direct
+  builder handoff; allocator policy remains open.
 
 The design specifications remain the source of truth. Start with the
 [specification reading guide](../../README.md#specifications);

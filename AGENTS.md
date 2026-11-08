@@ -25,10 +25,29 @@ implemented.
 - Keep functions focused and interfaces small. Prefer straightforward C over
   unnecessary abstraction, hidden state, or unrelated cleanup.
 - Comments in C and header files are mandatory. Every function declaration in a
-  header and every function definition in a C file must have a concise comment
-  describing its purpose. Public and internal API comments must also state
-  relevant valid inputs, ownership/lifetime, and failure behavior; implementation
-  comments must explain non-obvious assumptions, return meanings, and invariants.
+  header and every function definition in a C file, including static helpers,
+  must have a comment in this exact line-comment format immediately before it:
+
+  ```c
+  //--------------------------------------------------------
+  // Concise description of the function's purpose.
+  //
+  // @argument_name: description of this argument.
+  // @another_argument: description of this argument.
+  // @returns: description of the return value.
+  //--------------------------------------------------------
+  ```
+
+  Use the separator line exactly as shown above and below every function
+  comment. Include one `// @name:` line for every argument, using its declared
+  name; omit argument lines for functions without arguments. Every function
+  comment must include `// @returns:`; use `// @returns: None.` for `void`
+  functions. Keep the purpose description concise. Describe valid inputs,
+  ownership/lifetime, and failure behavior where relevant. Return descriptions
+  must explain meaningful values, ownership, and failure results. Comments for
+  public and internal APIs must state the full contract; implementation comments
+  must explain non-obvious assumptions, return meanings, and invariants. Apply
+  the same format to callback typedef documentation and test function prototypes.
   For long or multi-phase functions, add brief comments at meaningful code-block
   boundaries. Do not narrate obvious statements line by line, but do not omit
   comments merely because the function seems self-explanatory.
@@ -140,6 +159,12 @@ For user-authorized C source or test changes, use the project agents by default
 in this order: `task-preparer` → `builder` → `executor-reporter`. The main
 agent coordinates the handoffs and gives each agent the preceding result.
 
+- Before implementation, the main agent may optionally ask `executor-reporter`
+  to independently review the task-preparer handoff when scope, assumptions, or
+  impact warrant another perspective. Provide both the original user request
+  and the handoff. This review checks for material omissions, unsupported
+  assumptions, scope drift, or unresolved decisions; it does not implement code
+  or run validation. The main agent decides how to address its counterpoints.
 - If the task preparer identifies an ambiguity, unresolved design choice, or
   scope change, stop and get the user's alignment before implementation.
 - For a clear task already authorized by the user, do not ask for redundant

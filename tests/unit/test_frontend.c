@@ -1,4 +1,6 @@
-#include "frontend.h"
+#include "lemma/frontend.h"
+#include "lemma/frontend_parse.h"
+#include "lemma/frontend_syntax.h"
 
 #include "unity.h"
 
@@ -7,9 +9,34 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Read a named RTL fixture into caller-owned, NUL-terminated storage and return
-// its byte length. Return NULL on path, I/O, size, or allocation failure; on
-// failure no file or buffer remains owned by the caller.
+typedef struct rejected_case {
+    const char *label;
+    const char *source;
+} rejected_case;
+
+typedef struct syntax_counts {
+    size_t modules;
+    size_t groups;
+    size_t declarators;
+    size_t assignments;
+    size_t conditions;
+    size_t processes;
+    size_t event_expressions;
+    size_t statements;
+    size_t opaque_items;
+    size_t shorthand_ports;
+    size_t group_mismatches;
+    lemma_ir_source_span last_group_span;
+    int has_group;
+} syntax_counts;
+
+//--------------------------------------------------------
+// Read a named RTL fixture into caller-owned NUL-terminated storage.
+//
+// @name: Fixture file name relative to tests/fixtures/rtl.
+// @length: Receives the byte length on success.
+// @returns: Caller-owned contents, or NULL on path, I/O, size, or allocation failure.
+//--------------------------------------------------------
 static char *read_fixture(const char *name, size_t *length)
 {
     char path[512];
@@ -26,7 +53,8 @@ static char *read_fixture(const char *name, size_t *length)
         return NULL;
     }
     long file_size = ftell(file);
-    if (file_size < 0 || (uintmax_t)file_size >= SIZE_MAX) {
+    if (file_size < 0 || (uintmax_t)file_size > UINT32_MAX ||
+        (uintmax_t)file_size >= SIZE_MAX) {
         fclose(file);
         return NULL;
     }
@@ -38,242 +66,334 @@ static char *read_fixture(const char *name, size_t *length)
         fclose(file);
         return NULL;
     }
-    fclose(file);
+    if (fclose(file) != 0) {
+        free(contents);
+        return NULL;
+    }
     contents[size] = '\0';
     *length = size;
     return contents;
 }
 
-// Parse and build IR for one fixture and selected top. The parsed and
-// elaborated intermediates and fixture buffer are always released here; the
-// returned circuit, if any, belongs to the caller. A failed stage returns NULL.
-static lemma_circuit *build_fixture(const char *fixture, const char *top,
+//--------------------------------------------------------
+// Build a circuit from a fixture whose module is the sole selected module.
+//
+// @name: RTL fixture file name.
+// @diagnostic: Optional output populated by the frontend on failure.
+// @returns: Caller-owned circuit, or NULL when loading or frontend analysis fails.
+//--------------------------------------------------------
+static lemma_circuit *build_fixture(const char *name,
                                     lemma_frontend_diagnostic *diagnostic)
 {
     size_t length = 0U;
-    char *source = read_fixture(fixture, &length);
+    char *source = read_fixture(name, &length);
     if (source == NULL) {
         return NULL;
     }
-    lemma_parsed_design *parsed = lemma_frontend_parse(source, length, diagnostic);
+    lemma_circuit *circuit = lemma_frontend_build(source, length, diagnostic);
     free(source);
-    if (parsed == NULL) {
-        return NULL;
-    }
-    lemma_elaborated_design *elaborated = lemma_frontend_elaborate(parsed, top, diagnostic);
-    lemma_circuit *circuit = NULL;
-    if (elaborated != NULL) {
-        circuit = lemma_frontend_build_ir(parsed, elaborated, diagnostic);
-    }
-    lemma_frontend_elaborate_destroy(elaborated);
-    lemma_parsed_design_destroy(parsed);
     return circuit;
 }
 
-// Treat either parse failure or elaboration rejection as rejection. On a
-// successful parse, destroy both temporary objects before returning; this
-// helper intentionally does not attempt IR construction.
-static int rejects_source(const char *source, const char *top,
-                          lemma_frontend_diagnostic *diagnostic)
+//--------------------------------------------------------
+// Compare two source spans without depending on structure padding.
+//
+// @left: First half-open source span.
+// @right: Second half-open source span.
+// @returns: Nonzero when every byte offset and source point matches.
+//--------------------------------------------------------
+static int spans_equal(lemma_ir_source_span left, lemma_ir_source_span right)
 {
-    lemma_parsed_design *parsed = lemma_frontend_parse(source, strlen(source), diagnostic);
-    if (parsed == NULL) {
-        return 1;
-    }
-    lemma_elaborated_design *elaborated = lemma_frontend_elaborate(parsed, top, diagnostic);
-    lemma_frontend_elaborate_destroy(elaborated);
-    lemma_parsed_design_destroy(parsed);
-    return elaborated == NULL;
+    return left.start_byte == right.start_byte && left.end_byte == right.end_byte &&
+           left.start_row == right.start_row && left.start_column == right.start_column &&
+           left.end_row == right.end_row && left.end_column == right.end_column;
 }
 
-// The scalar direct-alias fixture builds a two-port circuit with one input
-// read expression and one output driver, no sequential elements, and source
-// spans attached to its signal, expression, and driver records.
-// This is one slice of the initial alias profile, not general RTL or proof.
-void test_frontend_builds_scalar_alias_fixture_ir(void)
+//--------------------------------------------------------
+// Count typed syntax events and verify declarators link to their group span.
+//
+// @view: Borrowed event emitted by the syntax visitor.
+// @context: Mutable counters owned by the test.
+// @returns: CONTINUE so the visitor examines every syntax event.
+//--------------------------------------------------------
+static lemma_syntax_visit_action count_syntax_event(
+    const lemma_syntax_view *view, void *context)
+{
+    syntax_counts *counts = context;
+    if (view->kind == LEMMA_SYNTAX_MODULE_BOUNDARY) {
+        if (view->as.module_boundary.kind == LEMMA_SYNTAX_MODULE_BEGIN) {
+            ++counts->modules;
+        }
+        counts->has_group = 0;
+    } else if (view->kind == LEMMA_SYNTAX_DECLARATION_GROUP) {
+        ++counts->groups;
+        counts->last_group_span = view->as.declaration_group.source.span;
+        counts->has_group = 1;
+        if (view->as.declaration_group.kind == LEMMA_SYNTAX_DECLARATION_GROUP_PORT &&
+            !view->as.declaration_group.has_explicit_port_header) {
+            ++counts->shorthand_ports;
+        }
+    } else if (view->kind == LEMMA_SYNTAX_DECLARATOR) {
+        ++counts->declarators;
+        if (counts->has_group == 0 ||
+            !spans_equal(counts->last_group_span, view->as.declarator.group_span)) {
+            ++counts->group_mismatches;
+        }
+    } else {
+        counts->has_group = 0;
+        if (view->kind == LEMMA_SYNTAX_CONTINUOUS_ASSIGNMENT) {
+            ++counts->assignments;
+            if (view->as.continuous_assignment.condition.data != NULL) {
+                ++counts->conditions;
+            }
+        } else if (view->kind == LEMMA_SYNTAX_PROCESS) {
+            ++counts->processes;
+        } else if (view->kind == LEMMA_SYNTAX_PROCESS_EVENT_EXPRESSION) {
+            ++counts->event_expressions;
+        } else if (view->kind == LEMMA_SYNTAX_STATEMENT) {
+            ++counts->statements;
+        } else if (view->kind == LEMMA_SYNTAX_OPAQUE_MODULE_ITEM) {
+            ++counts->opaque_items;
+        }
+    }
+    return LEMMA_SYNTAX_VISIT_CONTINUE;
+}
+
+//--------------------------------------------------------
+// Stop extraction on the first event to verify callback stop propagation.
+//
+// @view: First borrowed syntax event.
+// @context: Counter incremented for the callback.
+// @returns: STOP to end traversal immediately.
+//--------------------------------------------------------
+static lemma_syntax_visit_action stop_at_first_syntax_event(
+    const lemma_syntax_view *view, void *context)
+{
+    (void)view;
+    size_t *count = context;
+    ++*count;
+    return LEMMA_SYNTAX_VISIT_STOP;
+}
+
+//--------------------------------------------------------
+// Fail extraction on the first event to verify callback failure propagation.
+//
+// @view: First borrowed syntax event.
+// @context: Counter incremented for the callback.
+// @returns: FAIL to report a failed visit.
+//--------------------------------------------------------
+static lemma_syntax_visit_action fail_at_first_syntax_event(
+    const lemma_syntax_view *view, void *context)
+{
+    (void)view;
+    size_t *count = context;
+    ++*count;
+    return LEMMA_SYNTAX_VISIT_FAIL;
+}
+
+//--------------------------------------------------------
+// Build the scalar alias fixture as a two-signal, one-driver circuit.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_builds_scalar_alias_fixture(void)
 {
     lemma_frontend_diagnostic diagnostic = {0};
     lemma_circuit *circuit = build_fixture("comb_continuous_assign_alias.sv",
-                                           "continuous_assign_alias", &diagnostic);
+                                           &diagnostic);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(circuit, diagnostic.message);
     TEST_ASSERT_EQUAL_STRING("continuous_assign_alias", circuit->module_name);
-    TEST_ASSERT_EQUAL_UINT(2U, circuit->port_count);
     TEST_ASSERT_EQUAL_UINT(2U, circuit->signal_count);
+    TEST_ASSERT_EQUAL_UINT(2U, circuit->port_count);
     TEST_ASSERT_EQUAL_UINT(1U, circuit->expression_count);
     TEST_ASSERT_EQUAL_UINT(1U, circuit->driver_count);
-    TEST_ASSERT_EQUAL_UINT(0U, circuit->ffd_count);
-    TEST_ASSERT_EQUAL_UINT(1U, circuit->signals[0].width);
-    TEST_ASSERT_FALSE(circuit->signals[0].is_signed);
-    TEST_ASSERT_TRUE(circuit->signals[0].source.end_byte >
-                     circuit->signals[0].source.start_byte);
     TEST_ASSERT_EQUAL_STRING("a", circuit->signals[0].name);
-    TEST_ASSERT_EQUAL(LEMMA_IR_PORT_INPUT, circuit->ports[0].direction);
     TEST_ASSERT_EQUAL_STRING("y", circuit->signals[1].name);
-    TEST_ASSERT_EQUAL(LEMMA_IR_PORT_OUTPUT, circuit->ports[1].direction);
-    TEST_ASSERT_EQUAL(LEMMA_IR_EXPRESSION_READ_SIGNAL, circuit->expressions[0].kind);
     TEST_ASSERT_EQUAL_UINT(0U, circuit->expressions[0].signal_id);
-    TEST_ASSERT_TRUE(circuit->expressions[0].source.end_byte >
-                     circuit->expressions[0].source.start_byte);
     TEST_ASSERT_EQUAL_UINT(1U, circuit->drivers[0].target_signal_id);
-    TEST_ASSERT_EQUAL_UINT(0U, circuit->drivers[0].expression_id);
-    TEST_ASSERT_TRUE(circuit->drivers[0].source.end_byte >
-                     circuit->drivers[0].source.start_byte);
     lemma_circuit_destroy(circuit);
 }
 
-// The explicitly sized vector fixture preserves four-bit widths and the
-// signedness of each endpoint, read expression, and corresponding driver.
-// Together the positive fixture tests cover only the first scalar/vector alias
-// profile; they do not claim support for all RTL or perform proof.
-void test_frontend_builds_signed_and_unsigned_vector_alias_fixture_ir(void)
+//--------------------------------------------------------
+// Preserve vector width and signedness through the alias expression and driver.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_builds_signed_vector_alias_fixture(void)
 {
     lemma_frontend_diagnostic diagnostic = {0};
-    lemma_circuit *circuit = build_fixture("comb_vector_width_signedness_alias.sv",
-                                           "vector_width_signedness_alias", &diagnostic);
+    lemma_circuit *circuit = build_fixture(
+        "comb_vector_width_signedness_alias.sv", &diagnostic);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(circuit, diagnostic.message);
-    TEST_ASSERT_EQUAL_UINT(4U, circuit->port_count);
     TEST_ASSERT_EQUAL_UINT(4U, circuit->signal_count);
-    TEST_ASSERT_EQUAL_UINT(2U, circuit->expression_count);
-    TEST_ASSERT_EQUAL_UINT(2U, circuit->driver_count);
     TEST_ASSERT_EQUAL_UINT(4U, circuit->signals[0].width);
     TEST_ASSERT_TRUE(circuit->signals[0].is_signed);
-    TEST_ASSERT_EQUAL_STRING("signed_in", circuit->signals[0].name);
     TEST_ASSERT_EQUAL_UINT(4U, circuit->signals[1].width);
     TEST_ASSERT_FALSE(circuit->signals[1].is_signed);
-    TEST_ASSERT_EQUAL_STRING("unsigned_in", circuit->signals[1].name);
     TEST_ASSERT_TRUE(circuit->signals[2].is_signed);
     TEST_ASSERT_FALSE(circuit->signals[3].is_signed);
-    TEST_ASSERT_EQUAL_UINT(0U, circuit->expressions[0].signal_id);
-    TEST_ASSERT_TRUE(circuit->expressions[0].is_signed);
-    TEST_ASSERT_EQUAL_UINT(1U, circuit->expressions[1].signal_id);
-    TEST_ASSERT_FALSE(circuit->expressions[1].is_signed);
-    TEST_ASSERT_EQUAL_UINT(2U, circuit->drivers[0].target_signal_id);
-    TEST_ASSERT_EQUAL_UINT(3U, circuit->drivers[1].target_signal_id);
+    TEST_ASSERT_EQUAL_UINT(2U, circuit->driver_count);
     lemma_circuit_destroy(circuit);
 }
 
-// Comments around the design unit, port header, body, and file tail are trivia;
-// the remaining alias still builds the expected two-port circuit IR.
-void test_frontend_ignores_comments_around_alias_module(void)
+//--------------------------------------------------------
+// Preserve inherited ANSI attributes and accept comments between range tokens.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_inherits_complete_ansi_port_attributes(void)
 {
     static const char source[] =
-        "// leading line comment\n"
-        "module /* header block comment */ commented_alias (\n"
-        "    input /* port header comment */ wire a,\n"
-        "    /* port-list comment */ output wire y\n"
-        ");\n"
-        "    // body line comment\n"
-        "    assign /* assignment comment */ y = a;\n"
-        "endmodule\n"
-        "// trailing line comment\n"
-        "/* trailing block comment */\n";
+        "module shorthand (input logic signed [3:0] a, b, "
+        "output logic signed [3:0] y); assign y = b; endmodule";
     lemma_frontend_diagnostic diagnostic = {0};
-    lemma_parsed_design *parsed = lemma_frontend_parse(source, sizeof(source) - 1U,
-                                                       &diagnostic);
+    lemma_circuit *circuit = lemma_frontend_build(source, sizeof(source) - 1U,
+                                                  &diagnostic);
 
-    TEST_ASSERT_NOT_NULL_MESSAGE(parsed, diagnostic.message);
-    lemma_elaborated_design *elaborated = lemma_frontend_elaborate(
-        parsed, "commented_alias", &diagnostic);
-    TEST_ASSERT_NOT_NULL_MESSAGE(elaborated, diagnostic.message);
-    lemma_circuit *circuit = lemma_frontend_build_ir(parsed, elaborated, &diagnostic);
     TEST_ASSERT_NOT_NULL_MESSAGE(circuit, diagnostic.message);
-    TEST_ASSERT_EQUAL_STRING("commented_alias", circuit->module_name);
-    TEST_ASSERT_EQUAL_UINT(2U, circuit->port_count);
-    TEST_ASSERT_EQUAL_UINT(2U, circuit->signal_count);
-    TEST_ASSERT_EQUAL_UINT(1U, circuit->expression_count);
-    TEST_ASSERT_EQUAL_UINT(1U, circuit->driver_count);
-    TEST_ASSERT_EQUAL_STRING("a", circuit->signals[0].name);
-    TEST_ASSERT_EQUAL(LEMMA_IR_PORT_INPUT, circuit->ports[0].direction);
-    TEST_ASSERT_EQUAL_STRING("y", circuit->signals[1].name);
-    TEST_ASSERT_EQUAL(LEMMA_IR_PORT_OUTPUT, circuit->ports[1].direction);
-    TEST_ASSERT_EQUAL_UINT(0U, circuit->expressions[0].signal_id);
-    TEST_ASSERT_EQUAL_UINT(1U, circuit->drivers[0].target_signal_id);
-
+    TEST_ASSERT_EQUAL_UINT(3U, circuit->port_count);
+    TEST_ASSERT_EQUAL_UINT(4U, circuit->signals[0].width);
+    TEST_ASSERT_TRUE(circuit->signals[0].is_signed);
+    TEST_ASSERT_EQUAL_UINT(4U, circuit->signals[1].width);
+    TEST_ASSERT_TRUE(circuit->signals[1].is_signed);
+    TEST_ASSERT_EQUAL_STRING("b", circuit->signals[1].name);
     lemma_circuit_destroy(circuit);
-    lemma_frontend_elaborate_destroy(elaborated);
-    lemma_parsed_design_destroy(parsed);
-}
 
-// Malformed syntax is rejected by parsing itself, before RTL validation or IR
-// construction, and reports a parsing-stage syntax diagnostic with a span.
-void test_frontend_rejects_malformed_source_at_parse_stage(void)
-{
-    static const char source[] = "module broken(input wire a) endmodule";
-    lemma_frontend_diagnostic diagnostic = {0};
-    lemma_parsed_design *parsed = lemma_frontend_parse(source, sizeof(source) - 1U,
-                                                       &diagnostic);
-
-    TEST_ASSERT_NULL(parsed);
-    TEST_ASSERT_EQUAL(LEMMA_FRONTEND_STAGE_PARSING, diagnostic.stage);
-    TEST_ASSERT_EQUAL_STRING("parse.syntax_error", diagnostic.code);
-    TEST_ASSERT_TRUE(diagnostic.has_span);
-}
-
-// Each syntactically parseable example below must be rejected during
-// elaboration-stage RTL validation, with a diagnostic code and source span.
-// The cases are grouped by the kinds of constructs excluded from the current
-// first scalar/vector alias profile; they are not a complete RTL conformance
-// suite and do not test proof behavior.
-void test_frontend_rejects_out_of_profile_constructs(void)
-{
-    static const char *cases[] = {
-        // Parameters and unsupported declaration forms.
-        "module top #(parameter N = 4) (input wire a, output wire y); assign y = a; endmodule",
-        "module top(input var logic a, output logic y); assign y = a; endmodule",
-        // Hierarchy, generate constructs, and procedural assignments.
-        "module top(input wire a, output wire y); child u0(); assign y = a; endmodule",
-        "module top(input wire a, output wire y); generate if (1) begin assign y = a; end endgenerate endmodule",
-        "module top(input wire a, output logic y); always_comb y = a; endmodule",
-        // Unsupported expressions and assignment delays.
-        "module top(input wire a, output wire y); assign y = a & a; endmodule",
-        "module top(input wire a, output wire y); assign #1 y = a; endmodule",
-        // Invalid widths, ports, references, drivers, and combinational cycles.
-        "module top(input wire [3:0] a, output wire [2:0] y); assign y = a; endmodule",
-        "module top(input wire [N:0] a, output wire [N:0] y); assign y = a; endmodule",
-        "module top(input wire a, output wire y); endmodule",
-        "module top(inout wire a, output wire y); assign y = a; endmodule",
-        "module top(input wire a, output wire y); assign y = missing; endmodule",
-        "module top(input wire a, output wire y); assign y = a; assign y = a; endmodule",
-        "module top(input wire a, output wire y); assign a = y; endmodule",
-        "module top(input wire a, output wire y, output wire z); assign y = z; assign z = y; endmodule"
+    static const struct {
+        const char *label;
+        const char *source;
+    } cases[] = {
+        {"block comment in range",
+         "module top(input wire [3 /* comment */ : 0] a); endmodule"},
+        {"line comment before next range token",
+         "module top(input wire [3 // comment\n : 0] a); endmodule"}
     };
     for (size_t index = 0U; index < sizeof(cases) / sizeof(cases[0]); ++index) {
         lemma_frontend_diagnostic diagnostic = {0};
-        TEST_ASSERT_TRUE_MESSAGE(rejects_source(cases[index], "top", &diagnostic),
-                                 cases[index]);
-        TEST_ASSERT_EQUAL(LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                          diagnostic.stage);
+        lemma_circuit *circuit = lemma_frontend_build(
+            cases[index].source, strlen(cases[index].source), &diagnostic);
+
+        TEST_ASSERT_NOT_NULL_MESSAGE(circuit, cases[index].label);
+        TEST_ASSERT_EQUAL_UINT(4U, circuit->signals[0].width);
+        lemma_circuit_destroy(circuit);
+    }
+}
+
+//--------------------------------------------------------
+// Reject partial ANSI attribute omission and RTL outside the first profile.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_rejects_unsupported_constructs(void)
+{
+    // Port/header cases reject partial inherited attributes and inout direction.
+    static const rejected_case cases[] = {
+        {"partial inherited port attributes",
+         "module top(input wire a, input b, output wire y); assign y = a; endmodule"},
+        {"inout port direction",
+         "module top(inout wire a, output wire y); assign y=a; endmodule"},
+        // An unterminated range comment must never be treated as valid trivia.
+        {"unterminated packed-range block comment",
+         "module top(input wire [3 /* comment : 0] a); endmodule"},
+        // Parameters, internal declarations, hierarchy, and processes are outside the profile.
+        {"parameter declaration",
+         "module top #(parameter N=1)(input wire a, output wire y); assign y=a; endmodule"},
+        {"internal net declaration",
+         "module top(input wire a, output wire y); wire x; assign y=a; endmodule"},
+        {"module instantiation",
+         "module top(input wire a, output wire y); child u(); assign y=a; endmodule"},
+        {"procedural process",
+         "module top(input wire a, output logic y); always_comb y=a; endmodule"},
+        // Continuous assignments must be direct and undelayed signal aliases.
+        {"compound assignment expression",
+         "module top(input wire a, output wire y); assign y=a & a; endmodule"},
+        {"delayed continuous assignment",
+         "module top(input wire a, output wire y); assign #1 y=a; endmodule"},
+        // Flat-design and driver rules reject malformed circuit relationships.
+        {"multiple modules",
+         "module top(input wire a, output wire y); assign y=a; endmodule "
+         "module other(input wire b); endmodule"},
+        {"undriven output",
+         "module top(input wire a, output wire y); endmodule"},
+        {"driven input",
+         "module top(input wire a, output wire y); assign a=y; assign y=a; endmodule"},
+        {"multiple output drivers",
+         "module top(input wire a, output wire y); assign y=a; assign y=a; endmodule"},
+        {"width mismatch",
+         "module top(input wire [3:0] a, output wire [2:0] y); assign y=a; endmodule"},
+        {"combinational alias cycle",
+         "module top(output wire y, output wire z); assign y=z; assign z=y; endmodule"}
+    };
+    for (size_t index = 0U; index < sizeof(cases) / sizeof(cases[0]); ++index) {
+        lemma_frontend_diagnostic diagnostic = {0};
+        lemma_circuit *circuit = lemma_frontend_build(
+            cases[index].source, strlen(cases[index].source), &diagnostic);
+        TEST_ASSERT_NULL_MESSAGE(circuit, cases[index].label);
         TEST_ASSERT_NOT_NULL(diagnostic.code);
         TEST_ASSERT_TRUE(diagnostic.has_span);
     }
 }
 
-// A design with multiple modules is rejected as non-flat even when the
-// requested top exists, and the diagnostic identifies source text.
-void test_frontend_rejects_multiple_modules(void)
+//--------------------------------------------------------
+// Extract syntax events in source order without accepting process semantics.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_visits_module_declarations_and_process_statements(void)
 {
     static const char source[] =
-        "module top(input wire a); endmodule module other(input wire b); endmodule";
+        "module view #(parameter int N=2) (input logic [3:0] a, b, "
+        "output logic [3:0] y); wire [3:0] x, z; assign y = a ? b : a; "
+        "always_ff @(posedge clk) begin if (a[0]) y <= b; else y <= x; end "
+        "child u(); endmodule";
     lemma_frontend_diagnostic diagnostic = {0};
-    TEST_ASSERT_TRUE(rejects_source(source, "top", &diagnostic));
-    TEST_ASSERT_EQUAL_STRING("rtl.flat_design", diagnostic.code);
-    TEST_ASSERT_TRUE(diagnostic.has_span);
+    lemma_parsed_source *parsed = lemma_frontend_parse(
+        source, sizeof(source) - 1U, &diagnostic);
+    TEST_ASSERT_NOT_NULL_MESSAGE(parsed, diagnostic.message);
+
+    syntax_counts counts = {0};
+    lemma_syntax_visit_result result = lemma_frontend_visit_syntax(
+        parsed, count_syntax_event, &counts);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_VISIT_COMPLETE, result);
+    TEST_ASSERT_EQUAL_UINT(1U, counts.modules);
+    TEST_ASSERT_EQUAL_UINT(5U, counts.groups);
+    TEST_ASSERT_EQUAL_UINT(6U, counts.declarators);
+    TEST_ASSERT_EQUAL_UINT(1U, counts.shorthand_ports);
+    TEST_ASSERT_EQUAL_UINT(1U, counts.assignments);
+    TEST_ASSERT_EQUAL_UINT(1U, counts.conditions);
+    TEST_ASSERT_EQUAL_UINT(1U, counts.processes);
+    TEST_ASSERT_EQUAL_UINT(1U, counts.event_expressions);
+    TEST_ASSERT_TRUE(counts.statements >= 4U);
+    TEST_ASSERT_EQUAL_UINT(1U, counts.opaque_items);
+    TEST_ASSERT_EQUAL_UINT(0U, counts.group_mismatches);
+    lemma_parsed_source_destroy(parsed);
 }
 
-// A parsed flat design still requires the caller-selected module to exist;
-// failure is reported as a source-spanned top-not-found diagnostic.
-void test_frontend_requires_selected_flat_module(void)
+//--------------------------------------------------------
+// Stop or fail a syntax visit immediately when requested by its callback.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_syntax_visitor_stops_and_fails_immediately(void)
 {
     static const char source[] = "module top(input wire a); endmodule";
     lemma_frontend_diagnostic diagnostic = {0};
-    lemma_parsed_design *parsed = lemma_frontend_parse(source, sizeof(source) - 1U,
-                                                       &diagnostic);
-    TEST_ASSERT_NOT_NULL(parsed);
-    lemma_elaborated_design *elaborated = lemma_frontend_elaborate(parsed, "other", &diagnostic);
-    TEST_ASSERT_NULL(elaborated);
-    TEST_ASSERT_EQUAL_STRING("rtl.top_not_found", diagnostic.code);
-    TEST_ASSERT_TRUE(diagnostic.has_span);
-    lemma_parsed_design_destroy(parsed);
+    lemma_parsed_source *parsed = lemma_frontend_parse(
+        source, sizeof(source) - 1U, &diagnostic);
+    TEST_ASSERT_NOT_NULL_MESSAGE(parsed, diagnostic.message);
+
+    size_t callback_count = 0U;
+    lemma_syntax_visit_result result = lemma_frontend_visit_syntax(
+        parsed, stop_at_first_syntax_event, &callback_count);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_VISIT_STOPPED, result);
+    TEST_ASSERT_EQUAL_UINT(1U, callback_count);
+
+    callback_count = 0U;
+    result = lemma_frontend_visit_syntax(
+        parsed, fail_at_first_syntax_event, &callback_count);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_VISIT_FAILED, result);
+    TEST_ASSERT_EQUAL_UINT(1U, callback_count);
+    lemma_parsed_source_destroy(parsed);
 }

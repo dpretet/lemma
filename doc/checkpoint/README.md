@@ -7,8 +7,9 @@ the checkpoint marked **ACTIVE** below.
 
 ## Active checkpoint
 
-- [`api_ir_flow_handoff.md`](api_ir_flow_handoff.md) — **ACTIVE**, updated
-  2026-11-03. Current frontend and circuit-IR status, scope, and next priority.
+- [`../../FRONTEND_API_HANDOFF.md`](../../FRONTEND_API_HANDOFF.md) — **ACTIVE**,
+  updated 2026-11-08. Frontend API choices, implementation status, and review
+  follow-up.
 
 ## Historical checkpoints
 
@@ -17,6 +18,10 @@ status, open questions, and suggested next steps may be stale. Do not use them
 to infer the current state or direction of the project; consult them only when
 historical context is specifically useful.
 
+- [`frontend_header_reset_handoff.md`](frontend_header_reset_handoff.md) —
+  header-reset status before the nested-extractor API handoff.
+- [`api_ir_flow_handoff.md`](api_ir_flow_handoff.md) — frontend implementation
+  and circuit-IR status before the 2026-11-05 header reset.
 - [`architecture_checkpoint1.md`](architecture_checkpoint1.md) — initial
   architecture and scope discussion.
 - [`architecture_checkpoint2.md`](architecture_checkpoint2.md) — formal

@@ -1,4 +1,4 @@
-#include "lemma/parser.h"
+#include "lemma/frontend.h"
 #include "cargs.h"
 
 #include <stdint.h>
@@ -6,14 +6,25 @@
 #include <stdlib.h>
 #include <string.h>
 
+//--------------------------------------------------------
 // Print the command-line form expected by the parser-stage executable.
+//
+// @returns: None.
+//--------------------------------------------------------
 static void print_usage(void)
 {
     fprintf(stderr, "usage: lemma <source.sv>\n");
 }
 
-// Read a file into owned NUL-terminated storage, returning its byte length.
-// Reject files that cannot fit the parser's uint32_t input-length limit.
+//--------------------------------------------------------
+// Read a file into caller-owned NUL-terminated storage, within the parser's
+// input-length limit.
+//
+// @path: Path of the file to read.
+// @length: Receives the file byte length on success.
+// @returns: Caller-owned file contents on success, or NULL on file, size, read,
+//     or allocation failure; the caller must free a returned buffer.
+//--------------------------------------------------------
 static char *read_file(const char *path, size_t *length)
 {
     FILE *file = fopen(path, "rb");
@@ -59,25 +70,34 @@ static char *read_file(const char *path, size_t *length)
     return contents;
 }
 
-// Find the first syntax error or missing node in source order, if any.
-static TSNode first_syntax_error(TSNode node)
+//--------------------------------------------------------
+// Render a frontend diagnostic for the source file.
+//
+// @path: Source path used by the CLI.
+// @diagnostic: Diagnostic returned by the frontend entry point.
+// @returns: None.
+//--------------------------------------------------------
+static void print_frontend_diagnostic(const char *path,
+                                      const lemma_frontend_diagnostic *diagnostic)
 {
-    if (ts_node_is_error(node) || ts_node_is_missing(node)) {
-        return node;
+    const char *code = diagnostic->code != NULL ? diagnostic->code : "frontend.error";
+    if (diagnostic->has_span != 0) {
+        fprintf(stderr, "%s:%zu:%zu: %s (%s)\n", path,
+                diagnostic->span.start_row + 1U,
+                diagnostic->span.start_column + 1U,
+                diagnostic->message, code);
+    } else {
+        fprintf(stderr, "%s: %s (%s)\n", path, diagnostic->message, code);
     }
-
-    uint32_t child_count = ts_node_child_count(node);
-    for (uint32_t index = 0; index < child_count; ++index) {
-        TSNode child = first_syntax_error(ts_node_child(node, index));
-        if (!ts_node_is_null(child)) {
-            return child;
-        }
-    }
-
-    return (TSNode){0};
 }
 
-// Parse one source file and report syntax diagnostics; return process status.
+//--------------------------------------------------------
+// Load one source file and run the frontend through circuit-IR construction.
+//
+// @argc: Number of command-line arguments.
+// @argv: Command-line argument strings.
+// @returns: EXIT_SUCCESS when a circuit is constructed, otherwise EXIT_FAILURE.
+//--------------------------------------------------------
 int main(int argc, char **argv)
 {
     cag_option_context arguments;
@@ -104,24 +124,15 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    TSTree *tree = lemma_parse_source(source, source_length);
+    lemma_frontend_diagnostic diagnostic = {0};
+    lemma_circuit *circuit = lemma_frontend_build(source, source_length, &diagnostic);
     free(source);
-    if (tree == NULL) {
-        fprintf(stderr, "%s: parser could not process the source\n", source_path);
+    if (circuit == NULL) {
+        print_frontend_diagnostic(source_path, &diagnostic);
         return EXIT_FAILURE;
     }
 
-    TSNode root = ts_tree_root_node(tree);
-    if (ts_node_has_error(root)) {
-        TSNode error = first_syntax_error(root);
-        TSPoint point = ts_node_start_point(error);
-        fprintf(stderr, "%s:%u:%u: syntax error (%s)\n",
-                source_path, point.row + 1U, point.column + 1U, ts_node_type(error));
-        ts_tree_delete(tree);
-        return EXIT_FAILURE;
-    }
-
-    printf("parsed successfully: %s (%s)\n", source_path, ts_node_type(root));
-    ts_tree_delete(tree);
+    printf("front end built circuit: %s (%s)\n", source_path, circuit->module_name);
+    lemma_circuit_destroy(circuit);
     return EXIT_SUCCESS;
 }

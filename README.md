@@ -5,12 +5,12 @@ for a documented, deliberately limited subset of synthesizable Verilog and
 SystemVerilog RTL. Its goal is to make useful RTL proofs possible without
 depending on proprietary tools.
 
-> **Current status:** Lemma is at the parser/build-bootstrap stage, not yet a
-> formal verification tool. The current `lemma` executable checks SystemVerilog
-> syntax only. It does not validate the supported RTL subset, elaborate a
-> design, parse or check assertions semantically, or prove properties. The
-> specifications below describe the intended behavior, not features already
-> implemented.
+> **Current status:** Lemma implements its parser, syntax extraction,
+> first-profile RTL validation/elaboration, and circuit-IR construction. The
+> `lemma` executable builds a circuit for the documented first RTL profile; it
+> does not yet implement the public verification-job path, check assertions
+> semantically, or prove properties. The specifications below describe the
+> wider intended behavior, not features already implemented.
 
 ## Build, test, and try it
 

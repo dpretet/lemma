@@ -122,32 +122,58 @@ typedef struct lemma_result {
     const lemma_proof_result *proof;
 } lemma_result;
 
-/*
- * Run a verification job. Ordinary outcomes are returned in a non-NULL result;
- * NULL indicates that a result object could not be created. Input buffers are
- * borrowed for this call, and returned data is owned until destroyed. Job
- * execution is not yet implemented by the parser-stage executable.
- */
+//--------------------------------------------------------
+// Run a verification job; execution is not yet implemented by the parser-stage
+// executable.
+//
+// @job: Job whose referenced inputs are borrowed until this call returns.
+// @returns: Caller-owned result with the job outcome, or NULL if a result object
+//     could not be created; returned data remains owned until destruction.
+//--------------------------------------------------------
 lemma_result *lemma_run_job(const lemma_job *job);
 
-// Destroy a caller-owned job result and release its storage; do not access it
-// after destruction.
+//--------------------------------------------------------
+// Destroy a caller-owned job result and release its storage.
+//
+// @result: Caller-owned result to destroy; do not access it after destruction.
+// @returns: None.
+//--------------------------------------------------------
 void lemma_result_destroy(lemma_result *result);
 
-// Return the status value from a valid, live result owned by the caller.
+//--------------------------------------------------------
+// Return the status from a valid, live caller-owned result.
+//
+// @result: Valid, live result owned by the caller.
+// @returns: The job status stored in the result.
+//--------------------------------------------------------
 lemma_job_status lemma_result_status(const lemma_result *result);
 
-// Return the diagnostic count from a valid, live result owned by the caller.
+//--------------------------------------------------------
+// Return the diagnostic count from a valid, live caller-owned result.
+//
+// @result: Valid, live result owned by the caller.
+// @returns: Number of diagnostics stored in the result.
+//--------------------------------------------------------
 size_t lemma_result_diagnostic_count(const lemma_result *result);
 
-// Return the read-only diagnostics array from a valid, live result; its
-// contents are owned by that result and remain valid until destruction. The
-// pointer is NULL when the result has no diagnostics.
+//--------------------------------------------------------
+// Return the read-only diagnostics array from a valid, live caller-owned result.
+// Its contents remain valid until result destruction.
+//
+// @result: Valid, live result owned by the caller.
+// @returns: Read-only diagnostics array owned by the result, or NULL when it
+//     contains no diagnostics.
+//--------------------------------------------------------
 const lemma_diagnostic *lemma_result_diagnostics(const lemma_result *result);
 
-// Return the optional proof field from a valid, live result; any returned proof
-// and its data are owned by that result and remain valid until destruction. The
-// pointer is NULL when no proof result is available.
+//--------------------------------------------------------
+// Return the optional proof from a valid, live caller-owned result; its data
+// remains valid until result destruction.
+//
+// @result: Valid, live result owned by the caller.
+// @returns: Read-only proof result owned by the result, or NULL when no proof is
+//     available.
+//--------------------------------------------------------
 const lemma_proof_result *lemma_result_proof(const lemma_result *result);
 
 #endif

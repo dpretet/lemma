@@ -4,11 +4,13 @@
   public result layout, diagnostic read-only array and field layout,
   diagnostic span representation, result ownership and return shape,
   diagnostic-stage granularity, job-status, public function declarations,
-  clock-selection, parameter-value, and trace-content boundaries, and shared
-  arbitrary-width bit-vector type);
+  clock-selection, parameter-value, and trace-content boundaries, shared
+  arbitrary-width bit-vector type, parsed-source lifetime, syntax-view visitor,
+  nested Tree-sitter extraction call structure, elaboration-to-IR handoff, and
+  stack-depth robustness priority);
   provisional (including asynchronous-reset transitions in traces); open
   (target-label encoding, result serialization, and NULL-argument behavior)
-- **Date:** 2026-11-01
+- **Date:** 2026-11-08
 - **Context:** Lemma is beginning its RTL frontend and equation-based circuit IR.
   The internal parser helper returns Tree-sitter's `TSTree`; its header is not
   installed by the current build.
@@ -23,6 +25,36 @@
 - **Decision:** Source buffers are borrowed for the duration of a synchronous
   job call. Frontend stages must not retain caller pointers after return; names
   and source provenance needed in returned results must be copied.
+- **Decision:** An internal parsed-source handle borrows its source buffer until
+  the handle is destroyed. The caller keeps the buffer alive across extraction
+  and elaboration; the parser does not make a second full source copy.
+- **Decision:** Tree-sitter extraction visits typed syntax views synchronously.
+  Each view and its source slices are borrowed only for the callback duration;
+  extraction does not materialize an owning syntax-design copy.
+- **Decision:** Implement syntax extraction as nested grammar-specific visitors
+  (module, ports, body items, declarations, assignments, processes, and
+  statements) built on small direct-child Tree-sitter helpers. These visitors
+  remain private unless another module needs their declarations; the top-level
+  syntax callback is only the output boundary and does not prescribe a flat
+  traversal implementation. Continuous-assignment extraction gets the target,
+  right-hand expression, and an optional top-level ternary condition through
+  separate helpers; the full lvalue and RHS source slices remain available.
+- **Decision:** The syntax visitor exposes source-ordered views for module
+  boundaries, parameters, ports and module-scope declarators, continuous
+  assignments, processes and event expressions, and nested process statements.
+  Statement views retain parent spans and depth; unclassified module items and
+  statements remain opaque source slices. These views describe syntax only and
+  do not imply RTL acceptance or semantic process classification.
+- **Decision:** Shared declaration syntax is emitted once as a declaration-group
+  view, followed by per-name declarator views linked by the group source span.
+  ANSI port declarators with omitted headers preserve that omission; extraction
+  does not copy or infer attributes from a preceding port. Elaboration applies
+  the accepted first-profile inheritance rule in [`rtl-support.md`](../rtl-support.md)
+  and rejects partial header omissions.
+- **Decision:** The CLI handles command-line parsing and file loading, then calls
+  one frontend entry point that runs parsing through circuit-IR construction.
+  For the first profile it selects the sole module automatically; it does not
+  expose a syntax-only mode or a separate top-selection option.
 - **Decision:** Frontend stages return structured diagnostics rather than
   printing. The CLI is responsible for rendering diagnostics and choosing its
   process exit status. Diagnostics carry a stage, severity, stable code,
@@ -85,7 +117,8 @@
   selected top. The selected target label is copied into the result.
 - **Decision:** The public header declares `lemma_run_job`, result destruction,
   and status/diagnostic/proof accessors. This API declaration does not imply
-  that the parser-stage executable implements verification jobs.
+  that the CLI frontend implements verification jobs; it currently builds only
+  through circuit IR.
 - **Decision:** The public proof-outcome enum has `proven`, `failed`,
   `inconclusive`, `covered`, and `unreachable` values. Assertions use the first
   three; covers use the last three. This follows the outcome contract in
@@ -135,6 +168,37 @@
 - **Decision:** Keep the semantic circuit IR private to the implementation;
   the public API exposes job inputs, diagnostics, and verification results, not
   mutable IR structures. Tests may inspect IR through internal interfaces.
+- **Decision:** RTL validation/elaboration populates a builder that owns the
+  final IR storage under construction. Finalization yields the circuit; do not
+  create a separate owning elaborated-design object that duplicates circuit
+  signals, expressions, or drivers.
+- **Decision:** Stack-depth robustness for source-controlled Tree-sitter walks
+  is important. Do not allow deep input to terminate the process through C stack
+  exhaustion; address recursive walks before expanding frontend acceptance.
+- **Open:** `first_syntax_error` in `src/frontend/parser.c` and nested statement
+  walks such as `first_loop_body` and `visit_statement_node` in
+  `src/frontend/frontend_ts.c` currently recurse without a Lemma depth limit.
+  Replace them with iterative traversal or add a checked limit that returns a
+  structured diagnostic, with regression tests for deep input.
+- **Open (verified 2026-11-08):** `parse_explicit_port_attributes` scans raw type
+  text for `logic`, so the escaped user-defined type `\logic` is accepted as a
+  built-in one-bit logic port. Tree-sitter represents it as an
+  `escaped_identifier`; classify the grammar node kind and add a rejection test.
+  **User triage (2026-11-08):** rare and deferred; not an MVP blocker.
+  See [`frontend_elaboration.c`](../../src/frontend/frontend_elaboration.c) and
+  [`rtl-support.md`](../rtl-support.md).
+- **Open (verified 2026-11-08):** A continuous assignment with `drive_strength`
+  is lowered like a plain alias although strength is absent from the IR and the
+  first-profile contract. `assign (strong1, highz0) y = a;` is accepted. Preserve
+  and reject this modifier unless its semantics are specified. See
+  [`frontend_ts.c`](../../src/frontend/frontend_ts.c) and
+  [`internal-representation.md`](../internal-representation.md). **User triage
+  (2026-11-08):** do not add drive-strength support for MVP; defer further work.
+- **Resolved (verified 2026-11-08):** Packed-range parsing now skips whitespace,
+  line comments, and block comments while scanning decimal bounds; unterminated
+  block comments fail. `tests/unit/test_frontend.c` covers comments inside valid
+  ranges and an unterminated range comment, matching the trivia rule in
+  [`rtl-support.md`](../rtl-support.md).
 - **Rationale:** Parser implementation details should not become a public ABI
   contract, while internal stage boundaries allow precise tests and diagnostics.
 - **Still open:** Target-label encoding, behavior of API functions for NULL
@@ -142,4 +206,4 @@
   one possible serialization, not a selected format; it is distinct from the
   test-oracle format.
 - **References:** [Tool flow](../tool-flow.md), [internal representation](../internal-representation.md),
-  and [`include/lemma/parser.h`](../../include/lemma/parser.h).
+  and [`frontend_parse.h`](../../include/lemma/frontend_parse.h).

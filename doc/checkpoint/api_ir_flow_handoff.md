@@ -1,7 +1,8 @@
 # Frontend and Circuit-IR Implementation Handoff
 
-> **Status: ACTIVE.** This is the current development handoff. Normative
-> specifications and current code take precedence over this summary.
+> **Status: HISTORICAL.** Superseded by
+> [`frontend_header_reset_handoff.md`](frontend_header_reset_handoff.md).
+> Normative specifications and current code take precedence over this summary.
 
 **Checkpoint date:** 2026-11-03
 
@@ -66,7 +67,7 @@ The accepted design is recorded in
 
 ## Parser helper boundary
 
-[`include/lemma/parser.h`](../../include/lemma/parser.h) declares the internal
+[`include/lemma/parser.h`](../../include/lemma/parser.h) declared the internal
 parser helper `lemma_parse_source`, which returns a Tree-sitter `TSTree *`. The
 frontend uses this helper, as do the bootstrap CLI and parser tests. The header
 is not installed by the current build, and its use of Tree-sitter is not a

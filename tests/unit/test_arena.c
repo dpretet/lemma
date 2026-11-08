@@ -3,9 +3,12 @@
 #include "arena.h"
 #include "unity.h"
 
-// Force a second arena region and verify that growth preserves the first
-// allocation. Reset then permits another allocation before arena_free releases
-// the arena's storage.
+//--------------------------------------------------------
+// Verify growth preserves earlier allocations and reset permits arena reuse
+// before storage is freed.
+//
+// @returns: None.
+//--------------------------------------------------------
 void test_arena_grows_without_invalidating_prior_allocations(void)
 {
     Arena arena = {0};
