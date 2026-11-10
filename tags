@@ -1,0 +1,166 @@
+Mmain	src/main.c	/^int main(int argc, char **argv)$/
+assignment_operator	src/frontend/frontend_ts.c	/^static TSNode assignment_operator(TSNode node)$/
+body_visit	src/frontend/frontend_ts.c	/^} body_visit;$/
+check_alias_cycles	src/frontend/frontend_elaboration.c	/^static int check_alias_cycles(const lemma_circuit_/
+clear_diagnostic	src/frontend/parser.c	/^static void clear_diagnostic(lemma_frontend_diagno/
+collect_declaration_type_facts	src/frontend/frontend_ts.c	/^static void collect_declaration_type_facts(TSNode /
+collect_packed_dimension	src/frontend/frontend_ts.c	/^static lemma_ts_child_visit_action collect_packed_/
+collect_type_dimensions	src/frontend/frontend_ts.c	/^static int collect_type_dimensions(range_accumulat/
+count_signal_drivers	src/frontend/frontend_elaboration.c	/^static size_t count_signal_drivers(const lemma_cir/
+declaration_type_facts	src/frontend/frontend_ts.c	/^} declaration_type_facts;$/
+declarator_visit	src/frontend/frontend_ts.c	/^} declarator_visit;$/
+direct_statement_body	src/frontend/frontend_ts.c	/^static TSNode direct_statement_body(TSNode node)$/
+elaborate_syntax_event	src/frontend/frontend_elaboration.c	/^static lemma_syntax_visit_action elaborate_syntax_/
+elaboration_context	src/frontend/frontend_elaboration.c	/^} elaboration_context;$/
+emit_opaque_module_item	src/frontend/frontend_ts.c	/^static int emit_opaque_module_item(syntax_walk *wa/
+emit_statement	src/frontend/frontend_ts.c	/^static int emit_statement(syntax_walk *walk, lemma/
+find_process_parts	src/frontend/frontend_ts.c	/^static int find_process_parts(TSNode node, TSNode /
+first_loop_body	src/frontend/frontend_ts.c	/^static TSNode first_loop_body(TSNode node)$/
+first_syntax_error	src/frontend/parser.c	/^static TSNode first_syntax_error(TSNode node)$/
+get_condition_if_present	src/frontend/frontend_ts.c	/^static TSNode get_condition_if_present(TSNode expr/
+get_destination_signal	src/frontend/frontend_ts.c	/^static TSNode get_destination_signal(TSNode assign/
+get_right_part_of_line	src/frontend/frontend_ts.c	/^static TSNode get_right_part_of_line(TSNode assign/
+identifier_character	src/frontend/frontend_elaboration.c	/^static int identifier_character(unsigned char char/
+is_simple_identifier	src/frontend/frontend_elaboration.c	/^static int is_simple_identifier(lemma_syntax_text /
+lemma_circuit_builder	src/frontend/frontend_ir.c	/^struct lemma_circuit_builder {$/
+lemma_circuit_builder_add_driver	src/frontend/frontend_ir.c	/^int lemma_circuit_builder_add_driver(lemma_circuit/
+lemma_circuit_builder_add_port	src/frontend/frontend_ir.c	/^int lemma_circuit_builder_add_port(lemma_circuit_b/
+lemma_circuit_builder_add_read_signal	src/frontend/frontend_ir.c	/^int lemma_circuit_builder_add_read_signal(lemma_ci/
+lemma_circuit_builder_add_signal	src/frontend/frontend_ir.c	/^int lemma_circuit_builder_add_signal(lemma_circuit/
+lemma_circuit_builder_create	src/frontend/frontend_ir.c	/^lemma_circuit_builder *lemma_circuit_builder_creat/
+lemma_circuit_builder_destroy	src/frontend/frontend_ir.c	/^void lemma_circuit_builder_destroy(lemma_circuit_b/
+lemma_circuit_builder_driver_at	src/frontend/frontend_ir.c	/^const lemma_ir_driver *lemma_circuit_builder_drive/
+lemma_circuit_builder_driver_count	src/frontend/frontend_ir.c	/^size_t lemma_circuit_builder_driver_count(const le/
+lemma_circuit_builder_expression_at	src/frontend/frontend_ir.c	/^const lemma_ir_expression *lemma_circuit_builder_e/
+lemma_circuit_builder_finalize	src/frontend/frontend_ir.c	/^lemma_circuit *lemma_circuit_builder_finalize(lemm/
+lemma_circuit_builder_find_signal	src/frontend/frontend_ir.c	/^int lemma_circuit_builder_find_signal(const lemma_/
+lemma_circuit_builder_port_at	src/frontend/frontend_ir.c	/^const lemma_ir_port *lemma_circuit_builder_port_at/
+lemma_circuit_builder_port_count	src/frontend/frontend_ir.c	/^size_t lemma_circuit_builder_port_count(const lemm/
+lemma_circuit_builder_set_module_name	src/frontend/frontend_ir.c	/^int lemma_circuit_builder_set_module_name(lemma_ci/
+lemma_circuit_builder_signal_at	src/frontend/frontend_ir.c	/^const lemma_ir_signal *lemma_circuit_builder_signa/
+lemma_circuit_builder_signal_count	src/frontend/frontend_ir.c	/^size_t lemma_circuit_builder_signal_count(const le/
+lemma_circuit_destroy	src/frontend/frontend_ir.c	/^void lemma_circuit_destroy(lemma_circuit *circuit)/
+lemma_frontend_build	src/frontend/frontend.c	/^lemma_circuit *lemma_frontend_build(const char *so/
+lemma_frontend_elaborate	src/frontend/frontend_elaboration.c	/^int lemma_frontend_elaborate(const lemma_parsed_so/
+lemma_frontend_parse	src/frontend/parser.c	/^lemma_parsed_source *lemma_frontend_parse(const ch/
+lemma_frontend_ts_child_by_field_name	src/frontend/frontend_ts_helpers.c	/^lemma_ts_child_field_result lemma_frontend_ts_chil/
+lemma_frontend_ts_node_range	src/frontend/frontend_ts_helpers.c	/^lemma_ts_range_result lemma_frontend_ts_node_range/
+lemma_frontend_ts_node_text	src/frontend/frontend_ts_helpers.c	/^lemma_ts_text_result lemma_frontend_ts_node_text($/
+lemma_frontend_ts_unique_child_by_type	src/frontend/frontend_ts_helpers.c	/^lemma_ts_child_type_result lemma_frontend_ts_uniqu/
+lemma_frontend_ts_visit_children	src/frontend/frontend_ts_helpers.c	/^lemma_ts_child_visit_result lemma_frontend_ts_visi/
+lemma_frontend_visit_syntax	src/frontend/frontend_ts.c	/^lemma_syntax_visit_result lemma_frontend_visit_syn/
+lemma_parsed_source_destroy	src/frontend/parser.c	/^void lemma_parsed_source_destroy(lemma_parsed_sour/
+packed_width	src/frontend/frontend_elaboration.c	/^static int packed_width(const lemma_syntax_declara/
+parse_decimal_bound	src/frontend/frontend_elaboration.c	/^static int parse_decimal_bound(lemma_syntax_text t/
+parse_explicit_port_attributes	src/frontend/frontend_elaboration.c	/^static int parse_explicit_port_attributes($/
+port_attributes	src/frontend/frontend_elaboration.c	/^} port_attributes;$/
+port_list_visit	src/frontend/frontend_ts.c	/^} port_list_visit;$/
+print_frontend_diagnostic	src/main.c	/^static void print_frontend_diagnostic(const char */
+print_usage	src/main.c	/^static void print_usage(void)$/
+range_accumulator	src/frontend/frontend_ts.c	/^} range_accumulator;$/
+ranges_equal	src/frontend/frontend_elaboration.c	/^static int ranges_equal(lemma_source_range left, l/
+read_file	src/main.c	/^static char *read_file(const char *path, size_t *l/
+reject_builder	src/frontend/frontend_elaboration.c	/^static lemma_syntax_visit_action reject_builder($/
+reject_syntax	src/frontend/frontend_elaboration.c	/^static lemma_syntax_visit_action reject_syntax($/
+reserve_one	src/frontend/frontend_ir.c	/^static int reserve_one(void **array, size_t count,/
+selected_child	src/frontend/frontend_ts_helpers.c	/^static int selected_child(TSNode child, lemma_ts_c/
+set_diagnostic	src/frontend/frontend_elaboration.c	/^static void set_diagnostic(lemma_frontend_diagnost/
+set_ir_diagnostic	src/frontend/frontend.c	/^static void set_ir_diagnostic(lemma_frontend_diagn/
+set_parse_diagnostic	src/frontend/parser.c	/^static void set_parse_diagnostic(lemma_frontend_di/
+source_visit	src/frontend/frontend_ts.c	/^} source_visit;$/
+statement_children_visit	src/frontend/frontend_ts.c	/^} statement_children_visit;$/
+statement_prefix	src/frontend/frontend_ts.c	/^static lemma_syntax_text statement_prefix(const le/
+syntax_child_any	src/frontend/frontend_ts.c	/^static TSNode syntax_child_any(TSNode parent, cons/
+syntax_child_of_either	src/frontend/frontend_ts.c	/^static TSNode syntax_child_of_either(TSNode parent/
+syntax_emit	src/frontend/frontend_ts.c	/^static int syntax_emit(syntax_walk *walk, const le/
+syntax_emit_declaration_group	src/frontend/frontend_ts.c	/^static int syntax_emit_declaration_group($/
+syntax_emit_declarator	src/frontend/frontend_ts.c	/^static int syntax_emit_declarator($/
+syntax_named_non_extra_child_count	src/frontend/frontend_ts.c	/^static uint32_t syntax_named_non_extra_child_count/
+syntax_packed_dimensions	src/frontend/frontend_ts.c	/^static lemma_syntax_text syntax_packed_dimensions(/
+syntax_range_for_node	src/frontend/frontend_ts.c	/^static lemma_source_range syntax_range_for_node(TS/
+syntax_set_declaration_type_facts	src/frontend/frontend_ts.c	/^static void syntax_set_declaration_type_facts($/
+syntax_text_between_nodes	src/frontend/frontend_ts.c	/^static lemma_syntax_text syntax_text_between_nodes/
+syntax_text_for_node	src/frontend/frontend_ts.c	/^static lemma_syntax_text syntax_text_for_node(cons/
+syntax_unique_child	src/frontend/frontend_ts.c	/^static TSNode syntax_unique_child(TSNode parent, c/
+syntax_walk	src/frontend/frontend_ts.c	/^} syntax_walk;$/
+text_equals	src/frontend/frontend_elaboration.c	/^static int text_equals(lemma_syntax_text text, con/
+validate_drivers	src/frontend/frontend_elaboration.c	/^static int validate_drivers(elaboration_context *c/
+visit_ansi_port	src/frontend/frontend_ts.c	/^static int visit_ansi_port(syntax_walk *walk, TSNo/
+visit_body	src/frontend/frontend_ts.c	/^static int visit_body(syntax_walk *walk, TSNode mo/
+visit_body_child	src/frontend/frontend_ts.c	/^static lemma_ts_child_visit_action visit_body_chil/
+visit_body_item	src/frontend/frontend_ts.c	/^static int visit_body_item(syntax_walk *walk, TSNo/
+visit_continuous_assignments	src/frontend/frontend_ts.c	/^static int visit_continuous_assignments(syntax_wal/
+visit_declarator_child	src/frontend/frontend_ts.c	/^static lemma_ts_child_visit_action visit_declarato/
+visit_event_expression	src/frontend/frontend_ts.c	/^static int visit_event_expression(syntax_walk *wal/
+visit_module	src/frontend/frontend_ts.c	/^static int visit_module(syntax_walk *walk, TSNode /
+visit_module_header	src/frontend/frontend_ts.c	/^static int visit_module_header(syntax_walk *walk, /
+visit_parameter_declaration	src/frontend/frontend_ts.c	/^static int visit_parameter_declaration($/
+visit_parameter_ports	src/frontend/frontend_ts.c	/^static int visit_parameter_ports(syntax_walk *walk/
+visit_port_child	src/frontend/frontend_ts.c	/^static lemma_ts_child_visit_action visit_port_chil/
+visit_ports	src/frontend/frontend_ts.c	/^static int visit_ports(syntax_walk *walk, TSNode p/
+visit_process	src/frontend/frontend_ts.c	/^static int visit_process(syntax_walk *walk, TSNode/
+visit_signal_declaration	src/frontend/frontend_ts.c	/^static int visit_signal_declaration(syntax_walk *w/
+visit_source_child	src/frontend/frontend_ts.c	/^static lemma_ts_child_visit_action visit_source_ch/
+visit_statement_child	src/frontend/frontend_ts.c	/^static lemma_ts_child_visit_action visit_statement/
+visit_statement_children	src/frontend/frontend_ts.c	/^static int visit_statement_children(syntax_walk *w/
+visit_statement_node	src/frontend/frontend_ts.c	/^static int visit_statement_node(syntax_walk *walk,/
+context	include/lemma/frontend_syntax.h	/^    const lemma_syntax_view *view, void *context);/
+lemma_bit_vector	include/lemma/trace.h	/^} lemma_bit_vector;$/
+lemma_circuit	include/lemma/circuit_ir.h	/^} lemma_circuit;$/
+lemma_circuit_builder	include/lemma/circuit_ir.h	/^typedef struct lemma_circuit_builder lemma_circuit/
+lemma_diagnostic	include/lemma/verification.h	/^} lemma_diagnostic;$/
+lemma_diagnostic_severity	include/lemma/verification.h	/^} lemma_diagnostic_severity;$/
+lemma_diagnostic_stage	include/lemma/verification.h	/^} lemma_diagnostic_stage;$/
+lemma_frontend_diagnostic	include/lemma/frontend_types.h	/^} lemma_frontend_diagnostic;$/
+lemma_frontend_stage	include/lemma/frontend_types.h	/^} lemma_frontend_stage;$/
+lemma_ir_driver	include/lemma/circuit_ir.h	/^} lemma_ir_driver;$/
+lemma_ir_expression	include/lemma/circuit_ir.h	/^} lemma_ir_expression;$/
+lemma_ir_expression_kind	include/lemma/circuit_ir.h	/^} lemma_ir_expression_kind;$/
+lemma_ir_ffd	include/lemma/circuit_ir.h	/^} lemma_ir_ffd;$/
+lemma_ir_port	include/lemma/circuit_ir.h	/^} lemma_ir_port;$/
+lemma_ir_port_direction	include/lemma/circuit_ir.h	/^} lemma_ir_port_direction;$/
+lemma_ir_signal	include/lemma/circuit_ir.h	/^} lemma_ir_signal;$/
+lemma_job	include/lemma/verification.h	/^} lemma_job;$/
+lemma_job_status	include/lemma/verification.h	/^} lemma_job_status;$/
+lemma_parameter_override	include/lemma/verification.h	/^} lemma_parameter_override;$/
+lemma_parsed_source	include/lemma/frontend_parse.h	/^typedef struct lemma_parsed_source lemma_parsed_so/
+lemma_proof_outcome	include/lemma/verification.h	/^} lemma_proof_outcome;$/
+lemma_proof_result	include/lemma/verification.h	/^} lemma_proof_result;$/
+lemma_property_kind	include/lemma/verification.h	/^} lemma_property_kind;$/
+lemma_result	include/lemma/verification.h	/^} lemma_result;$/
+lemma_source	include/lemma/verification.h	/^} lemma_source;$/
+lemma_source_range	include/lemma/source_range.h	/^} lemma_source_range;$/
+lemma_syntax_builtin_type_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_builtin_type_kind;$/
+lemma_syntax_continuous_assignment	include/lemma/frontend_syntax.h	/^} lemma_syntax_continuous_assignment;$/
+lemma_syntax_declaration_group	include/lemma/frontend_syntax.h	/^} lemma_syntax_declaration_group;$/
+lemma_syntax_declaration_group_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_declaration_group_kind;$/
+lemma_syntax_declarator	include/lemma/frontend_syntax.h	/^} lemma_syntax_declarator;$/
+lemma_syntax_event_expression_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_event_expression_kind;$/
+lemma_syntax_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_kind;$/
+lemma_syntax_module_boundary	include/lemma/frontend_syntax.h	/^} lemma_syntax_module_boundary;$/
+lemma_syntax_module_boundary_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_module_boundary_kind;$/
+lemma_syntax_opaque_module_item	include/lemma/frontend_syntax.h	/^} lemma_syntax_opaque_module_item;$/
+lemma_syntax_process	include/lemma/frontend_syntax.h	/^} lemma_syntax_process;$/
+lemma_syntax_process_control_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_process_control_kind;$/
+lemma_syntax_process_event_expression	include/lemma/frontend_syntax.h	/^} lemma_syntax_process_event_expression;$/
+lemma_syntax_process_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_process_kind;$/
+lemma_syntax_signedness_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_signedness_kind;$/
+lemma_syntax_statement	include/lemma/frontend_syntax.h	/^} lemma_syntax_statement;$/
+lemma_syntax_statement_kind	include/lemma/frontend_syntax.h	/^} lemma_syntax_statement_kind;$/
+lemma_syntax_text	include/lemma/frontend_syntax.h	/^} lemma_syntax_text;$/
+lemma_syntax_view	include/lemma/frontend_syntax.h	/^} lemma_syntax_view;$/
+lemma_syntax_visit_action	include/lemma/frontend_syntax.h	/^} lemma_syntax_visit_action;$/
+lemma_syntax_visit_result	include/lemma/frontend_syntax.h	/^} lemma_syntax_visit_result;$/
+lemma_trace	include/lemma/trace.h	/^} lemma_trace;$/
+lemma_trace_edge	include/lemma/trace.h	/^} lemma_trace_edge;$/
+lemma_trace_event	include/lemma/trace.h	/^} lemma_trace_event;$/
+lemma_trace_event_kind	include/lemma/trace.h	/^} lemma_trace_event_kind;$/
+lemma_trace_transition	include/lemma/trace.h	/^} lemma_trace_transition;$/
+lemma_trace_value	include/lemma/trace.h	/^} lemma_trace_value;$/
+lemma_ts_child_field_result	include/lemma/frontend_ts_internal.h	/^} lemma_ts_child_field_result;$/
+lemma_ts_child_filter	include/lemma/frontend_ts_internal.h	/^} lemma_ts_child_filter;$/
+lemma_ts_child_type_result	include/lemma/frontend_ts_internal.h	/^} lemma_ts_child_type_result;$/
+lemma_ts_child_visit_action	include/lemma/frontend_ts_internal.h	/^} lemma_ts_child_visit_action;$/
+lemma_ts_child_visit_result	include/lemma/frontend_ts_internal.h	/^} lemma_ts_child_visit_result;$/
+lemma_ts_range_result	include/lemma/frontend_ts_internal.h	/^} lemma_ts_range_result;$/
+lemma_ts_text_result	include/lemma/frontend_ts_internal.h	/^} lemma_ts_text_result;$/

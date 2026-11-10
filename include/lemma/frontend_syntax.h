@@ -2,17 +2,18 @@
 #define LEMMA_FRONTEND_SYNTAX_H
 
 #include "frontend_parse.h"
+#include "lemma/source_range.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 
-// Borrowed, non-NUL-terminated source text with a half-open source span.
+// Borrowed, non-NUL-terminated source text with a half-open source range.
 // An absent optional slice has data == NULL and length == 0; a present empty
 // slice may have a non-NULL data pointer and length == 0.
 typedef struct lemma_syntax_text {
     const char *data;
     size_t length;
-    lemma_ir_source_span span;
+    lemma_source_range source_range;
 } lemma_syntax_text;
 
 // Kinds of module-boundary callbacks.
@@ -25,7 +26,7 @@ typedef enum lemma_syntax_module_boundary_kind {
 typedef struct lemma_syntax_module_boundary {
     lemma_syntax_module_boundary_kind kind;
     lemma_syntax_text name;
-    lemma_ir_source_span module_span;
+    lemma_source_range module_range;
 } lemma_syntax_module_boundary;
 
 // Syntactic declaration categories; these do not imply RTL acceptance or
@@ -39,31 +40,56 @@ typedef enum lemma_syntax_declaration_group_kind {
     LEMMA_SYNTAX_DECLARATION_GROUP_OPAQUE
 } lemma_syntax_declaration_group_kind;
 
+// Syntax-only type category. OTHER covers unsupported built-in, user-defined,
+// and escaped type forms; classification never comes from raw spelling.
+typedef enum lemma_syntax_builtin_type_kind {
+    LEMMA_SYNTAX_BUILTIN_TYPE_UNSPECIFIED,
+    LEMMA_SYNTAX_BUILTIN_TYPE_WIRE,
+    LEMMA_SYNTAX_BUILTIN_TYPE_LOGIC,
+    LEMMA_SYNTAX_BUILTIN_TYPE_OTHER
+} lemma_syntax_builtin_type_kind;
+
+// Syntax-only signedness marker present in a declaration type.
+typedef enum lemma_syntax_signedness_kind {
+    LEMMA_SYNTAX_SIGNEDNESS_UNSPECIFIED,
+    LEMMA_SYNTAX_SIGNEDNESS_SIGNED,
+    LEMMA_SYNTAX_SIGNEDNESS_UNSIGNED,
+    LEMMA_SYNTAX_SIGNEDNESS_OTHER
+} lemma_syntax_signedness_kind;
+
 // Common raw syntax for a declaration group. source includes the full group
-// span; parameter values remain unevaluated source slices. The explicit port
+// range; parameter values remain unevaluated source slices. The explicit port
 // header flag applies only to ANSI port syntax, records only syntax present on
 // this group, is false for other forms, and never signals inherited direction
-// or type attributes.
+// or type attributes. type, source, and packed_dimensions retain raw provenance.
+// The typed facts describe only syntax: bound slices name the first packed
+// dimension, while packed_dimension_count preserves additional dimensions.
 typedef struct lemma_syntax_declaration_group {
     lemma_syntax_declaration_group_kind kind;
     lemma_syntax_text direction;
     lemma_syntax_text type;
     lemma_syntax_text packed_dimensions;
+    lemma_syntax_text packed_left_bound;
+    lemma_syntax_text packed_right_bound;
     lemma_syntax_text source;
-    lemma_ir_source_span module_span;
+    lemma_source_range module_range;
+    lemma_syntax_builtin_type_kind builtin_type;
+    lemma_syntax_signedness_kind signedness;
+    size_t packed_dimension_count;
+    bool has_var_keyword;
     bool has_explicit_port_header;
 } lemma_syntax_declaration_group;
 
 // One declared name in source order. suffix (including any unpacked dimensions)
-// and initializer_or_default_expression are raw per-name slices; group_span and
-// module_span identify its group context.
+// and initializer_or_default_expression are raw per-name slices; group_range and
+// module_range identify its group context.
 typedef struct lemma_syntax_declarator {
     lemma_syntax_text name;
     lemma_syntax_text suffix;
     lemma_syntax_text initializer_or_default_expression;
-    lemma_ir_source_span declarator_span;
-    lemma_ir_source_span group_span;
-    lemma_ir_source_span module_span;
+    lemma_source_range declarator_range;
+    lemma_source_range group_range;
+    lemma_source_range module_range;
 } lemma_syntax_declarator;
 
 // One continuous assignment pair. lvalue/expression preserve their full syntax;
@@ -75,7 +101,7 @@ typedef struct lemma_syntax_continuous_assignment {
     lemma_syntax_text expression;
     lemma_syntax_text condition;
     lemma_syntax_text assignment;
-    lemma_ir_source_span module_span;
+    lemma_source_range module_range;
 } lemma_syntax_continuous_assignment;
 
 // Syntactic process keyword categories; OTHER preserves an unclassified
@@ -102,8 +128,8 @@ typedef struct lemma_syntax_process {
     lemma_syntax_process_control_kind control_kind;
     lemma_syntax_text control;
     lemma_syntax_text source;
-    lemma_ir_source_span module_span;
-    lemma_ir_source_span process_span;
+    lemma_source_range module_range;
+    lemma_source_range process_range;
 } lemma_syntax_process;
 
 // Syntactic categories for individual expressions in an event control.
@@ -118,8 +144,8 @@ typedef enum lemma_syntax_event_expression_kind {
 typedef struct lemma_syntax_process_event_expression {
     lemma_syntax_event_expression_kind kind;
     lemma_syntax_text expression;
-    lemma_ir_source_span module_span;
-    lemma_ir_source_span process_span;
+    lemma_source_range module_range;
+    lemma_source_range process_range;
 } lemma_syntax_process_event_expression;
 
 // Syntactic statement classes; OPAQUE marks unrecognized statement syntax.
@@ -145,9 +171,9 @@ typedef struct lemma_syntax_statement {
     lemma_syntax_text header;
     lemma_syntax_text lvalue;
     lemma_syntax_text expression;
-    lemma_ir_source_span module_span;
-    lemma_ir_source_span process_span;
-    lemma_ir_source_span parent_span;
+    lemma_source_range module_range;
+    lemma_source_range process_range;
+    lemma_source_range parent_range;
     size_t depth;
 } lemma_syntax_statement;
 
@@ -155,7 +181,7 @@ typedef struct lemma_syntax_statement {
 // preserves the item without interpreting or dropping it.
 typedef struct lemma_syntax_opaque_module_item {
     lemma_syntax_text source;
-    lemma_ir_source_span module_span;
+    lemma_source_range module_range;
 } lemma_syntax_opaque_module_item;
 
 // Synchronous extraction events are ordered within module and process groups.
@@ -195,7 +221,7 @@ typedef enum lemma_syntax_visit_action {
 
 //--------------------------------------------------------
 // Handle one syntax event synchronously in source order; views, slices, and
-// spans must not be retained after the callback.
+// ranges must not be retained after the callback.
 //
 // @view: Borrowed typed view of the current syntax event, valid only in the call.
 // @context: Caller-provided context borrowed for the duration of the visit.
@@ -217,7 +243,7 @@ typedef enum lemma_syntax_visit_result {
 //--------------------------------------------------------
 // Visit ordered syntax events synchronously without allocation or inferring RTL
 // meaning. A declaration-group event precedes its per-name declarator events;
-// names retain source order and each declarator carries its group span. ANSI
+// names retain source order and each declarator carries its group range. ANSI
 // shorthand port identifiers have a group with a false explicit-header flag
 // and absent common attribute slices, rather than copied or inferred attributes.
 // Module events group source-ordered items; process events precede event

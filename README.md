@@ -17,6 +17,11 @@ depending on proprietary tools.
 Requirements: CMake 3.16 or newer, a C11 compiler, POSIX threads, and Bash to
 run `flow.sh`.
 
+Debug builds with testing enabled use AddressSanitizer and
+UndefinedBehaviorSanitizer when built with Clang or GCC. Both `./flow.sh build`
+and `./flow.sh test` use this configuration. Release builds are not
+instrumented.
+
 ```sh
 ./flow.sh build    # configure and build a Debug version
 ./flow.sh test     # build and run the tests
@@ -31,10 +36,11 @@ Parse the included valid fixture, or substitute your own `.sv` file:
 ```
 
 The current command accepts exactly one source path. An optional `--` may
-precede it to mark the end of options. It exits successfully after a syntax
-parse, or reports a syntax/file error and exits unsuccessfully. It does not run
-a proof. The test suite includes parser unit tests and valid and malformed
-syntax fixtures.
+precede it to mark the end of options. It builds circuit IR for the documented
+first RTL profile, or reports a syntax, unsupported-RTL, or file error and exits
+unsuccessfully. It does not run a proof. The test suite covers parsing, syntax
+extraction, first-profile RTL acceptance and rejection, and circuit-IR
+construction, as well as malformed input and CLI behavior.
 
 The release command creates `dist/lemma-<platform>-<architecture>.tar.gz` for
 the host OS and architecture. The archive contains the executable, a brief

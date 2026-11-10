@@ -9,6 +9,15 @@ set(CMAKE_C_EXTENSIONS OFF)
 include(CTest)
 find_package(Threads REQUIRED)
 
+# Instrument Debug test builds; Release builds remain free of sanitizer flags.
+if(BUILD_TESTING AND CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    add_compile_options(
+        "$<$<CONFIG:Debug>:-fsanitize=address,undefined>"
+        "$<$<CONFIG:Debug>:-fno-omit-frame-pointer>"
+    )
+    add_link_options("$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
+endif()
+
 set(TREE_SITTER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree-sitter/lib")
 set(SYSTEMVERILOG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree-sitter-systemverilog")
 set(SYSTEMVERILOG_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/systemverilog")
@@ -71,6 +80,7 @@ target_include_directories(cargs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party
 add_library(lemma_core STATIC
     src/frontend/frontend.c
     src/frontend/parser.c
+    src/frontend/frontend_ts_helpers.c
     src/frontend/frontend_ts.c
     src/frontend/frontend_elaboration.c
     src/frontend/frontend_ir.c

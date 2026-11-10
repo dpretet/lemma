@@ -26,9 +26,19 @@ typedef struct syntax_counts {
     size_t opaque_items;
     size_t shorthand_ports;
     size_t group_mismatches;
-    lemma_ir_source_span last_group_span;
+    lemma_source_range last_group_range;
     int has_group;
 } syntax_counts;
+
+typedef struct declaration_facts_capture {
+    lemma_syntax_builtin_type_kind builtin_types[3];
+    lemma_syntax_signedness_kind signedness[3];
+    size_t dimension_counts[3];
+    size_t groups;
+    int has_var[3];
+    int first_bounds_match;
+    int first_raw_dimensions_match;
+} declaration_facts_capture;
 
 //--------------------------------------------------------
 // Read a named RTL fixture into caller-owned NUL-terminated storage.
@@ -96,13 +106,13 @@ static lemma_circuit *build_fixture(const char *name,
 }
 
 //--------------------------------------------------------
-// Compare two source spans without depending on structure padding.
+// Compare two source ranges without depending on structure padding.
 //
-// @left: First half-open source span.
-// @right: Second half-open source span.
+// @left: First half-open source range.
+// @right: Second half-open source range.
 // @returns: Nonzero when every byte offset and source point matches.
 //--------------------------------------------------------
-static int spans_equal(lemma_ir_source_span left, lemma_ir_source_span right)
+static int ranges_equal(lemma_source_range left, lemma_source_range right)
 {
     return left.start_byte == right.start_byte && left.end_byte == right.end_byte &&
            left.start_row == right.start_row && left.start_column == right.start_column &&
@@ -110,7 +120,21 @@ static int spans_equal(lemma_ir_source_span left, lemma_ir_source_span right)
 }
 
 //--------------------------------------------------------
-// Count typed syntax events and verify declarators link to their group span.
+// Compare one borrowed syntax slice with expected text during its callback.
+//
+// @text: Borrowed source slice to compare.
+// @expected: NUL-terminated expected spelling.
+// @returns: Nonzero when the source slice exactly matches expected.
+//--------------------------------------------------------
+static int syntax_text_equals(lemma_syntax_text text, const char *expected)
+{
+    size_t length = strlen(expected);
+    return text.data != NULL && text.length == length &&
+           memcmp(text.data, expected, length) == 0;
+}
+
+//--------------------------------------------------------
+// Count typed syntax events and verify declarators link to their group range.
 //
 // @view: Borrowed event emitted by the syntax visitor.
 // @context: Mutable counters owned by the test.
@@ -127,7 +151,7 @@ static lemma_syntax_visit_action count_syntax_event(
         counts->has_group = 0;
     } else if (view->kind == LEMMA_SYNTAX_DECLARATION_GROUP) {
         ++counts->groups;
-        counts->last_group_span = view->as.declaration_group.source.span;
+        counts->last_group_range = view->as.declaration_group.source.source_range;
         counts->has_group = 1;
         if (view->as.declaration_group.kind == LEMMA_SYNTAX_DECLARATION_GROUP_PORT &&
             !view->as.declaration_group.has_explicit_port_header) {
@@ -136,7 +160,7 @@ static lemma_syntax_visit_action count_syntax_event(
     } else if (view->kind == LEMMA_SYNTAX_DECLARATOR) {
         ++counts->declarators;
         if (counts->has_group == 0 ||
-            !spans_equal(counts->last_group_span, view->as.declarator.group_span)) {
+            !ranges_equal(counts->last_group_range, view->as.declarator.group_range)) {
             ++counts->group_mismatches;
         }
     } else {
@@ -155,6 +179,36 @@ static lemma_syntax_visit_action count_syntax_event(
         } else if (view->kind == LEMMA_SYNTAX_OPAQUE_MODULE_ITEM) {
             ++counts->opaque_items;
         }
+    }
+    return LEMMA_SYNTAX_VISIT_CONTINUE;
+}
+
+//--------------------------------------------------------
+// Capture typed declaration facts without retaining callback-borrowed slices.
+//
+// @view: Borrowed syntax event emitted by extraction.
+// @context: Three-group fact capture owned by the test.
+// @returns: CONTINUE so all declaration groups are inspected.
+//--------------------------------------------------------
+static lemma_syntax_visit_action capture_declaration_facts(
+    const lemma_syntax_view *view, void *context)
+{
+    declaration_facts_capture *capture = context;
+    if (view->kind != LEMMA_SYNTAX_DECLARATION_GROUP || capture->groups >= 3U) {
+        return LEMMA_SYNTAX_VISIT_CONTINUE;
+    }
+    const lemma_syntax_declaration_group *group = &view->as.declaration_group;
+    size_t index = capture->groups++;
+    capture->builtin_types[index] = group->builtin_type;
+    capture->signedness[index] = group->signedness;
+    capture->dimension_counts[index] = group->packed_dimension_count;
+    capture->has_var[index] = group->has_var_keyword;
+    if (index == 0U) {
+        capture->first_bounds_match =
+            syntax_text_equals(group->packed_left_bound, "3") &&
+            syntax_text_equals(group->packed_right_bound, "0");
+        capture->first_raw_dimensions_match =
+            syntax_text_equals(group->packed_dimensions, "[3:0]");
     }
     return LEMMA_SYNTAX_VISIT_CONTINUE;
 }
@@ -294,6 +348,10 @@ void test_frontend_rejects_unsupported_constructs(void)
          "module top(input wire a, input b, output wire y); assign y = a; endmodule"},
         {"inout port direction",
          "module top(inout wire a, output wire y); assign y=a; endmodule"},
+        {"escaped user-defined type matching built-in spelling",
+         "module top(input \\logic a); endmodule"},
+        {"additional packed dimension beyond first-profile shape",
+         "module top(input wire [1:0][3:0] a); endmodule"},
         // An unterminated range comment must never be treated as valid trivia.
         {"unterminated packed-range block comment",
          "module top(input wire [3 /* comment : 0] a); endmodule"},
@@ -332,8 +390,51 @@ void test_frontend_rejects_unsupported_constructs(void)
             cases[index].source, strlen(cases[index].source), &diagnostic);
         TEST_ASSERT_NULL_MESSAGE(circuit, cases[index].label);
         TEST_ASSERT_NOT_NULL(diagnostic.code);
-        TEST_ASSERT_TRUE(diagnostic.has_span);
+        TEST_ASSERT_TRUE(diagnostic.has_source_range);
+        if (strcmp(cases[index].label,
+                   "escaped user-defined type matching built-in spelling") == 0 ||
+            strcmp(cases[index].label,
+                   "additional packed dimension beyond first-profile shape") == 0) {
+            TEST_ASSERT_EQUAL_STRING("rtl.port_form", diagnostic.code);
+        }
     }
+}
+
+//--------------------------------------------------------
+// Extract built-in type, var, signedness, and first-dimension bounds as syntax.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_extracts_typed_declaration_facts(void)
+{
+    static const char source[] =
+        "module facts(input wire signed [3:0] a, input var logic unsigned b, "
+        "input \\logic c); endmodule";
+    lemma_frontend_diagnostic diagnostic = {0};
+    lemma_parsed_source *parsed = lemma_frontend_parse(
+        source, sizeof(source) - 1U, &diagnostic);
+    TEST_ASSERT_NOT_NULL_MESSAGE(parsed, diagnostic.message);
+
+    declaration_facts_capture capture = {0};
+    lemma_syntax_visit_result result = lemma_frontend_visit_syntax(
+        parsed, capture_declaration_facts, &capture);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_VISIT_COMPLETE, result);
+    TEST_ASSERT_EQUAL_UINT(3U, capture.groups);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_BUILTIN_TYPE_WIRE, capture.builtin_types[0]);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_SIGNEDNESS_SIGNED, capture.signedness[0]);
+    TEST_ASSERT_EQUAL_UINT(1U, capture.dimension_counts[0]);
+    TEST_ASSERT_FALSE(capture.has_var[0]);
+    TEST_ASSERT_TRUE(capture.first_bounds_match);
+    TEST_ASSERT_TRUE(capture.first_raw_dimensions_match);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_BUILTIN_TYPE_LOGIC, capture.builtin_types[1]);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_SIGNEDNESS_UNSIGNED, capture.signedness[1]);
+    TEST_ASSERT_EQUAL_UINT(0U, capture.dimension_counts[1]);
+    TEST_ASSERT_TRUE(capture.has_var[1]);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_BUILTIN_TYPE_OTHER, capture.builtin_types[2]);
+    TEST_ASSERT_EQUAL(LEMMA_SYNTAX_SIGNEDNESS_UNSPECIFIED, capture.signedness[2]);
+    TEST_ASSERT_EQUAL_UINT(0U, capture.dimension_counts[2]);
+    TEST_ASSERT_FALSE(capture.has_var[2]);
+    lemma_parsed_source_destroy(parsed);
 }
 
 //--------------------------------------------------------

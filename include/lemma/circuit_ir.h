@@ -19,7 +19,7 @@ typedef struct lemma_ir_signal {
     uint32_t width;
     bool is_signed;
     bool is_port;
-    lemma_ir_source_span source;
+    lemma_source_range source;
 } lemma_ir_signal;
 
 // Maps an ordered circuit port to its signal by array index.
@@ -39,21 +39,21 @@ typedef struct lemma_ir_expression {
     uint32_t signal_id;
     uint32_t width;
     bool is_signed;
-    lemma_ir_source_span source;
+    lemma_source_range source;
 } lemma_ir_expression;
 
 // A combinational assignment; IDs index arrays in the containing circuit.
 typedef struct lemma_ir_driver {
     uint32_t target_signal_id;
     uint32_t expression_id;
-    lemma_ir_source_span source;
+    lemma_source_range source;
 } lemma_ir_driver;
 
 // A flip-flop assignment; IDs index arrays in the containing circuit.
 typedef struct lemma_ir_ffd {
     uint32_t q_signal_id;
     uint32_t d_expression_id;
-    lemma_ir_source_span source;
+    lemma_source_range source;
 } lemma_ir_ffd;
 
 // One owning IR object; its arrays and strings are released by destroy.

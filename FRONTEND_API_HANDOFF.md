@@ -4,7 +4,7 @@
 > frontend rebuild. It is not a normative RTL specification. Current specs and
 > later user alignment take precedence.
 
-**Date:** 2026-11-08
+**Date:** 2026-11-10
 
 ## Purpose and implementation boundary
 
@@ -24,11 +24,15 @@ unknown module items or statements.
 - A parsed-source handle borrows its source buffer until the handle is destroyed
   and owns its Tree-sitter tree. Do not copy the source or build a second syntax
   tree. Source slices are borrowed and valid only for their documented lifetime.
+- Use the shared `lemma_source_range` from `include/lemma/source_range.h` for
+  source coordinates in frontend and verification diagnostics. Byte offsets are
+  half-open; rows and byte columns are zero-based. Diagnostic fields are named
+  `source_range` and `has_source_range`.
 - Keep Tree-sitter types in `include/lemma/frontend_ts_internal.h`, which is an
   internal header despite its location. Keep them out of syntax-view types.
 - Use Tree-sitter's direct-child traversal. Basic reusable helpers provide
   explicit all/named/named-non-extra child filtering, ordered child visitation,
-  unique direct-child lookup, field lookup, checked node text, and source spans.
+  unique direct-child lookup, field lookup, checked node text, and source ranges.
   Avoid allocated child arrays and generic recursive searches for grammar items.
 - Implement grammar extraction as nested functions that follow the source tree.
   The intended call structure is:
@@ -62,7 +66,7 @@ unknown module items or statements.
   name, signals, ordered ports, read expressions, and drivers, and provide
   read-only access for validation. FFD operations are deferred.
 - Represent shared declarations with one declaration-group event followed by
-  per-name declarator events linked by source span. The group carries shared raw
+  per-name declarator events linked by source range. The group carries shared raw
   syntax; each declarator carries its name, suffix, and initializer/default.
   Preserve ANSI shorthand ports with omitted attributes as written. Extraction
   does not copy or infer attributes; elaboration applies the accepted inheritance
@@ -72,7 +76,7 @@ unknown module items or statements.
   construction and selects the sole module automatically; no `--top` option or
   syntax-only CLI mode is needed for this profile.
 - Process and statement views are syntax-only. Keep source order and nesting
-  spans/depth; preserve unclassified constructs as opaque source slices. Do not
+  ranges/depth; preserve unclassified constructs as opaque source slices. Do not
   infer combinational/sequential behavior or implement process semantics unless
   `rtl-support.md` specifies them.
 - Function comments in C/H files must follow the exact separator-delimited
@@ -86,15 +90,21 @@ one-shot entry point. The CLI loads a file and calls that entry point; it does
 not claim proof success. The builder owns the final IR arrays and returns a
 circuit on successful finalization.
 
-The current implementation still combines low-level Tree-sitter helpers and
-grammar-specific visitors in `frontend_ts.c`. Elaboration also classifies types
-and packed widths by scanning raw syntax text.
+Reusable direct-child and checked range/text Tree-sitter helpers now live in
+`frontend_ts_helpers.c`; grammar-specific nested visitors remain private in
+`frontend_ts.c`. Declaration-group views retain raw syntax and expose syntax-only
+built-in type, `var`, signedness, first packed-bound slices, and packed-dimension
+count. Elaboration consumes those typed facts and parses the bounds individually.
 
 The statement `header` currently carries syntax-only control/label text. Its
 exact per-kind ranges are an implementation detail and can be refined with
-focused tests if consumers need a stronger guarantee. Parent span and depth
+focused tests if consumers need a stronger guarantee. Parent range and depth
 preserve nesting; add branch-role metadata only if a consumer needs then/else
 roles without inspecting source.
+
+Frontend and verification diagnostics now share `lemma_source_range`; the old
+`lemma_ir_source_span`, `lemma_source_span`, and `span` field names were replaced
+without changing layout or coordinate semantics.
 
 ## Next implementation scope
 
@@ -104,41 +114,36 @@ extend RTL acceptance without updating `doc/rtl-support.md` and adding focused
 tests. `lemma_run_job`, SVA/proof modeling, and solver execution remain out of
 scope.
 
-Before expanding the RTL subset, review these two refactors with the user:
-
-1. Separate atomic Tree-sitter helpers from grammar-specific module/port/body/
-   assignment/process visitors. Keep the nested call structure and expose only
-   the reusable helpers and required syntax interfaces in headers.
-2. Have extraction report typed declaration facts—built-in type category,
-   signedness syntax, and packed bound slices—so elaboration does not search raw
-   type text or parse a whole range slice. Keep these facts syntax-only and keep
-   current acceptance rules in `rtl-support.md`.
-
-The new session should review the proposed header changes before implementing
-these refactors. Preserve the current packed-range comment fix and tests.
+The two agreed C refactors are complete. Keep extraction syntax-only and preserve
+raw provenance; do not infer or inherit declaration attributes during extraction.
+The typed facts distinguish escaped/user-defined types from built-in wire/logic,
+and retain all packed dimensions so elaboration can reject unsupported extras.
+Preserve the packed-range comment behavior and tests. Do not broaden RTL
+acceptance without updating `doc/rtl-support.md` and adding focused tests.
 
 ## Verification
 
 `./flow.sh test` passes all seven CTest targets after the rebuild. Unit coverage
 checks parser failures, scalar/vector alias IR, inherited ANSI shorthand ports,
 syntax-view grouping, assignment destination/RHS/ternary-condition slices,
-process statements, and first-profile RTL rejections.
+process statements, typed declaration facts and borrowed bounds, escaped-type
+and extra-packed-dimension rejection, and first-profile RTL rejections.
 Keep the build warning-clean and run the full test command after C changes.
 
 ## Deferred review findings (triaged 2026-11-08)
 
-The review found two gaps. The escaped-type case is expected to be addressed by
-the typed syntax-view refactor above; the user considers it rare, so it is not a
-separate urgent fix. Drive strength is outside MVP interest and remains deferred:
+The review found two gaps. The escaped-type case is resolved by the typed
+syntax-view refactor; drive strength is outside MVP interest and remains deferred:
 
-- An escaped user type spelled `\logic` is mistaken for the built-in `logic`
-  keyword by raw text matching and is accepted as a one-bit port.
+- An escaped user type spelled `\logic` was mistaken for the built-in `logic`
+  keyword by raw text matching and accepted as a one-bit port. Extraction now
+  classifies it as an unsupported type form; a focused rejection test covers it.
 - A continuous assignment with `drive_strength`, for example
   `assign (strong1, highz0) y = a;`, is accepted even though strength is not
   represented in the IR.
-The packed-range comment issue was fixed on 2026-11-08: the width scanner skips
-whitespace, line comments, and block comments, with acceptance and
-unterminated-comment tests.
+Packed-range comment behavior remains covered after the typed-bound refactor:
+valid ranges with inter-token comments are accepted and an unterminated block
+comment is rejected.
 
 Stack-depth robustness is an accepted priority. The parser's recursive error
 search and the syntax visitor's recursive statement walks must not exhaust the C

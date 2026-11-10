@@ -4,11 +4,11 @@
 
 Lemma is an open-source formal verification tool for a documented, limited
 subset of synthesizable Verilog/SystemVerilog RTL. The repository is primarily
-a C11 project. Its current implementation is at the parser/build-bootstrap
-stage: the `lemma` executable checks SystemVerilog syntax, but does not yet
-validate the supported RTL subset, elaborate designs, check assertions
-semantically, or prove properties. Do not describe planned behavior as already
-implemented.
+a C11 project. Its current implementation parses and extracts SystemVerilog,
+validates and elaborates the documented first RTL profile, and constructs
+circuit IR. The `lemma` executable does not yet implement the public
+verification-job path, check assertions semantically, or prove properties. Do
+not describe planned behavior as already implemented.
 
 ## C implementation
 

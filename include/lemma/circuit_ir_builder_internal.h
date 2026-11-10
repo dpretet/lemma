@@ -38,14 +38,14 @@ int lemma_circuit_builder_set_module_name(lemma_circuit_builder *builder,
 // @width: Positive concrete bit width.
 // @is_signed: Declared signedness.
 // @is_port: Whether this signal is a module port.
-// @source: Source span attached to the signal.
+// @source: Source range attached to the signal.
 // @signal_id: Receives the new ID only on success.
 // @returns: Nonzero on success; zero for invalid input, limit, or allocation failure.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_signal(lemma_circuit_builder *builder,
                                      const char *name, size_t name_length,
                                      uint32_t width, bool is_signed, bool is_port,
-                                     lemma_ir_source_span source,
+                                     lemma_source_range source,
                                      uint32_t *signal_id);
 
 //--------------------------------------------------------
@@ -65,13 +65,13 @@ int lemma_circuit_builder_add_port(lemma_circuit_builder *builder,
 //
 // @builder: Mutable builder receiving the expression.
 // @signal_id: Existing signal array-position ID.
-// @source: Expression source span.
+// @source: Expression source range.
 // @expression_id: Receives the new ID only on success.
 // @returns: Nonzero on success; zero for invalid input, limit, or allocation failure.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
                                           uint32_t signal_id,
-                                          lemma_ir_source_span source,
+                                          lemma_source_range source,
                                           uint32_t *expression_id);
 
 //--------------------------------------------------------
@@ -80,13 +80,13 @@ int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
 // @builder: Mutable builder receiving the driver.
 // @target_signal_id: Existing target signal ID.
 // @expression_id: Existing expression ID.
-// @source: Assignment source span.
+// @source: Assignment source range.
 // @returns: Nonzero on success; zero for invalid input, limit, or allocation failure.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_driver(lemma_circuit_builder *builder,
                                      uint32_t target_signal_id,
                                      uint32_t expression_id,
-                                     lemma_ir_source_span source);
+                                     lemma_source_range source);
 
 //--------------------------------------------------------
 // Look up an existing signal by exact source-name bytes without copying them.

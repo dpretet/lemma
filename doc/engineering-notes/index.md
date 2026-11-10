@@ -38,12 +38,13 @@ authoritative source and update the note.
 - [RTL test oracle format](test-oracle-format.md) — accepted test-oracle layers;
   machine-readable format remains open.
 - [Public API and frontend boundaries](api-boundaries.md) — accepted Tree-sitter
-  encapsulation, internal stage separation, job/result and proof-status
-  contract, diagnostic layouts/stages, borrowed module/process syntax visitor
-  with declaration-group/declarator events, nested grammar visitors, CLI entry
-  flow, direct elaboration-to-IR builder handoff, and stack-depth robustness
-  priority; target-label encoding, serialization, two verified frontend
-  acceptance gaps, and traversal mitigation remain open.
+  encapsulation, shared source-range API, internal stage separation, job/result
+  and proof-status contract, diagnostic layouts/stages, borrowed module/process
+  syntax visitor with typed declaration-group/declarator events, nested grammar visitors and
+  split reusable Tree-sitter helpers, CLI entry flow, direct elaboration-to-IR
+  builder handoff, and stack-depth robustness priority; target-label encoding,
+  serialization, one verified frontend acceptance gap, and traversal mitigation
+  remain open.
 - [Circuit IR storage](circuit-ir-storage.md) — accepted private C storage
   outline using one owning object and array-position IDs, plus the first
   scalar/vector alias slice, frontend-first implementation order, and direct

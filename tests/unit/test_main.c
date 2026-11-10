@@ -49,6 +49,12 @@ void test_frontend_rejects_unsupported_constructs(void);
 //--------------------------------------------------------
 void test_frontend_visits_module_declarations_and_process_statements(void);
 //--------------------------------------------------------
+// Test that extraction reports typed declaration syntax and first bounds.
+//
+// @returns: None.
+//--------------------------------------------------------
+void test_frontend_extracts_typed_declaration_facts(void);
+//--------------------------------------------------------
 // Test that syntax visitor stop and failure actions end traversal immediately.
 //
 // @returns: None.
@@ -108,6 +114,7 @@ int main(void)
     RUN_TEST(test_frontend_inherits_complete_ansi_port_attributes);
     RUN_TEST(test_frontend_rejects_unsupported_constructs);
     RUN_TEST(test_frontend_visits_module_declarations_and_process_statements);
+    RUN_TEST(test_frontend_extracts_typed_declaration_facts);
     RUN_TEST(test_frontend_syntax_visitor_stops_and_fails_immediately);
     RUN_TEST(test_arena_grows_without_invalidating_prior_allocations);
     RUN_TEST(test_trace_declarations);

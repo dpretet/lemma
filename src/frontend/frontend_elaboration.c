@@ -17,8 +17,8 @@ typedef struct port_attributes {
 typedef struct elaboration_context {
     lemma_circuit_builder *builder;
     lemma_frontend_diagnostic *diagnostic;
-    lemma_ir_source_span module_span;
-    lemma_ir_source_span pending_group_span;
+    lemma_source_range module_range;
+    lemma_source_range pending_group_range;
     port_attributes current_port;
     size_t module_count;
     int has_pending_port;
@@ -26,13 +26,13 @@ typedef struct elaboration_context {
 } elaboration_context;
 
 //--------------------------------------------------------
-// Compare two source spans field by field without relying on structure padding.
+// Compare two source ranges field by field without relying on structure padding.
 //
-// @left: First half-open source span.
-// @right: Second half-open source span.
+// @left: First half-open source range.
+// @right: Second half-open source range.
 // @returns: Nonzero when every byte offset and point field matches.
 //--------------------------------------------------------
-static int spans_equal(lemma_ir_source_span left, lemma_ir_source_span right)
+static int ranges_equal(lemma_source_range left, lemma_source_range right)
 {
     return left.start_byte == right.start_byte && left.end_byte == right.end_byte &&
            left.start_row == right.start_row && left.start_column == right.start_column &&
@@ -46,14 +46,14 @@ static int spans_equal(lemma_ir_source_span left, lemma_ir_source_span right)
 // @stage: Frontend stage that detected the failure.
 // @code: Static diagnostic code string.
 // @message: Concise diagnostic message.
-// @span: Source span attached when has_span is nonzero.
-// @has_span: Whether a source span is available.
+// @range: Source range attached when has_source_range is nonzero.
+// @has_source_range: Whether a source range is available.
 // @returns: None.
 //--------------------------------------------------------
 static void set_diagnostic(lemma_frontend_diagnostic *diagnostic,
                            lemma_frontend_stage stage, const char *code,
-                           const char *message, lemma_ir_source_span span,
-                           int has_span)
+                           const char *message, lemma_source_range range,
+                           int has_source_range)
 {
     if (diagnostic == NULL) {
         return;
@@ -62,9 +62,9 @@ static void set_diagnostic(lemma_frontend_diagnostic *diagnostic,
     diagnostic->stage = stage;
     diagnostic->code = code;
     (void)snprintf(diagnostic->message, sizeof(diagnostic->message), "%s", message);
-    if (has_span != 0) {
-        diagnostic->has_span = 1;
-        diagnostic->span = span;
+    if (has_source_range != 0) {
+        diagnostic->has_source_range = 1;
+        diagnostic->source_range = range;
     }
 }
 
@@ -74,18 +74,18 @@ static void set_diagnostic(lemma_frontend_diagnostic *diagnostic,
 // @context: Active elaboration state receiving the diagnostic.
 // @code: Static diagnostic code string.
 // @message: Concise diagnostic message.
-// @span: Source span attached when available.
-// @has_span: Whether a source span is available.
+// @range: Source range attached when available.
+// @has_source_range: Whether a source range is available.
 // @returns: FAIL so syntax visitation stops immediately.
 //--------------------------------------------------------
 static lemma_syntax_visit_action reject_syntax(
     elaboration_context *context, const char *code, const char *message,
-    lemma_ir_source_span span, int has_span)
+    lemma_source_range range, int has_source_range)
 {
     context->failed = 1;
     set_diagnostic(context->diagnostic,
                    LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                   code, message, span, has_span);
+                   code, message, range, has_source_range);
     return LEMMA_SYNTAX_VISIT_FAIL;
 }
 
@@ -95,17 +95,17 @@ static lemma_syntax_visit_action reject_syntax(
 // @context: Active elaboration state receiving the diagnostic.
 // @code: Static circuit-IR diagnostic code.
 // @message: Concise diagnostic message.
-// @span: Source span attached when available.
-// @has_span: Whether a source span is available.
+// @range: Source range attached when available.
+// @has_source_range: Whether a source range is available.
 // @returns: FAIL so syntax visitation stops immediately.
 //--------------------------------------------------------
 static lemma_syntax_visit_action reject_builder(
     elaboration_context *context, const char *code, const char *message,
-    lemma_ir_source_span span, int has_span)
+    lemma_source_range range, int has_source_range)
 {
     context->failed = 1;
     set_diagnostic(context->diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
-                   code, message, span, has_span);
+                   code, message, range, has_source_range);
     return LEMMA_SYNTAX_VISIT_FAIL;
 }
 
@@ -163,173 +163,57 @@ static int is_simple_identifier(lemma_syntax_text text)
 }
 
 //--------------------------------------------------------
-// Check whether a source slice contains a whole token.
+// Parse a borrowed unsigned decimal bound and reject non-decimal syntax.
 //
-// @text: Borrowed source slice to inspect.
-// @token: NUL-terminated token to find.
-// @returns: Nonzero when token appears at identifier boundaries.
-//--------------------------------------------------------
-static int text_has_token(lemma_syntax_text text, const char *token)
-{
-    size_t token_length = strlen(token);
-    if (text.data == NULL || token_length == 0U || token_length > text.length) {
-        return 0;
-    }
-    for (size_t start = 0U; start <= text.length - token_length; ++start) {
-        if (memcmp(text.data + start, token, token_length) != 0) {
-            continue;
-        }
-        int left_boundary = start == 0U ||
-            !identifier_character((unsigned char)text.data[start - 1U], 0);
-        size_t end = start + token_length;
-        int right_boundary = end == text.length ||
-            !identifier_character((unsigned char)text.data[end], 0);
-        if (left_boundary && right_boundary) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-//--------------------------------------------------------
-// Skip whitespace and comments in a packed range slice.
-//
-// @text: Borrowed source slice containing the range.
-// @index: Required current byte index, advanced over trivia on success.
-// @returns: Nonzero when trivia ends cleanly; zero for an invalid slice/index or
-//     an unterminated block comment.
-//--------------------------------------------------------
-static int skip_range_trivia(lemma_syntax_text text, size_t *index)
-{
-    if (text.data == NULL || index == NULL || *index > text.length) {
-        return 0;
-    }
-    for (;;) {
-        while (*index < text.length &&
-               (text.data[*index] == ' ' || text.data[*index] == '\t' ||
-                text.data[*index] == '\r' || text.data[*index] == '\n')) {
-            ++*index;
-        }
-        if (text.length - *index < 2U || text.data[*index] != '/') {
-            return 1;
-        }
-        if (text.data[*index + 1U] == '/') {
-            *index += 2U;
-            while (*index < text.length && text.data[*index] != '\r' &&
-                   text.data[*index] != '\n') {
-                ++*index;
-            }
-            continue;
-        }
-        if (text.data[*index + 1U] != '*') {
-            return 1;
-        }
-
-        *index += 2U;
-        int closed = 0;
-        while (*index < text.length) {
-            if (text.length - *index >= 2U && text.data[*index] == '*' &&
-                text.data[*index + 1U] == '/') {
-                *index += 2U;
-                closed = 1;
-                break;
-            }
-            ++*index;
-        }
-        if (closed == 0) {
-            return 0;
-        }
-    }
-}
-
-//--------------------------------------------------------
-// Parse an unsigned decimal bound from a packed range slice.
-//
-// @text: Borrowed range text.
-// @index: Current offset, advanced past the decimal digits on success.
+// @text: Borrowed bound slice extracted from one packed dimension.
 // @value: Required output for the parsed bound.
-// @returns: Nonzero for a nonempty, in-range decimal number.
+// @returns: Nonzero for a nonempty, in-range decimal number with no extra text.
 //--------------------------------------------------------
-static int parse_decimal_bound(lemma_syntax_text text, size_t *index,
-                               uint32_t *value)
+static int parse_decimal_bound(lemma_syntax_text text, uint32_t *value)
 {
+    if (text.data == NULL || text.length == 0U || value == NULL) {
+        return 0;
+    }
     uint32_t result = 0U;
-    size_t start = *index;
-    while (*index < text.length) {
-        unsigned char character = (unsigned char)text.data[*index];
+    for (size_t index = 0U; index < text.length; ++index) {
+        unsigned char character = (unsigned char)text.data[index];
         if (character < (unsigned char)'0' || character > (unsigned char)'9') {
-            break;
+            return 0;
         }
         uint32_t digit = (uint32_t)(character - (unsigned char)'0');
         if (result > (UINT32_MAX - digit) / 10U) {
             return 0;
         }
         result = result * 10U + digit;
-        ++*index;
-    }
-    if (*index == start) {
-        return 0;
     }
     *value = result;
     return 1;
 }
 
 //--------------------------------------------------------
-// Resolve the first profile's single packed decimal range to a positive width.
+// Resolve one supported packed dimension's decimal bounds to a positive width.
 //
-// @range: Packed-dimension source slice, or empty for a scalar.
+// @group: Declaration group with borrowed first-dimension bound slices.
 // @width: Required output for the resolved bit width.
-// @returns: Nonzero for a scalar or one valid decimal range.
+// @returns: Nonzero for a scalar or exactly one valid decimal dimension.
 //--------------------------------------------------------
-static int packed_width(lemma_syntax_text range, uint32_t *width)
+static int packed_width(const lemma_syntax_declaration_group *group,
+                        uint32_t *width)
 {
-    if (width == NULL) {
+    if (group == NULL || width == NULL) {
         return 0;
     }
-    if (range.length == 0U) {
+    if (group->packed_dimension_count == 0U) {
         *width = 1U;
         return 1;
     }
-    if (range.data == NULL) {
-        return 0;
-    }
-    size_t index = 0U;
-    if (!skip_range_trivia(range, &index)) {
-        return 0;
-    }
-    if (index >= range.length || range.data[index++] != '[') {
-        return 0;
-    }
-    if (!skip_range_trivia(range, &index)) {
+    if (group->packed_dimension_count != 1U) {
         return 0;
     }
     uint32_t first = 0U;
-    if (!parse_decimal_bound(range, &index, &first)) {
-        return 0;
-    }
-    if (!skip_range_trivia(range, &index)) {
-        return 0;
-    }
-    if (index >= range.length || range.data[index++] != ':') {
-        return 0;
-    }
-    if (!skip_range_trivia(range, &index)) {
-        return 0;
-    }
     uint32_t last = 0U;
-    if (!parse_decimal_bound(range, &index, &last)) {
-        return 0;
-    }
-    if (!skip_range_trivia(range, &index)) {
-        return 0;
-    }
-    if (index >= range.length || range.data[index++] != ']') {
-        return 0;
-    }
-    if (!skip_range_trivia(range, &index)) {
-        return 0;
-    }
-    if (index != range.length) {
+    if (!parse_decimal_bound(group->packed_left_bound, &first) ||
+        !parse_decimal_bound(group->packed_right_bound, &last)) {
         return 0;
     }
     uint32_t difference = first >= last ? first - last : last - first;
@@ -351,7 +235,7 @@ static int parse_explicit_port_attributes(
     const lemma_syntax_declaration_group *group, port_attributes *attributes)
 {
     memset(attributes, 0, sizeof(*attributes));
-    if (text_has_token(group->source, "var")) {
+    if (group->has_var_keyword) {
         return 0;
     }
     if (text_equals(group->direction, "input")) {
@@ -361,18 +245,16 @@ static int parse_explicit_port_attributes(
     } else {
         return 0;
     }
-    int has_wire = text_has_token(group->type, "wire");
-    int has_logic = text_has_token(group->type, "logic");
-    if (has_wire == has_logic || text_has_token(group->type, "reg")) {
+    if (group->builtin_type != LEMMA_SYNTAX_BUILTIN_TYPE_WIRE &&
+        group->builtin_type != LEMMA_SYNTAX_BUILTIN_TYPE_LOGIC) {
         return 0;
     }
-    int has_signed = text_has_token(group->type, "signed");
-    int has_unsigned = text_has_token(group->type, "unsigned");
-    if (has_signed != 0 && has_unsigned != 0) {
+    if (group->signedness == LEMMA_SYNTAX_SIGNEDNESS_OTHER) {
         return 0;
     }
-    attributes->is_signed = has_signed != 0;
-    if (!packed_width(group->packed_dimensions, &attributes->width)) {
+    attributes->is_signed =
+        group->signedness == LEMMA_SYNTAX_SIGNEDNESS_SIGNED;
+    if (!packed_width(group, &attributes->width)) {
         return 0;
     }
     attributes->valid = 1;
@@ -495,19 +377,19 @@ static lemma_syntax_visit_action elaborate_syntax_event(
             if (state->module_count != 1U) {
                 return reject_syntax(state, "rtl.flat_design",
                                      "source must contain exactly one module",
-                                     boundary->module_span, 1);
+                                     boundary->module_range, 1);
             }
-            state->module_span = boundary->module_span;
+            state->module_range = boundary->module_range;
             if (boundary->name.data == NULL || boundary->name.length == 0U) {
                 return reject_syntax(state, "rtl.module_name",
                                      "module name is required",
-                                     boundary->module_span, 1);
+                                     boundary->module_range, 1);
             }
             if (!lemma_circuit_builder_set_module_name(
                     state->builder, boundary->name.data, boundary->name.length)) {
                 return reject_builder(state, "ir.module_name",
                                       "unable to store module name in circuit IR",
-                                      boundary->module_span, 1);
+                                      boundary->module_range, 1);
             }
         }
         return LEMMA_SYNTAX_VISIT_CONTINUE;
@@ -516,61 +398,61 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         if (state->has_pending_port != 0) {
             return reject_syntax(state, "rtl.port_form",
                                  "port declaration has no name",
-                                 state->pending_group_span, 1);
+                                 state->pending_group_range, 1);
         }
         const lemma_syntax_declaration_group *group = &view->as.declaration_group;
         if (group->kind != LEMMA_SYNTAX_DECLARATION_GROUP_PORT) {
                 return reject_syntax(state, "rtl.unsupported_construct",
                                  "parameters and internal declarations are outside the first profile",
-                                 group->source.span, 1);
+                                 group->source.source_range, 1);
         }
         if (group->has_explicit_port_header != 0) {
             if (!parse_explicit_port_attributes(group, &state->current_port)) {
                 return reject_syntax(state, "rtl.port_form",
                                      "port must have a supported input/output wire or logic type",
-                                     group->source.span, 1);
+                                     group->source.source_range, 1);
             }
         } else if (state->current_port.valid == 0) {
             return reject_syntax(state, "rtl.port_inheritance",
                                  "bare port identifier must follow a fully specified port",
-                                 group->source.span, 1);
+                                 group->source.source_range, 1);
         }
         state->has_pending_port = 1;
-        state->pending_group_span = group->source.span;
+        state->pending_group_range = group->source.source_range;
         return LEMMA_SYNTAX_VISIT_CONTINUE;
     }
     if (view->kind == LEMMA_SYNTAX_DECLARATOR) {
         const lemma_syntax_declarator *declarator = &view->as.declarator;
         if (state->has_pending_port == 0 ||
-            !spans_equal(state->pending_group_span, declarator->group_span)) {
+            !ranges_equal(state->pending_group_range, declarator->group_range)) {
             return reject_syntax(state, "rtl.port_form",
                                  "port declarator is not attached to its declaration",
-                                 declarator->declarator_span, 1);
+                                 declarator->declarator_range, 1);
         }
         state->has_pending_port = 0;
         uint32_t prior_id = 0U;
         if (!is_simple_identifier(declarator->name)) {
             return reject_syntax(state, "rtl.port_name",
                                  "only simple port identifiers are supported",
-                                 declarator->declarator_span, 1);
+                                 declarator->declarator_range, 1);
         }
         if (lemma_circuit_builder_find_signal(
                 state->builder, declarator->name.data, declarator->name.length,
                 &prior_id)) {
             return reject_syntax(state, "rtl.duplicate_signal",
                                  "signal name is declared more than once",
-                                 declarator->declarator_span, 1);
+                                 declarator->declarator_range, 1);
         }
         uint32_t signal_id = 0U;
         if (!lemma_circuit_builder_add_signal(
                 state->builder, declarator->name.data, declarator->name.length,
                 state->current_port.width, state->current_port.is_signed, true,
-                declarator->declarator_span, &signal_id) ||
+                declarator->declarator_range, &signal_id) ||
             !lemma_circuit_builder_add_port(
                 state->builder, signal_id, state->current_port.direction)) {
             return reject_builder(state, "ir.out_of_memory",
                                   "unable to store a port in the circuit IR",
-                                  declarator->declarator_span, 1);
+                                  declarator->declarator_range, 1);
         }
         return LEMMA_SYNTAX_VISIT_CONTINUE;
     }
@@ -583,7 +465,7 @@ static lemma_syntax_visit_action elaborate_syntax_event(
             !is_simple_identifier(assignment->expression)) {
             return reject_syntax(state, "rtl.assignment_form",
                                  "assignment must connect simple signals directly",
-                                 assignment->assignment.span, 1);
+                                 assignment->assignment.source_range, 1);
         }
         if (!lemma_circuit_builder_find_signal(
                 state->builder, assignment->destination_signal.data,
@@ -594,7 +476,7 @@ static lemma_syntax_visit_action elaborate_syntax_event(
                 assignment->expression.length, &source_id)) {
             return reject_syntax(state, "rtl.undeclared_signal",
                                  "assignment references a signal outside the port list",
-                                 assignment->assignment.span, 1);
+                                 assignment->assignment.source_range, 1);
         }
         const lemma_ir_signal *target =
             lemma_circuit_builder_signal_at(state->builder, target_id);
@@ -603,7 +485,7 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         if (target == NULL || source == NULL) {
             return reject_syntax(state, "ir.invalid_signal",
                                  "assignment references an invalid signal ID",
-                                 assignment->assignment.span, 1);
+                                 assignment->assignment.source_range, 1);
         }
         lemma_ir_port_direction target_direction = LEMMA_IR_PORT_INPUT;
         int target_is_port = 0;
@@ -620,50 +502,50 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         if (target_is_port == 0 || target_direction != LEMMA_IR_PORT_OUTPUT) {
             return reject_syntax(state, "rtl.input_driver",
                                  "continuous assignment target must be an output port",
-                                 assignment->lvalue.span, 1);
+                                 assignment->lvalue.source_range, 1);
         }
         if (target->width != source->width) {
             return reject_syntax(state, "rtl.alias_width",
                                  "alias source and output widths must match",
-                                 assignment->assignment.span, 1);
+                                 assignment->assignment.source_range, 1);
         }
         if (count_signal_drivers(state->builder, target_id) != 0U) {
             return reject_syntax(state, "rtl.multiple_drivers",
                                  "output port has more than one driver",
-                                 assignment->lvalue.span, 1);
+                                 assignment->lvalue.source_range, 1);
         }
         uint32_t expression_id = 0U;
         if (!lemma_circuit_builder_add_read_signal(
-                state->builder, source_id, assignment->expression.span,
+                state->builder, source_id, assignment->expression.source_range,
                 &expression_id) ||
             !lemma_circuit_builder_add_driver(
-                state->builder, target_id, expression_id, assignment->assignment.span)) {
+                state->builder, target_id, expression_id, assignment->assignment.source_range)) {
             return reject_builder(state, "ir.out_of_memory",
                                   "unable to store a continuous driver in the circuit IR",
-                                  assignment->assignment.span, 1);
+                                  assignment->assignment.source_range, 1);
         }
         return LEMMA_SYNTAX_VISIT_CONTINUE;
     }
     if (view->kind == LEMMA_SYNTAX_PROCESS ||
         view->kind == LEMMA_SYNTAX_PROCESS_EVENT_EXPRESSION ||
         view->kind == LEMMA_SYNTAX_STATEMENT) {
-        lemma_ir_source_span span = view->kind == LEMMA_SYNTAX_PROCESS
-            ? view->as.process.process_span
+        lemma_source_range range = view->kind == LEMMA_SYNTAX_PROCESS
+            ? view->as.process.process_range
             : view->kind == LEMMA_SYNTAX_PROCESS_EVENT_EXPRESSION
-                  ? view->as.process_event_expression.process_span
-                  : view->as.statement.source.span;
+                  ? view->as.process_event_expression.process_range
+                  : view->as.statement.source.source_range;
         return reject_syntax(state, "rtl.unsupported_procedural_logic",
                              "procedural logic is outside the first profile",
-                             span, 1);
+                             range, 1);
     }
     if (view->kind == LEMMA_SYNTAX_OPAQUE_MODULE_ITEM) {
         return reject_syntax(state, "rtl.unsupported_construct",
                              "module item is outside the first profile",
-                             view->as.opaque_module_item.source.span, 1);
+                             view->as.opaque_module_item.source.source_range, 1);
     }
     return reject_syntax(state, "rtl.invalid_syntax_event",
                          "syntax extractor returned an invalid event",
-                         state->module_span, 1);
+                         state->module_range, 1);
 }
 
 //--------------------------------------------------------
@@ -681,7 +563,7 @@ static int validate_drivers(elaboration_context *context)
         if (port == NULL) {
             set_diagnostic(context->diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
                            "ir.invalid_port", "circuit contains an invalid port record",
-                           context->module_span, 1);
+                           context->module_range, 1);
             return 0;
         }
         if (port->direction != LEMMA_IR_PORT_OUTPUT ||
@@ -694,7 +576,7 @@ static int validate_drivers(elaboration_context *context)
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.output_undriven",
                        "each output port must have one direct signal driver",
-                       signal != NULL ? signal->source : context->module_span,
+                       signal != NULL ? signal->source : context->module_range,
                        signal != NULL);
         return 0;
     }
@@ -707,7 +589,7 @@ static int validate_drivers(elaboration_context *context)
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.combinational_cycle",
                        "output aliases form a combinational cycle",
-                       signal != NULL ? signal->source : context->module_span,
+                       signal != NULL ? signal->source : context->module_range,
                        signal != NULL);
         return 0;
     }
@@ -715,7 +597,7 @@ static int validate_drivers(elaboration_context *context)
         set_diagnostic(context->diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
                        "ir.validation_failed",
                        "unable to validate circuit alias dependencies",
-                       context->module_span, 1);
+                       context->module_range, 1);
         return 0;
     }
     return 1;
@@ -741,7 +623,7 @@ int lemma_frontend_elaborate(const lemma_parsed_source *parsed,
         set_diagnostic(diagnostic,
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.invalid_input", "parsed source and builder are required",
-                       (lemma_ir_source_span){0}, 0);
+                       (lemma_source_range){0}, 0);
         return 0;
     }
     elaboration_context context = {0};
@@ -754,7 +636,7 @@ int lemma_frontend_elaborate(const lemma_parsed_source *parsed,
             set_diagnostic(diagnostic,
                            LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                            "rtl.syntax_extraction", "unable to extract module syntax",
-                           context.module_span, context.module_count != 0U);
+                           context.module_range, context.module_count != 0U);
         }
         return 0;
     }
@@ -762,21 +644,21 @@ int lemma_frontend_elaborate(const lemma_parsed_source *parsed,
         set_diagnostic(diagnostic,
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.flat_design", "source must contain exactly one module",
-                       context.module_span, context.module_count != 0U);
+                       context.module_range, context.module_count != 0U);
         return 0;
     }
     if (lemma_circuit_builder_port_count(builder) == 0U) {
         set_diagnostic(diagnostic,
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.port_count", "module must declare at least one ANSI port",
-                       context.module_span, 1);
+                       context.module_range, 1);
         return 0;
     }
     if (context.has_pending_port != 0) {
         set_diagnostic(diagnostic,
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.port_form", "port declaration has no name",
-                       context.pending_group_span, 1);
+                       context.pending_group_range, 1);
         return 0;
     }
     return validate_drivers(&context);

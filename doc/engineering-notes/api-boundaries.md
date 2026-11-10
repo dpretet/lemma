@@ -2,7 +2,7 @@
 
 - **Status:** accepted (stage, source, diagnostic, IR-visibility, outcome,
   public result layout, diagnostic read-only array and field layout,
-  diagnostic span representation, result ownership and return shape,
+  diagnostic source-range representation, result ownership and return shape,
   diagnostic-stage granularity, job-status, public function declarations,
   clock-selection, parameter-value, and trace-content boundaries, shared
   arbitrary-width bit-vector type, parsed-source lifetime, syntax-view visitor,
@@ -33,24 +33,40 @@
   extraction does not materialize an owning syntax-design copy.
 - **Decision:** Implement syntax extraction as nested grammar-specific visitors
   (module, ports, body items, declarations, assignments, processes, and
-  statements) built on small direct-child Tree-sitter helpers. These visitors
-  remain private unless another module needs their declarations; the top-level
-  syntax callback is only the output boundary and does not prescribe a flat
-  traversal implementation. Continuous-assignment extraction gets the target,
-  right-hand expression, and an optional top-level ternary condition through
-  separate helpers; the full lvalue and RHS source slices remain available.
+  statements) built on small direct-child Tree-sitter helpers. Atomic reusable
+  child traversal/lookups and checked range/text implementations live in
+  `frontend_ts_helpers.c`; grammar-specific visitors remain private in
+  `frontend_ts.c`. The top-level syntax callback is only the output boundary
+  and does not prescribe a flat traversal implementation. Continuous-assignment
+  extraction gets the target, right-hand expression, and an optional top-level
+  ternary condition through separate helpers; the full lvalue and RHS source
+  slices remain available.
 - **Decision:** The syntax visitor exposes source-ordered views for module
   boundaries, parameters, ports and module-scope declarators, continuous
   assignments, processes and event expressions, and nested process statements.
-  Statement views retain parent spans and depth; unclassified module items and
+  Statement views retain parent ranges and depth; unclassified module items and
   statements remain opaque source slices. These views describe syntax only and
   do not imply RTL acceptance or semantic process classification.
 - **Decision:** Shared declaration syntax is emitted once as a declaration-group
-  view, followed by per-name declarator views linked by the group source span.
+  view, followed by per-name declarator views linked by the group source range.
   ANSI port declarators with omitted headers preserve that omission; extraction
   does not copy or infer attributes from a preceding port. Elaboration applies
   the accepted first-profile inheritance rule in [`rtl-support.md`](../rtl-support.md)
   and rejects partial header omissions.
+- **Decision (verified 2026-11-08):** Declaration-group views preserve raw type,
+  group, and packed-dimension slices and additionally expose syntax-only built-in
+  type category, `var` presence, signedness marker, packed-dimension count, and
+  borrowed left/right slices for the first packed dimension. Grammar-node kinds,
+  rather than raw spelling searches, distinguish built-in `logic` from an
+  escaped user type such as `\logic`; elaboration consumes these typed facts
+  without inferring omitted attributes. In the current grammar, the bound
+  expressions are nested under `constant_range` within `packed_dimension`; the
+  extractor unwraps this node to expose the two borrowed slices. Tests cover
+  typed facts, escaped-type rejection, extra packed dimensions, and comments
+  inside accepted ranges. See
+  [`frontend_syntax.h`](../../include/lemma/frontend_syntax.h),
+  [`frontend_ts.c`](../../src/frontend/frontend_ts.c), and
+  [`test_frontend.c`](../../tests/unit/test_frontend.c).
 - **Decision:** The CLI handles command-line parsing and file loading, then calls
   one frontend entry point that runs parsing through circuit-IR construction.
   For the first profile it selects the sole module automatically; it does not
@@ -65,10 +81,12 @@
   their strings are owned by the result and remain valid until it is destroyed.
   An empty diagnostic list has count zero and a NULL array pointer.
 - **Decision:** The public diagnostic record carries stage, severity, stable
-  code, message, optional source name, and optional inline source span. Source
+  code, message, optional source name, and optional inline source range. Source
   names and diagnostic strings are result-owned. A missing source is represented
-  by a NULL name; `has_span` indicates whether the inline span is available.
-- **Decision:** Public source spans use Lemma-owned `size_t` fields for byte
+  by a NULL name; `has_source_range` indicates whether the inline range is
+  available.
+- **Decision (accepted 2026-11-10):** `lemma_source_range` is the shared public
+  source-coordinate type used by frontend and verification APIs. Its `size_t` fields represent byte
   offsets and Tree-sitter-compatible zero-based row and byte-column positions.
   The end byte/position is exclusive. Tree-sitter types do not appear in the
   public verification header.
@@ -180,12 +198,13 @@
   `src/frontend/frontend_ts.c` currently recurse without a Lemma depth limit.
   Replace them with iterative traversal or add a checked limit that returns a
   structured diagnostic, with regression tests for deep input.
-- **Open (verified 2026-11-08):** `parse_explicit_port_attributes` scans raw type
-  text for `logic`, so the escaped user-defined type `\logic` is accepted as a
-  built-in one-bit logic port. Tree-sitter represents it as an
-  `escaped_identifier`; classify the grammar node kind and add a rejection test.
-  **User triage (2026-11-08):** rare and deferred; not an MVP blocker.
-  See [`frontend_elaboration.c`](../../src/frontend/frontend_elaboration.c) and
+- **Resolved (verified 2026-11-08):** Declaration-group extraction classifies
+  type keywords from Tree-sitter node kinds, and elaboration consumes those typed
+  facts rather than searching raw type text. The escaped user-defined type
+  `\logic` is classified as OTHER and rejected; `test_frontend.c` covers both
+  extracted classification and the `rtl.port_form` rejection. See
+  [`frontend_elaboration.c`](../../src/frontend/frontend_elaboration.c),
+  [`frontend_ts.c`](../../src/frontend/frontend_ts.c), and
   [`rtl-support.md`](../rtl-support.md).
 - **Open (verified 2026-11-08):** A continuous assignment with `drive_strength`
   is lowered like a plain alias although strength is absent from the IR and the
@@ -194,10 +213,11 @@
   [`frontend_ts.c`](../../src/frontend/frontend_ts.c) and
   [`internal-representation.md`](../internal-representation.md). **User triage
   (2026-11-08):** do not add drive-strength support for MVP; defer further work.
-- **Resolved (verified 2026-11-08):** Packed-range parsing now skips whitespace,
-  line comments, and block comments while scanning decimal bounds; unterminated
-  block comments fail. `tests/unit/test_frontend.c` covers comments inside valid
-  ranges and an unterminated range comment, matching the trivia rule in
+- **Resolved (verified 2026-11-08):** Elaborating individual bound slices
+  preserves valid ranges with whitespace, line comments, and block comments
+  between range tokens; an unterminated block comment still fails parsing.
+  `tests/unit/test_frontend.c` covers comments inside valid ranges and an
+  unterminated range comment, matching the trivia rule in
   [`rtl-support.md`](../rtl-support.md).
 - **Rationale:** Parser implementation details should not become a public ABI
   contract, while internal stage boundaries allow precise tests and diagnostics.

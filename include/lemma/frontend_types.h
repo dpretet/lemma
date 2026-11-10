@@ -1,17 +1,7 @@
 #ifndef LEMMA_FRONTEND_TYPES_H
 #define LEMMA_FRONTEND_TYPES_H
 
-#include <stddef.h>
-
-// Source location with half-open byte offsets and zero-based row/column values.
-typedef struct lemma_ir_source_span {
-    size_t start_byte;
-    size_t end_byte;
-    size_t start_row;
-    size_t start_column;
-    size_t end_row;
-    size_t end_column;
-} lemma_ir_source_span;
+#include "lemma/source_range.h"
 
 // Frontend processing stage reported by a diagnostic.
 typedef enum lemma_frontend_stage {
@@ -26,8 +16,8 @@ typedef struct lemma_frontend_diagnostic {
     lemma_frontend_stage stage;
     const char *code;
     char message[192];
-    int has_span;
-    lemma_ir_source_span span;
+    int has_source_range;
+    lemma_source_range source_range;
 } lemma_frontend_diagnostic;
 
 #endif

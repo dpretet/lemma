@@ -22,12 +22,12 @@ static void clear_diagnostic(lemma_frontend_diagnostic *diagnostic)
 }
 
 //--------------------------------------------------------
-// Report a parsing-stage diagnostic with an optional source span.
+// Report a parsing-stage diagnostic with an optional source range.
 //
 // @diagnostic: Optional record receiving the diagnostic.
 // @code: Static diagnostic code string.
 // @message: Concise diagnostic message.
-// @node: Node supplying a span, or a null node when unavailable.
+// @node: Node supplying a range, or a null node when unavailable.
 // @returns: None.
 //--------------------------------------------------------
 static void set_parse_diagnostic(lemma_frontend_diagnostic *diagnostic,
@@ -41,10 +41,10 @@ static void set_parse_diagnostic(lemma_frontend_diagnostic *diagnostic,
     diagnostic->code = code;
     (void)snprintf(diagnostic->message, sizeof(diagnostic->message), "%s", message);
     if (!ts_node_is_null(node)) {
-        lemma_ir_source_span span;
-        if (lemma_frontend_ts_node_span(node, &span) == LEMMA_TS_SPAN_VALID) {
-            diagnostic->has_span = 1;
-            diagnostic->span = span;
+        lemma_source_range range;
+        if (lemma_frontend_ts_node_range(node, &range) == LEMMA_TS_RANGE_VALID) {
+            diagnostic->has_source_range = 1;
+            diagnostic->source_range = range;
         }
     }
 }

@@ -107,14 +107,14 @@ int lemma_circuit_builder_set_module_name(lemma_circuit_builder *builder,
 // @width: Positive signal width.
 // @is_signed: Declared signedness.
 // @is_port: Whether the signal is a module port.
-// @source: Signal declaration span.
+// @source: Signal declaration range.
 // @signal_id: Required output for the new ID.
 // @returns: Nonzero on success, zero for invalid input, ID limit, or allocation failure.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_signal(lemma_circuit_builder *builder,
                                      const char *name, size_t name_length,
                                      uint32_t width, bool is_signed, bool is_port,
-                                     lemma_ir_source_span source,
+                                     lemma_source_range source,
                                      uint32_t *signal_id)
 {
     if (builder == NULL || name == NULL || name_length == 0U ||
@@ -168,13 +168,13 @@ int lemma_circuit_builder_add_port(lemma_circuit_builder *builder,
 //
 // @builder: Mutable builder.
 // @signal_id: Existing signal ID.
-// @source: Expression source span.
+// @source: Expression source range.
 // @expression_id: Required output for the new ID.
 // @returns: Nonzero on success, zero for invalid ID, limit, or allocation failure.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
                                           uint32_t signal_id,
-                                          lemma_ir_source_span source,
+                                          lemma_source_range source,
                                           uint32_t *expression_id)
 {
     if (builder == NULL || expression_id == NULL ||
@@ -201,13 +201,13 @@ int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
 // @builder: Mutable builder.
 // @target_signal_id: Existing target signal ID.
 // @expression_id: Existing expression ID.
-// @source: Assignment source span.
+// @source: Assignment source range.
 // @returns: Nonzero on success, zero for invalid IDs, limit, or allocation failure.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_driver(lemma_circuit_builder *builder,
                                      uint32_t target_signal_id,
                                      uint32_t expression_id,
-                                     lemma_ir_source_span source)
+                                     lemma_source_range source)
 {
     if (builder == NULL || target_signal_id >= builder->storage.signal_count ||
         expression_id >= builder->storage.expression_count ||

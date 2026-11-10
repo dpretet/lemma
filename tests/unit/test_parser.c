@@ -36,7 +36,7 @@ void test_parser_rejects_malformed_module_source(void)
     TEST_ASSERT_NULL(parsed);
     TEST_ASSERT_EQUAL(LEMMA_FRONTEND_STAGE_PARSING, diagnostic.stage);
     TEST_ASSERT_NOT_NULL(diagnostic.code);
-    TEST_ASSERT_TRUE(diagnostic.has_span);
+    TEST_ASSERT_TRUE(diagnostic.has_source_range);
 }
 
 //--------------------------------------------------------

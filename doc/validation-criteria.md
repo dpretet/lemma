@@ -23,7 +23,9 @@ Validate that:
 - parser recovery, if present, cannot cause omitted or altered constructs to be treated as validated; and
 - module boundaries, declarations, dependencies, and referenced files are identified without ambiguity.
 
-Tests should cover valid inputs, boundary forms, malformed input, and failures at multiple source locations. The validation evidence should retain the relevant source span and a stable diagnostic identity where the tool provides one.
+Tests should cover valid inputs, boundary forms, malformed input, and failures at
+multiple source locations. Validation evidence should retain the relevant source
+range and a stable diagnostic identity where the tool provides one.
 
 For clock-domain handling, tests should demonstrate that a design with multiple
 domains can be accepted for a property whose complete dependency cone is local
@@ -84,9 +86,9 @@ If a witness cannot be replayed or is incomplete, report that limitation separat
 
 Validate diagnostics for correctness, locality, consistency, and actionability. They should:
 
-- point to the relevant source span or model element when one exists;
 - explain whether the issue is invalid input, unsupported semantics, an unmet validation obligation, inconclusive reasoning, or infrastructure failure;
 - avoid claiming a stronger guarantee than the evidence supports;
+- point to the relevant source range or model element when one exists;
 - report assumptions, initialization rules, ignored or unsupported constructs, and scope limits that affect interpretation;
 - emit a source-located warning for each register initialized to zero by Lemma's default policy, and disclose that policy in the proof report; and
 - remain deterministic enough for users and regression tests to compare meaningful changes.

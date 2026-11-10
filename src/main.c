@@ -81,10 +81,10 @@ static void print_frontend_diagnostic(const char *path,
                                       const lemma_frontend_diagnostic *diagnostic)
 {
     const char *code = diagnostic->code != NULL ? diagnostic->code : "frontend.error";
-    if (diagnostic->has_span != 0) {
+    if (diagnostic->has_source_range != 0) {
         fprintf(stderr, "%s:%zu:%zu: %s (%s)\n", path,
-                diagnostic->span.start_row + 1U,
-                diagnostic->span.start_column + 1U,
+                diagnostic->source_range.start_row + 1U,
+                diagnostic->source_range.start_column + 1U,
                 diagnostic->message, code);
     } else {
         fprintf(stderr, "%s: %s (%s)\n", path, diagnostic->message, code);

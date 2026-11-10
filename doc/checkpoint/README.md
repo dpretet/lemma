@@ -8,8 +8,8 @@ the checkpoint marked **ACTIVE** below.
 ## Active checkpoint
 
 - [`../../FRONTEND_API_HANDOFF.md`](../../FRONTEND_API_HANDOFF.md) — **ACTIVE**,
-  updated 2026-11-08. Frontend API choices, implementation status, and review
-  follow-up.
+  updated 2026-11-10. Frontend API choices, implementation status, shared source
+  range naming, and review follow-up.
 
 ## Historical checkpoints
 

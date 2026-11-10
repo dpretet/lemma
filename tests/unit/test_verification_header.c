@@ -101,10 +101,10 @@ void test_verification_header_declarations(void)
     TEST_ASSERT_EQUAL_UINT(1U, job.source_count);
     TEST_ASSERT_EQUAL_STRING("WIDTH", job.parameter_overrides[0].name);
     TEST_ASSERT_EQUAL(LEMMA_DIAGNOSTIC_STAGE_PARSING, diagnostic.stage);
-    TEST_ASSERT_TRUE(diagnostic.has_span);
-    TEST_ASSERT_EQUAL_UINT(13U, diagnostic.span.end_byte);
+    TEST_ASSERT_TRUE(diagnostic.has_source_range);
+    TEST_ASSERT_EQUAL_UINT(13U, diagnostic.source_range.end_byte);
     TEST_ASSERT_NULL(job_diagnostic.source_name);
-    TEST_ASSERT_FALSE(job_diagnostic.has_span);
+    TEST_ASSERT_FALSE(job_diagnostic.has_source_range);
     TEST_ASSERT_EQUAL(LEMMA_PROPERTY_ASSERTION, proof.target_kind);
     TEST_ASSERT_EQUAL(LEMMA_PROOF_OUTCOME_INCONCLUSIVE, proof.outcome);
     TEST_ASSERT_EQUAL(LEMMA_JOB_STATUS_REJECTED, result.status);

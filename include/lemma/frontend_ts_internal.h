@@ -54,11 +54,11 @@ typedef enum lemma_ts_child_field_result {
     LEMMA_TS_CHILD_FIELD_INVALID_INPUT
 } lemma_ts_child_field_result;
 
-// Result of obtaining a Tree-sitter node's source span.
-typedef enum lemma_ts_span_result {
-    LEMMA_TS_SPAN_VALID,
-    LEMMA_TS_SPAN_INVALID_INPUT
-} lemma_ts_span_result;
+// Result of obtaining a Tree-sitter node's source range.
+typedef enum lemma_ts_range_result {
+    LEMMA_TS_RANGE_VALID,
+    LEMMA_TS_RANGE_INVALID_INPUT
+} lemma_ts_range_result;
 
 // Result of obtaining a checked borrowed source slice for a Tree-sitter node.
 typedef enum lemma_ts_text_result {
@@ -126,15 +126,15 @@ lemma_ts_child_field_result lemma_frontend_ts_child_by_field_name(
     TSNode parent, const char *field_name, TSNode *child);
 
 //--------------------------------------------------------
-// Obtain a node's half-open byte and zero-based row/column span without allocation.
+// Obtain a node's half-open byte and zero-based row/column range without allocation.
 //
-// @node: Non-null Tree-sitter node whose span is requested.
-// @span: Required output initialized to a zero span on entry.
-// @returns: VALID with the node's half-open source span, or INVALID_INPUT for
+// @node: Non-null Tree-sitter node whose range is requested.
+// @range: Required output initialized to a zero range on entry.
+// @returns: VALID with the node's half-open source range, or INVALID_INPUT for
 //     a null node, NULL output, or unrepresentable position.
 //--------------------------------------------------------
-lemma_ts_span_result lemma_frontend_ts_node_span(
-    TSNode node, lemma_ir_source_span *span);
+lemma_ts_range_result lemma_frontend_ts_node_range(
+    TSNode node, lemma_source_range *range);
 
 //--------------------------------------------------------
 // Form a checked borrowed source slice for a node in parsed's tree without
@@ -143,8 +143,8 @@ lemma_ts_span_result lemma_frontend_ts_node_span(
 // @parsed: Live parsed-source handle whose source and tree are borrowed.
 // @node: Non-null node belonging to parsed's tree.
 // @text: Required output initialized to an empty zero slice on entry.
-// @returns: VALID with a borrowed source slice and span, or INVALID_INPUT for
-//     invalid arguments, a foreign/null node, or an out-of-range node span.
+// @returns: VALID with a borrowed source slice and range, or INVALID_INPUT for
+//     invalid arguments, a foreign/null node, or an out-of-range node range.
 //--------------------------------------------------------
 lemma_ts_text_result lemma_frontend_ts_node_text(
     const lemma_parsed_source *parsed, TSNode node, lemma_syntax_text *text);

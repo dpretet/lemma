@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "lemma/source_range.h"
 #include "lemma/trace.h"
 
 /*
@@ -73,24 +74,10 @@ typedef enum lemma_diagnostic_severity {
 } lemma_diagnostic_severity;
 
 /*
- * Source positions preserve Tree-sitter's zero-based rows and byte columns.
- * The byte range is [start_byte, end_byte); the end position is exclusive.
- */
-typedef struct lemma_source_span {
-    size_t start_byte;
-    size_t end_byte;
-    size_t start_row;
-    size_t start_column;
-    size_t end_row;
-    size_t end_column;
-} lemma_source_span;
-
-/*
  * The stable code, message, and source_name, when present, are owned by the
  * result. source_name is NULL for job-level diagnostics without a source;
- * has_span is false when no source span is available. If has_span is true,
- * span records the source range in byte offsets and zero-based row/byte-column
- * positions.
+ * has_source_range is false when no source range is available. If it is true,
+ * source_range records byte offsets and zero-based row/byte-column positions.
  */
 typedef struct lemma_diagnostic {
     lemma_diagnostic_stage stage;
@@ -98,8 +85,8 @@ typedef struct lemma_diagnostic {
     const char *code;
     const char *message;
     const char *source_name;
-    bool has_span;
-    lemma_source_span span;
+    bool has_source_range;
+    lemma_source_range source_range;
 } lemma_diagnostic;
 
 // The target label and optional trace are owned by the containing result.

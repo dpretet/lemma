@@ -1,201 +1,6 @@
 #include "lemma/frontend_ts_internal.h"
 
-#include <limits.h>
 #include <string.h>
-
-//--------------------------------------------------------
-// Apply a child filter to one direct Tree-sitter child.
-//
-// @child: Direct child considered for selection.
-// @filter: Requested child category.
-// @returns: Nonzero when the child satisfies the filter.
-//--------------------------------------------------------
-static int selected_child(TSNode child, lemma_ts_child_filter filter)
-{
-    if (filter == LEMMA_TS_CHILD_FILTER_ALL) {
-        return 1;
-    }
-    if (!ts_node_is_named(child)) {
-        return 0;
-    }
-    return filter != LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS ||
-           !ts_node_is_extra(child);
-}
-
-//--------------------------------------------------------
-// Visit selected direct children in original source order.
-//
-// @parent: Non-null node whose immediate children are visited.
-// @filter: Valid child filter.
-// @visitor: Non-NULL callback invoked synchronously.
-// @context: Caller value borrowed during callbacks.
-// @returns: COMPLETE, STOPPED, FAILED, or INVALID_INPUT as documented.
-//--------------------------------------------------------
-lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
-    TSNode parent, lemma_ts_child_filter filter,
-    lemma_ts_child_visitor visitor, void *context)
-{
-    if (ts_node_is_null(parent) || visitor == NULL ||
-        filter < LEMMA_TS_CHILD_FILTER_ALL ||
-        filter > LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS) {
-        return LEMMA_TS_CHILD_VISIT_INVALID_INPUT;
-    }
-    uint32_t count = ts_node_child_count(parent);
-    for (uint32_t index = 0U; index < count; ++index) {
-        TSNode child = ts_node_child(parent, index);
-        if (!selected_child(child, filter)) {
-            continue;
-        }
-        const char *field = ts_node_field_name_for_child(parent, index);
-        lemma_ts_child_visit_action action = visitor(child, index, field, context);
-        if (action == LEMMA_TS_CHILD_VISIT_STOP) {
-            return LEMMA_TS_CHILD_VISIT_STOPPED;
-        }
-        if (action != LEMMA_TS_CHILD_VISIT_CONTINUE) {
-            return LEMMA_TS_CHILD_VISIT_FAILED;
-        }
-    }
-    return LEMMA_TS_CHILD_VISIT_COMPLETE;
-}
-
-//--------------------------------------------------------
-// Find a unique immediate child with the requested exact type.
-//
-// @parent: Non-null parent node.
-// @type: Nonempty exact node type.
-// @filter: Valid child filter.
-// @child: Required output initialized to a null node.
-// @returns: UNIQUE, MISSING, AMBIGUOUS, or INVALID_INPUT.
-//--------------------------------------------------------
-lemma_ts_child_type_result lemma_frontend_ts_unique_child_by_type(
-    TSNode parent, const char *type, lemma_ts_child_filter filter, TSNode *child)
-{
-    if (child != NULL) {
-        *child = (TSNode){0};
-    }
-    if (child == NULL || type == NULL || type[0] == '\0' || ts_node_is_null(parent) ||
-        filter < LEMMA_TS_CHILD_FILTER_ALL ||
-        filter > LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS) {
-        return LEMMA_TS_CHILD_TYPE_INVALID_INPUT;
-    }
-    size_t matches = 0U;
-    TSNode found = {0};
-    uint32_t count = ts_node_child_count(parent);
-    for (uint32_t index = 0U; index < count; ++index) {
-        TSNode candidate = ts_node_child(parent, index);
-        if (selected_child(candidate, filter) && strcmp(ts_node_type(candidate), type) == 0) {
-            if (matches == 0U) {
-                found = candidate;
-            }
-            ++matches;
-        }
-    }
-    if (matches == 0U) {
-        return LEMMA_TS_CHILD_TYPE_MISSING;
-    }
-    if (matches != 1U) {
-        return LEMMA_TS_CHILD_TYPE_AMBIGUOUS;
-    }
-    *child = found;
-    return LEMMA_TS_CHILD_TYPE_UNIQUE;
-}
-
-//--------------------------------------------------------
-// Find the first immediate child bearing an exact grammar field name.
-//
-// @parent: Non-null parent node.
-// @field_name: Nonempty grammar field name.
-// @child: Required output initialized to a null node.
-// @returns: FOUND, MISSING, or INVALID_INPUT.
-//--------------------------------------------------------
-lemma_ts_child_field_result lemma_frontend_ts_child_by_field_name(
-    TSNode parent, const char *field_name, TSNode *child)
-{
-    if (child != NULL) {
-        *child = (TSNode){0};
-    }
-    if (child == NULL || field_name == NULL || field_name[0] == '\0' ||
-        ts_node_is_null(parent)) {
-        return LEMMA_TS_CHILD_FIELD_INVALID_INPUT;
-    }
-    uint32_t count = ts_node_child_count(parent);
-    for (uint32_t index = 0U; index < count; ++index) {
-        const char *field = ts_node_field_name_for_child(parent, index);
-        if (field != NULL && strcmp(field, field_name) == 0) {
-            *child = ts_node_child(parent, index);
-            return LEMMA_TS_CHILD_FIELD_FOUND;
-        }
-    }
-    return LEMMA_TS_CHILD_FIELD_MISSING;
-}
-
-//--------------------------------------------------------
-// Convert Tree-sitter coordinates to Lemma's half-open span.
-//
-// @node: Non-null node whose range is requested.
-// @span: Required output initialized to zero.
-// @returns: VALID when representable; INVALID_INPUT otherwise.
-//--------------------------------------------------------
-lemma_ts_span_result lemma_frontend_ts_node_span(TSNode node,
-                                                lemma_ir_source_span *span)
-{
-    if (span != NULL) {
-        memset(span, 0, sizeof(*span));
-    }
-    if (span == NULL || ts_node_is_null(node)) {
-        return LEMMA_TS_SPAN_INVALID_INPUT;
-    }
-    TSPoint start = ts_node_start_point(node);
-    TSPoint end = ts_node_end_point(node);
-    uint32_t start_byte = ts_node_start_byte(node);
-    uint32_t end_byte = ts_node_end_byte(node);
-    if ((uintmax_t)start_byte > (uintmax_t)SIZE_MAX ||
-        (uintmax_t)end_byte > (uintmax_t)SIZE_MAX ||
-        (uintmax_t)start.row > (uintmax_t)SIZE_MAX ||
-        (uintmax_t)start.column > (uintmax_t)SIZE_MAX ||
-        (uintmax_t)end.row > (uintmax_t)SIZE_MAX ||
-        (uintmax_t)end.column > (uintmax_t)SIZE_MAX) {
-        memset(span, 0, sizeof(*span));
-        return LEMMA_TS_SPAN_INVALID_INPUT;
-    }
-    span->start_byte = (size_t)start_byte;
-    span->end_byte = (size_t)end_byte;
-    span->start_row = (size_t)start.row;
-    span->start_column = (size_t)start.column;
-    span->end_row = (size_t)end.row;
-    span->end_column = (size_t)end.column;
-    return LEMMA_TS_SPAN_VALID;
-}
-
-//--------------------------------------------------------
-// Form a checked borrowed slice from a node belonging to parsed's tree.
-//
-// @parsed: Live handle owning the node's tree and borrowing its source.
-// @node: Node whose range is requested.
-// @text: Required output initialized to an empty slice.
-// @returns: VALID with a borrowed slice, or INVALID_INPUT for bad ranges/inputs.
-//--------------------------------------------------------
-lemma_ts_text_result lemma_frontend_ts_node_text(
-    const lemma_parsed_source *parsed, TSNode node, lemma_syntax_text *text)
-{
-    if (text != NULL) {
-        memset(text, 0, sizeof(*text));
-    }
-    if (parsed == NULL || parsed->source == NULL || parsed->tree == NULL || text == NULL ||
-        ts_node_is_null(node) || node.tree != parsed->tree) {
-        return LEMMA_TS_TEXT_INVALID_INPUT;
-    }
-    uint32_t start = ts_node_start_byte(node);
-    uint32_t end = ts_node_end_byte(node);
-    if ((size_t)start > parsed->source_length || (size_t)end > parsed->source_length ||
-        end < start || lemma_frontend_ts_node_span(node, &text->span) != LEMMA_TS_SPAN_VALID) {
-        memset(text, 0, sizeof(*text));
-        return LEMMA_TS_TEXT_INVALID_INPUT;
-    }
-    text->data = parsed->source + start;
-    text->length = (size_t)(end - start);
-    return LEMMA_TS_TEXT_VALID;
-}
 
 typedef struct syntax_walk {
     const lemma_parsed_source *parsed;
@@ -205,10 +10,18 @@ typedef struct syntax_walk {
 } syntax_walk;
 
 typedef struct range_accumulator {
-    const lemma_parsed_source *parsed;
     TSNode first;
     TSNode last;
+    size_t count;
 } range_accumulator;
+
+typedef struct declaration_type_facts {
+    int has_wire;
+    int has_logic;
+    int has_var;
+    int has_signed;
+    int has_unsigned;
+} declaration_type_facts;
 
 //--------------------------------------------------------
 // Return a borrowed source view for a node, or an empty view for a null node.
@@ -228,16 +41,16 @@ static lemma_syntax_text syntax_text_for_node(const lemma_parsed_source *parsed,
 }
 
 //--------------------------------------------------------
-// Return a node's span, or a zero span when the node is null or invalid.
+// Return a node's range, or a zero range when the node is null or invalid.
 //
-// @node: Node whose source span is requested, or a null node.
-// @returns: Node's half-open span, or a zero span on failure.
+// @node: Node whose source range is requested, or a null node.
+// @returns: Node's half-open range, or a zero range on failure.
 //--------------------------------------------------------
-static lemma_ir_source_span syntax_span_for_node(TSNode node)
+static lemma_source_range syntax_range_for_node(TSNode node)
 {
-    lemma_ir_source_span span = {0};
-    (void)lemma_frontend_ts_node_span(node, &span);
-    return span;
+    lemma_source_range range = {0};
+    (void)lemma_frontend_ts_node_range(node, &range);
+    return range;
 }
 
 //--------------------------------------------------------
@@ -257,23 +70,23 @@ static lemma_syntax_text syntax_text_between_nodes(
         return text;
     }
 
-    lemma_ir_source_span first_span = {0};
-    lemma_ir_source_span last_span = {0};
-    if (lemma_frontend_ts_node_span(first, &first_span) != LEMMA_TS_SPAN_VALID ||
-        lemma_frontend_ts_node_span(last, &last_span) != LEMMA_TS_SPAN_VALID) {
+    lemma_source_range first_range = {0};
+    lemma_source_range last_range = {0};
+    if (lemma_frontend_ts_node_range(first, &first_range) != LEMMA_TS_RANGE_VALID ||
+        lemma_frontend_ts_node_range(last, &last_range) != LEMMA_TS_RANGE_VALID) {
         return text;
     }
-    size_t start = first_span.start_byte;
-    size_t end = last_span.start_byte;
+    size_t start = first_range.start_byte;
+    size_t end = last_range.start_byte;
     if (end < start || end > parsed->source_length) {
         return text;
     }
     text.data = parsed->source + start;
     text.length = end - start;
-    text.span = (lemma_ir_source_span){
+    text.source_range = (lemma_source_range){
         start, end,
-        first_span.start_row, first_span.start_column,
-        last_span.start_row, last_span.start_column
+        first_range.start_row, first_range.start_column,
+        last_range.start_row, last_range.start_column
     };
     return text;
 }
@@ -378,11 +191,11 @@ static int syntax_emit(syntax_walk *walk, const lemma_syntax_view *view)
 //
 // @walk: Active syntax traversal state.
 // @item: Module item retained as raw syntax.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int emit_opaque_module_item(syntax_walk *walk, TSNode item,
-                                   lemma_ir_source_span module_span);
+                                   lemma_source_range module_range);
 
 //--------------------------------------------------------
 // Extend a source range to cover direct packed-dimension children.
@@ -404,6 +217,7 @@ static lemma_ts_child_visit_action collect_packed_dimension(
             accumulator->first = child;
         }
         accumulator->last = child;
+        ++accumulator->count;
     }
     return LEMMA_TS_CHILD_VISIT_CONTINUE;
 }
@@ -447,37 +261,130 @@ static int collect_type_dimensions(range_accumulator *accumulator, TSNode node)
 //
 // @parsed: Live parsed-source handle that owns the type node's tree.
 // @type_node: Type syntax node inspected.
+// @group: Declaration-group record receiving the packed-dimension count.
 // @returns: Borrowed source slice covering all dimensions, or an empty view.
 //--------------------------------------------------------
 static lemma_syntax_text syntax_packed_dimensions(
-    const lemma_parsed_source *parsed, TSNode type_node)
+    const lemma_parsed_source *parsed, TSNode type_node,
+    lemma_syntax_declaration_group *group)
 {
-    range_accumulator accumulator = {parsed, {0}, {0}};
+    range_accumulator accumulator = {{0}, {0}, 0U};
     (void)collect_type_dimensions(&accumulator, type_node);
+    group->packed_dimension_count = accumulator.count;
     if (ts_node_is_null(accumulator.first)) {
         return (lemma_syntax_text){0};
+    }
+    // The view exposes first-dimension bounds separately so elaboration never
+    // needs to parse the combined range or dimensions beyond the first one.
+    TSNode range = syntax_unique_child(accumulator.first, "constant_range");
+    TSNode bound_parent = ts_node_is_null(range) ? accumulator.first : range;
+    uint32_t child_count = ts_node_named_child_count(bound_parent);
+    TSNode bounds[2] = {{0}, {0}};
+    size_t bound_count = 0U;
+    for (uint32_t index = 0U; index < child_count && bound_count < 2U; ++index) {
+        TSNode child = ts_node_named_child(bound_parent, index);
+        if (!ts_node_is_extra(child)) {
+            bounds[bound_count++] = child;
+        }
+    }
+    if (bound_count == 2U) {
+        group->packed_left_bound = syntax_text_for_node(parsed, bounds[0]);
+        group->packed_right_bound = syntax_text_for_node(parsed, bounds[1]);
     }
     if (ts_node_eq(accumulator.first, accumulator.last)) {
         return syntax_text_for_node(parsed, accumulator.first);
     }
-    lemma_ir_source_span first_span = {0};
-    lemma_ir_source_span last_span = {0};
-    if (lemma_frontend_ts_node_span(accumulator.first, &first_span) !=
-            LEMMA_TS_SPAN_VALID ||
-        lemma_frontend_ts_node_span(accumulator.last, &last_span) !=
-            LEMMA_TS_SPAN_VALID) {
+    lemma_source_range first_range = {0};
+    lemma_source_range last_range = {0};
+    if (lemma_frontend_ts_node_range(accumulator.first, &first_range) !=
+            LEMMA_TS_RANGE_VALID ||
+        lemma_frontend_ts_node_range(accumulator.last, &last_range) !=
+            LEMMA_TS_RANGE_VALID) {
         return (lemma_syntax_text){0};
     }
-    size_t start = first_span.start_byte;
-    size_t end = last_span.end_byte;
+    size_t start = first_range.start_byte;
+    size_t end = last_range.end_byte;
     if (end < start || end > parsed->source_length) {
         return (lemma_syntax_text){0};
     }
     return (lemma_syntax_text){
         parsed->source + start, end - start,
-        {start, end, first_span.start_row, first_span.start_column,
-         last_span.end_row, last_span.end_column}
+        {start, end, first_range.start_row, first_range.start_column,
+         last_range.end_row, last_range.end_column}
     };
+}
+
+//--------------------------------------------------------
+// Collect declaration keywords by Tree-sitter grammar-node type.
+//
+// @node: Type syntax node or a descendant to inspect.
+// @facts: Syntax flags updated for exact keyword nodes.
+// @returns: None.
+//--------------------------------------------------------
+static void collect_declaration_type_facts(TSNode node,
+                                           declaration_type_facts *facts)
+{
+    if (ts_node_is_null(node)) {
+        return;
+    }
+    const char *type = ts_node_type(node);
+    facts->has_wire |= strcmp(type, "wire") == 0;
+    facts->has_logic |= strcmp(type, "logic") == 0;
+    facts->has_var |= strcmp(type, "var") == 0;
+    facts->has_signed |= strcmp(type, "signed") == 0;
+    facts->has_unsigned |= strcmp(type, "unsigned") == 0;
+    // Keep traversal within type wrappers so ranges and user expressions are not scanned.
+    int type_wrapper = strcmp(type, "variable_port_type") == 0 ||
+        strcmp(type, "net_port_type") == 0 ||
+        strcmp(type, "data_type_or_implicit") == 0 ||
+        strcmp(type, "data_type") == 0 ||
+        strcmp(type, "implicit_data_type") == 0 ||
+        strcmp(type, "net_type") == 0 ||
+        strcmp(type, "integer_vector_type") == 0 ||
+        strcmp(type, "integer_atom_type") == 0;
+    if (!type_wrapper) {
+        return;
+    }
+    uint32_t child_count = ts_node_child_count(node);
+    for (uint32_t index = 0U; index < child_count; ++index) {
+        collect_declaration_type_facts(ts_node_child(node, index), facts);
+    }
+}
+
+//--------------------------------------------------------
+// Set declaration-group type facts from syntax nodes without inferring meaning.
+//
+// @type_node: Shared declaration type node, or null when omitted.
+// @group: Output view receiving keyword categories and syntax flags.
+// @returns: None.
+//--------------------------------------------------------
+static void syntax_set_declaration_type_facts(
+    TSNode type_node, lemma_syntax_declaration_group *group)
+{
+    if (ts_node_is_null(type_node)) {
+        group->builtin_type = LEMMA_SYNTAX_BUILTIN_TYPE_UNSPECIFIED;
+        group->signedness = LEMMA_SYNTAX_SIGNEDNESS_UNSPECIFIED;
+        return;
+    }
+    declaration_type_facts facts = {0};
+    collect_declaration_type_facts(type_node, &facts);
+    group->has_var_keyword = facts.has_var != 0;
+    if (facts.has_wire != 0 && facts.has_logic == 0) {
+        group->builtin_type = LEMMA_SYNTAX_BUILTIN_TYPE_WIRE;
+    } else if (facts.has_logic != 0 && facts.has_wire == 0) {
+        group->builtin_type = LEMMA_SYNTAX_BUILTIN_TYPE_LOGIC;
+    } else {
+        group->builtin_type = LEMMA_SYNTAX_BUILTIN_TYPE_OTHER;
+    }
+    if (facts.has_signed != 0 && facts.has_unsigned == 0) {
+        group->signedness = LEMMA_SYNTAX_SIGNEDNESS_SIGNED;
+    } else if (facts.has_unsigned != 0 && facts.has_signed == 0) {
+        group->signedness = LEMMA_SYNTAX_SIGNEDNESS_UNSIGNED;
+    } else if (facts.has_signed != 0 || facts.has_unsigned != 0) {
+        group->signedness = LEMMA_SYNTAX_SIGNEDNESS_OTHER;
+    } else {
+        group->signedness = LEMMA_SYNTAX_SIGNEDNESS_UNSPECIFIED;
+    }
 }
 
 //--------------------------------------------------------
@@ -485,8 +392,8 @@ static lemma_syntax_text syntax_packed_dimensions(
 //
 // @walk: Active traversal state.
 // @kind: Syntactic category of this declaration group.
-// @source_node: Node whose full span identifies the group.
-// @module_span: Span of the containing module.
+// @source_node: Node whose full range identifies the group.
+// @module_range: Range of the containing module.
 // @direction_node: Explicit port direction node, or null.
 // @type_node: Shared type node, or null when the syntax omits it.
 // @dimensions_node: Syntax node containing packed dimensions, or null.
@@ -495,7 +402,7 @@ static lemma_syntax_text syntax_packed_dimensions(
 //--------------------------------------------------------
 static int syntax_emit_declaration_group(
     syntax_walk *walk, lemma_syntax_declaration_group_kind kind,
-    TSNode source_node, lemma_ir_source_span module_span,
+    TSNode source_node, lemma_source_range module_range,
     TSNode direction_node, TSNode type_node, TSNode dimensions_node,
     int has_port_header)
 {
@@ -504,9 +411,11 @@ static int syntax_emit_declaration_group(
     group.direction = syntax_text_for_node(walk->parsed, direction_node);
     group.type = syntax_text_for_node(walk->parsed, type_node);
     group.packed_dimensions = syntax_packed_dimensions(
-        walk->parsed, ts_node_is_null(dimensions_node) ? type_node : dimensions_node);
+        walk->parsed, ts_node_is_null(dimensions_node) ? type_node : dimensions_node,
+        &group);
+    syntax_set_declaration_type_facts(type_node, &group);
     group.source = syntax_text_for_node(walk->parsed, source_node);
-    group.module_span = module_span;
+    group.module_range = module_range;
     group.has_explicit_port_header = has_port_header != 0;
 
     lemma_syntax_view view = {0};
@@ -516,23 +425,23 @@ static int syntax_emit_declaration_group(
 }
 
 //--------------------------------------------------------
-// Emit one declarator associated with its declaration group's source span.
+// Emit one declarator associated with its declaration group's source range.
 //
 // @walk: Active traversal state.
 // @name_node: Identifier node naming the declarator.
 // @declarator_node: Full per-name syntax node.
-// @group_span: Span of the shared declaration group.
-// @module_span: Span of the containing module.
+// @group_range: Range of the shared declaration group.
+// @module_range: Range of the containing module.
 // @value_type: Direct child type holding an optional initializer or default.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int syntax_emit_declarator(
     syntax_walk *walk, TSNode name_node, TSNode declarator_node,
-    lemma_ir_source_span group_span, lemma_ir_source_span module_span,
+    lemma_source_range group_range, lemma_source_range module_range,
     const char *value_type)
 {
     if (ts_node_is_null(name_node)) {
-        return emit_opaque_module_item(walk, declarator_node, module_span);
+        return emit_opaque_module_item(walk, declarator_node, module_range);
     }
     TSNode suffix_node = syntax_child_of_either(
         declarator_node, "unpacked_dimension", "variable_dimension");
@@ -545,9 +454,9 @@ static int syntax_emit_declarator(
     declarator.suffix = syntax_text_for_node(walk->parsed, suffix_node);
     declarator.initializer_or_default_expression =
         syntax_text_for_node(walk->parsed, value_node);
-    declarator.declarator_span = syntax_span_for_node(declarator_node);
-    declarator.group_span = group_span;
-    declarator.module_span = module_span;
+    declarator.declarator_range = syntax_range_for_node(declarator_node);
+    declarator.group_range = group_range;
+    declarator.module_range = module_range;
 
     lemma_syntax_view view = {0};
     view.kind = LEMMA_SYNTAX_DECLARATOR;
@@ -557,8 +466,8 @@ static int syntax_emit_declarator(
 
 typedef struct declarator_visit {
     syntax_walk *walk;
-    lemma_ir_source_span group_span;
-    lemma_ir_source_span module_span;
+    lemma_source_range group_range;
+    lemma_source_range module_range;
     const char *declarator_type;
     const char *value_type;
 } declarator_visit;
@@ -579,7 +488,7 @@ static lemma_ts_child_visit_action visit_declarator_child(
     (void)field_name;
     declarator_visit *visit = context;
     if (strcmp(ts_node_type(child), visit->declarator_type) != 0) {
-        if (emit_opaque_module_item(visit->walk, child, visit->module_span)) {
+        if (emit_opaque_module_item(visit->walk, child, visit->module_range)) {
             return LEMMA_TS_CHILD_VISIT_CONTINUE;
         }
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
@@ -587,8 +496,8 @@ static lemma_ts_child_visit_action visit_declarator_child(
                    : LEMMA_TS_CHILD_VISIT_FAIL;
     }
     TSNode name = syntax_unique_child(child, "simple_identifier");
-    if (!syntax_emit_declarator(visit->walk, name, child, visit->group_span,
-                                visit->module_span, visit->value_type)) {
+    if (!syntax_emit_declarator(visit->walk, name, child, visit->group_range,
+                                visit->module_range, visit->value_type)) {
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
@@ -602,18 +511,18 @@ static lemma_ts_child_visit_action visit_declarator_child(
 // @walk: Active syntax traversal state.
 // @declaration: Parameter declaration node sharing a type across names.
 // @kind: Parameter or local-parameter declaration category.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_parameter_declaration(
     syntax_walk *walk, TSNode declaration,
     lemma_syntax_declaration_group_kind kind,
-    lemma_ir_source_span module_span)
+    lemma_source_range module_range)
 {
     TSNode list = syntax_unique_child(declaration, "list_of_param_assignments");
     if (ts_node_is_null(list)) {
         lemma_syntax_opaque_module_item opaque = {
-            syntax_text_for_node(walk->parsed, declaration), module_span
+            syntax_text_for_node(walk->parsed, declaration), module_range
         };
         lemma_syntax_view view = {0};
         view.kind = LEMMA_SYNTAX_OPAQUE_MODULE_ITEM;
@@ -622,13 +531,13 @@ static int visit_parameter_declaration(
     }
 
     TSNode type = syntax_child_of_either(declaration, "data_type_or_implicit", "type");
-    if (!syntax_emit_declaration_group(walk, kind, declaration, module_span,
+    if (!syntax_emit_declaration_group(walk, kind, declaration, module_range,
                                        (TSNode){0}, type, type, 0)) {
         return 0;
     }
     lemma_syntax_text group_text = syntax_text_for_node(walk->parsed, declaration);
     declarator_visit visit = {
-        walk, group_text.span, module_span, "param_assignment",
+        walk, group_text.source_range, module_range, "param_assignment",
         "constant_param_expression"
     };
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
@@ -642,11 +551,11 @@ static int visit_parameter_declaration(
 //
 // @walk: Active syntax traversal state.
 // @parameter_list: Parameter-port list node, or null when absent.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_parameter_ports(syntax_walk *walk, TSNode parameter_list,
-                                 lemma_ir_source_span module_span)
+                                 lemma_source_range module_range)
 {
     if (ts_node_is_null(parameter_list)) {
         return 1;
@@ -661,7 +570,7 @@ static int visit_parameter_ports(syntax_walk *walk, TSNode parameter_list,
             port, "parameter_declaration", "local_parameter_declaration");
         if (ts_node_is_null(declaration)) {
             lemma_syntax_opaque_module_item opaque = {
-                syntax_text_for_node(walk->parsed, port), module_span
+                syntax_text_for_node(walk->parsed, port), module_range
             };
             lemma_syntax_view view = {0};
             view.kind = LEMMA_SYNTAX_OPAQUE_MODULE_ITEM;
@@ -675,7 +584,7 @@ static int visit_parameter_ports(syntax_walk *walk, TSNode parameter_list,
             strcmp(ts_node_type(declaration), "local_parameter_declaration") == 0
                 ? LEMMA_SYNTAX_DECLARATION_GROUP_LOCALPARAM
                 : LEMMA_SYNTAX_DECLARATION_GROUP_PARAMETER;
-        if (!visit_parameter_declaration(walk, declaration, kind, module_span)) {
+        if (!visit_parameter_declaration(walk, declaration, kind, module_range)) {
             return 0;
         }
     }
@@ -687,11 +596,11 @@ static int visit_parameter_ports(syntax_walk *walk, TSNode parameter_list,
 //
 // @walk: Active syntax traversal state.
 // @port: ANSI port declaration node.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_ansi_port(syntax_walk *walk, TSNode port,
-                           lemma_ir_source_span module_span)
+                           lemma_source_range module_range)
 {
     TSNode name = syntax_unique_child(port, "simple_identifier");
     TSNode net_header = syntax_unique_child(port, "net_port_header");
@@ -702,7 +611,7 @@ static int visit_ansi_port(syntax_walk *walk, TSNode port,
         (!ts_node_is_null(net_header) && !ts_node_is_null(variable_header)) ||
         child_count != (has_header != 0 ? 2U : 1U)) {
         lemma_syntax_opaque_module_item opaque = {
-            syntax_text_for_node(walk->parsed, port), module_span
+            syntax_text_for_node(walk->parsed, port), module_range
         };
         lemma_syntax_view view = {0};
         view.kind = LEMMA_SYNTAX_OPAQUE_MODULE_ITEM;
@@ -712,7 +621,7 @@ static int visit_ansi_port(syntax_walk *walk, TSNode port,
 
     if (ts_node_is_null(net_header) && ts_node_is_null(variable_header) &&
         ts_node_named_child_count(port) != 1U) {
-        return emit_opaque_module_item(walk, port, module_span);
+        return emit_opaque_module_item(walk, port, module_range);
     }
 
     TSNode header = ts_node_is_null(net_header) ? variable_header : net_header;
@@ -722,7 +631,7 @@ static int visit_ansi_port(syntax_walk *walk, TSNode port,
                       : syntax_unique_child(net_header, "net_port_type");
     lemma_syntax_text group_text = syntax_text_for_node(walk->parsed, port);
     if (!syntax_emit_declaration_group(
-            walk, LEMMA_SYNTAX_DECLARATION_GROUP_PORT, port, module_span,
+            walk, LEMMA_SYNTAX_DECLARATION_GROUP_PORT, port, module_range,
             direction, type, type, !ts_node_is_null(header))) {
         return 0;
     }
@@ -730,9 +639,9 @@ static int visit_ansi_port(syntax_walk *walk, TSNode port,
     lemma_syntax_declarator declarator = {0};
     declarator.name = syntax_text_for_node(walk->parsed, name);
     declarator.suffix = syntax_text_for_node(walk->parsed, suffix);
-    declarator.declarator_span = syntax_span_for_node(name);
-    declarator.group_span = group_text.span;
-    declarator.module_span = module_span;
+    declarator.declarator_range = syntax_range_for_node(name);
+    declarator.group_range = group_text.source_range;
+    declarator.module_range = module_range;
     lemma_syntax_view view = {0};
     view.kind = LEMMA_SYNTAX_DECLARATOR;
     view.as.declarator = declarator;
@@ -741,7 +650,7 @@ static int visit_ansi_port(syntax_walk *walk, TSNode port,
 
 typedef struct port_list_visit {
     syntax_walk *walk;
-    lemma_ir_source_span module_span;
+    lemma_source_range module_range;
 } port_list_visit;
 
 //--------------------------------------------------------
@@ -760,14 +669,14 @@ static lemma_ts_child_visit_action visit_port_child(
     (void)field_name;
     port_list_visit *visit = context;
     if (strcmp(ts_node_type(child), "ansi_port_declaration") != 0) {
-        if (emit_opaque_module_item(visit->walk, child, visit->module_span)) {
+        if (emit_opaque_module_item(visit->walk, child, visit->module_range)) {
             return LEMMA_TS_CHILD_VISIT_CONTINUE;
         }
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
     }
-    if (!visit_ansi_port(visit->walk, child, visit->module_span)) {
+    if (!visit_ansi_port(visit->walk, child, visit->module_range)) {
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
@@ -780,16 +689,16 @@ static lemma_ts_child_visit_action visit_port_child(
 //
 // @walk: Active syntax traversal state.
 // @port_list: ANSI port list node, or null when absent.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_ports(syntax_walk *walk, TSNode port_list,
-                       lemma_ir_source_span module_span)
+                       lemma_source_range module_range)
 {
     if (ts_node_is_null(port_list)) {
         return 1;
     }
-    port_list_visit visit = {walk, module_span};
+    port_list_visit visit = {walk, module_range};
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
         port_list, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
         visit_port_child, &visit);
@@ -801,11 +710,11 @@ static int visit_ports(syntax_walk *walk, TSNode port_list,
 //
 // @walk: Active syntax traversal state.
 // @declaration: Module-scope net or data declaration node.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
-                                    lemma_ir_source_span module_span)
+                                    lemma_source_range module_range)
 {
     const char *declaration_type = ts_node_type(declaration);
     int is_net = strcmp(declaration_type, "net_declaration") == 0;
@@ -819,7 +728,7 @@ static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
                             : type;
     if (ts_node_is_null(list) || ts_node_is_null(type)) {
         lemma_syntax_opaque_module_item opaque = {
-            syntax_text_for_node(walk->parsed, declaration), module_span
+            syntax_text_for_node(walk->parsed, declaration), module_range
         };
         lemma_syntax_view view = {0};
         view.kind = LEMMA_SYNTAX_OPAQUE_MODULE_ITEM;
@@ -830,13 +739,13 @@ static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
     lemma_syntax_declaration_group_kind kind =
         is_net ? LEMMA_SYNTAX_DECLARATION_GROUP_NET
                : LEMMA_SYNTAX_DECLARATION_GROUP_DATA;
-    if (!syntax_emit_declaration_group(walk, kind, declaration, module_span,
+    if (!syntax_emit_declaration_group(walk, kind, declaration, module_range,
                                        (TSNode){0}, type, dimensions, 0)) {
         return 0;
     }
     lemma_syntax_text group_text = syntax_text_for_node(walk->parsed, declaration);
     declarator_visit visit = {
-        walk, group_text.span, module_span,
+        walk, group_text.source_range, module_range,
         is_net ? "net_decl_assignment" : "variable_decl_assignment",
         "expression"
     };
@@ -902,21 +811,21 @@ static TSNode get_condition_if_present(TSNode expression)
 //
 // @walk: Active syntax traversal state.
 // @continuous: Continuous-assignment module item.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
-                                        lemma_ir_source_span module_span)
+                                        lemma_source_range module_range)
 {
     if (!ts_node_is_null(syntax_unique_child(continuous, "delay_control")) ||
         !ts_node_is_null(syntax_unique_child(continuous, "delay2")) ||
         !ts_node_is_null(syntax_unique_child(continuous, "delay3"))) {
-        return emit_opaque_module_item(walk, continuous, module_span);
+        return emit_opaque_module_item(walk, continuous, module_range);
     }
     TSNode list = syntax_unique_child(continuous, "list_of_net_assignments");
     if (ts_node_is_null(list)) {
         lemma_syntax_opaque_module_item opaque = {
-            syntax_text_for_node(walk->parsed, continuous), module_span
+            syntax_text_for_node(walk->parsed, continuous), module_range
         };
         lemma_syntax_view view = {0};
         view.kind = LEMMA_SYNTAX_OPAQUE_MODULE_ITEM;
@@ -931,7 +840,7 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
             continue;
         }
         if (strcmp(ts_node_type(assignment), "net_assignment") != 0) {
-            if (!emit_opaque_module_item(walk, assignment, module_span)) {
+            if (!emit_opaque_module_item(walk, assignment, module_range)) {
                 return 0;
             }
             continue;
@@ -941,7 +850,7 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
         TSNode expression = get_right_part_of_line(assignment);
         if (ts_node_is_null(target) || ts_node_is_null(expression)) {
             lemma_syntax_opaque_module_item opaque = {
-                syntax_text_for_node(walk->parsed, assignment), module_span
+                syntax_text_for_node(walk->parsed, assignment), module_range
             };
             lemma_syntax_view opaque_view = {0};
             opaque_view.kind = LEMMA_SYNTAX_OPAQUE_MODULE_ITEM;
@@ -958,7 +867,7 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
         item.condition = syntax_text_for_node(
             walk->parsed, get_condition_if_present(expression));
         item.assignment = syntax_text_for_node(walk->parsed, assignment);
-        item.module_span = module_span;
+        item.module_range = module_range;
         lemma_syntax_view view = {0};
         view.kind = LEMMA_SYNTAX_CONTINUOUS_ASSIGNMENT;
         view.as.continuous_assignment = item;
@@ -974,14 +883,14 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
 //
 // @walk: Active syntax traversal state.
 // @item: Module item retained as raw syntax.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int emit_opaque_module_item(syntax_walk *walk, TSNode item,
-                                   lemma_ir_source_span module_span)
+                                   lemma_source_range module_range)
 {
     lemma_syntax_opaque_module_item opaque = {
-        syntax_text_for_node(walk->parsed, item), module_span
+        syntax_text_for_node(walk->parsed, item), module_range
     };
     lemma_syntax_view view = {0};
     view.kind = LEMMA_SYNTAX_OPAQUE_MODULE_ITEM;
@@ -994,27 +903,27 @@ static int emit_opaque_module_item(syntax_walk *walk, TSNode item,
 //
 // @walk: Active syntax traversal state.
 // @process_node: Process construct node.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_process(syntax_walk *walk, TSNode process_node,
-                         lemma_ir_source_span module_span);
+                         lemma_source_range module_range);
 
 //--------------------------------------------------------
 // Visit one direct module-body item using its grammar-specific extractor.
 //
 // @walk: Active syntax traversal state.
 // @item: Direct module-body item.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_body_item(syntax_walk *walk, TSNode item,
-                           lemma_ir_source_span module_span)
+                           lemma_source_range module_range)
 {
     const char *type = ts_node_type(item);
     if (strcmp(type, "net_declaration") == 0 ||
         strcmp(type, "data_declaration") == 0) {
-        return visit_signal_declaration(walk, item, module_span);
+        return visit_signal_declaration(walk, item, module_range);
     }
     if (strcmp(type, "local_parameter_declaration") == 0 ||
         strcmp(type, "parameter_declaration") == 0) {
@@ -1022,21 +931,21 @@ static int visit_body_item(syntax_walk *walk, TSNode item,
             strcmp(type, "local_parameter_declaration") == 0
                 ? LEMMA_SYNTAX_DECLARATION_GROUP_LOCALPARAM
                 : LEMMA_SYNTAX_DECLARATION_GROUP_PARAMETER;
-        return visit_parameter_declaration(walk, item, kind, module_span);
+        return visit_parameter_declaration(walk, item, kind, module_range);
     }
     if (strcmp(type, "continuous_assign") == 0) {
-        return visit_continuous_assignments(walk, item, module_span);
+        return visit_continuous_assignments(walk, item, module_range);
     }
     if (strcmp(type, "always_construct") == 0) {
-        return visit_process(walk, item, module_span);
+        return visit_process(walk, item, module_range);
     }
-    return emit_opaque_module_item(walk, item, module_span);
+    return emit_opaque_module_item(walk, item, module_range);
 }
 
 typedef struct body_visit {
     syntax_walk *walk;
     TSNode header;
-    lemma_ir_source_span module_span;
+    lemma_source_range module_range;
 } body_visit;
 
 //--------------------------------------------------------
@@ -1058,7 +967,7 @@ static lemma_ts_child_visit_action visit_body_child(
         ts_node_is_extra(child)) {
         return LEMMA_TS_CHILD_VISIT_CONTINUE;
     }
-    if (!visit_body_item(visit->walk, child, visit->module_span)) {
+    if (!visit_body_item(visit->walk, child, visit->module_range)) {
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
@@ -1071,23 +980,23 @@ static lemma_ts_child_visit_action visit_body_child(
 //
 // @walk: Active syntax traversal state.
 // @node: Statement node or Tree-sitter wrapper around one statement.
-// @module_span: Span of the containing module.
-// @process_span: Span of the enclosing process.
-// @parent_span: Span of the parent statement or process.
+// @module_range: Range of the containing module.
+// @process_range: Range of the enclosing process.
+// @parent_range: Range of the parent statement or process.
 // @depth: Nesting depth from the process body.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_statement_node(syntax_walk *walk, TSNode node,
-                                lemma_ir_source_span module_span,
-                                lemma_ir_source_span process_span,
-                                lemma_ir_source_span parent_span, size_t depth);
+                                lemma_source_range module_range,
+                                lemma_source_range process_range,
+                                lemma_source_range parent_range, size_t depth);
 
 typedef struct statement_children_visit {
     syntax_walk *walk;
     TSNode parent;
-    lemma_ir_source_span module_span;
-    lemma_ir_source_span process_span;
-    lemma_ir_source_span parent_span;
+    lemma_source_range module_range;
+    lemma_source_range process_range;
+    lemma_source_range parent_range;
     size_t depth;
 } statement_children_visit;
 
@@ -1134,9 +1043,9 @@ static lemma_ts_child_visit_action visit_statement_child(
         lemma_syntax_statement opaque = {0};
         opaque.kind = LEMMA_SYNTAX_STATEMENT_OPAQUE;
         opaque.source = syntax_text_for_node(visit->walk->parsed, child);
-        opaque.module_span = visit->module_span;
-        opaque.process_span = visit->process_span;
-        opaque.parent_span = visit->parent_span;
+        opaque.module_range = visit->module_range;
+        opaque.process_range = visit->process_range;
+        opaque.parent_range = visit->parent_range;
         opaque.depth = visit->depth;
         lemma_syntax_view opaque_view = {0};
         opaque_view.kind = LEMMA_SYNTAX_STATEMENT;
@@ -1148,8 +1057,8 @@ static lemma_ts_child_visit_action visit_statement_child(
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
     }
-    if (!visit_statement_node(visit->walk, child, visit->module_span,
-                              visit->process_span, visit->parent_span,
+    if (!visit_statement_node(visit->walk, child, visit->module_range,
+                              visit->process_range, visit->parent_range,
                               visit->depth)) {
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
                    ? LEMMA_TS_CHILD_VISIT_STOP
@@ -1163,19 +1072,19 @@ static lemma_ts_child_visit_action visit_statement_child(
 //
 // @walk: Active syntax traversal state.
 // @parent: Node whose direct children may contain statements.
-// @module_span: Span of the containing module.
-// @process_span: Span of the enclosing process.
-// @parent_span: Span assigned as the immediate statement parent.
+// @module_range: Range of the containing module.
+// @process_range: Range of the enclosing process.
+// @parent_range: Range assigned as the immediate statement parent.
 // @depth: Nesting depth assigned to child statements.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_statement_children(syntax_walk *walk, TSNode parent,
-                                    lemma_ir_source_span module_span,
-                                    lemma_ir_source_span process_span,
-                                    lemma_ir_source_span parent_span, size_t depth)
+                                    lemma_source_range module_range,
+                                    lemma_source_range process_range,
+                                    lemma_source_range parent_range, size_t depth)
 {
     statement_children_visit visit = {
-        walk, parent, module_span, process_span, parent_span, depth
+        walk, parent, module_range, process_range, parent_range, depth
     };
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
         parent, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
@@ -1250,18 +1159,18 @@ static TSNode assignment_operator(TSNode node)
 // @header: Borrowed construct-specific source slice, or an empty slice.
 // @lvalue_node: Optional assignment destination node.
 // @expression_node: Optional condition or right-hand expression node.
-// @module_span: Span of the containing module.
-// @process_span: Span of the enclosing process.
-// @parent_span: Span of the immediate parent statement or process.
+// @module_range: Range of the containing module.
+// @process_range: Range of the enclosing process.
+// @parent_range: Range of the immediate parent statement or process.
 // @depth: Nesting depth from the process body.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int emit_statement(syntax_walk *walk, lemma_syntax_statement_kind kind,
                           TSNode node, lemma_syntax_text header,
                           TSNode lvalue_node,
-                          TSNode expression_node, lemma_ir_source_span module_span,
-                          lemma_ir_source_span process_span,
-                          lemma_ir_source_span parent_span, size_t depth)
+                          TSNode expression_node, lemma_source_range module_range,
+                          lemma_source_range process_range,
+                          lemma_source_range parent_range, size_t depth)
 {
     lemma_syntax_statement statement = {0};
     statement.kind = kind;
@@ -1269,9 +1178,9 @@ static int emit_statement(syntax_walk *walk, lemma_syntax_statement_kind kind,
     statement.header = header;
     statement.lvalue = syntax_text_for_node(walk->parsed, lvalue_node);
     statement.expression = syntax_text_for_node(walk->parsed, expression_node);
-    statement.module_span = module_span;
-    statement.process_span = process_span;
-    statement.parent_span = parent_span;
+    statement.module_range = module_range;
+    statement.process_range = process_range;
+    statement.parent_range = parent_range;
     statement.depth = depth;
     lemma_syntax_view view = {0};
     view.kind = LEMMA_SYNTAX_STATEMENT;
@@ -1309,28 +1218,28 @@ static lemma_syntax_text statement_prefix(const lemma_parsed_source *parsed,
 //
 // @walk: Active syntax traversal state.
 // @node: Statement node or grammar wrapper.
-// @module_span: Span of the containing module.
-// @process_span: Span of the enclosing process.
-// @parent_span: Span of the immediate parent statement or process.
+// @module_range: Range of the containing module.
+// @process_range: Range of the enclosing process.
+// @parent_range: Range of the immediate parent statement or process.
 // @depth: Nesting depth from the process body.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_statement_node(syntax_walk *walk, TSNode node,
-                                lemma_ir_source_span module_span,
-                                lemma_ir_source_span process_span,
-                                lemma_ir_source_span parent_span, size_t depth)
+                                lemma_source_range module_range,
+                                lemma_source_range process_range,
+                                lemma_source_range parent_range, size_t depth)
 {
     const char *type = ts_node_type(node);
     if (strcmp(type, "statement") == 0 ||
         strcmp(type, "statement_item") == 0 ||
         strcmp(type, "statement_or_null") == 0) {
-        return visit_statement_children(walk, node, module_span, process_span,
-                                        parent_span, depth);
+        return visit_statement_children(walk, node, module_range, process_range,
+                                        parent_range, depth);
     }
     if (strcmp(type, "procedural_timing_control_statement") == 0) {
         return emit_statement(walk, LEMMA_SYNTAX_STATEMENT_OPAQUE, node,
                               (lemma_syntax_text){0}, (TSNode){0}, (TSNode){0},
-                              module_span, process_span, parent_span, depth);
+                              module_range, process_range, parent_range, depth);
     }
 
     lemma_syntax_statement_kind kind = LEMMA_SYNTAX_STATEMENT_OPAQUE;
@@ -1386,23 +1295,23 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
     }
 
     if (!emit_statement(walk, kind, node, header, lvalue, expression,
-                        module_span, process_span, parent_span, depth)) {
+                        module_range, process_range, parent_range, depth)) {
         return 0;
     }
 
-    lemma_ir_source_span current_span = syntax_span_for_node(node);
+    lemma_source_range current_range = syntax_range_for_node(node);
     if (kind == LEMMA_SYNTAX_STATEMENT_BLOCK ||
         kind == LEMMA_SYNTAX_STATEMENT_CONDITIONAL ||
         kind == LEMMA_SYNTAX_STATEMENT_CASE ||
         kind == LEMMA_SYNTAX_STATEMENT_CASE_ITEM) {
-        return visit_statement_children(walk, node, module_span, process_span,
-                                        current_span, depth + 1U);
+        return visit_statement_children(walk, node, module_range, process_range,
+                                        current_range, depth + 1U);
     }
     if (kind == LEMMA_SYNTAX_STATEMENT_LOOP) {
         TSNode body = first_loop_body(node);
         if (!ts_node_is_null(body)) {
-            return visit_statement_node(walk, body, module_span, process_span,
-                                        current_span, depth + 1U);
+            return visit_statement_node(walk, body, module_range, process_range,
+                                        current_range, depth + 1U);
         }
     }
     return 1;
@@ -1444,13 +1353,13 @@ static int find_process_parts(TSNode node, TSNode *control, TSNode *body)
 //
 // @walk: Active syntax traversal state.
 // @node: Event-expression node or wrapper.
-// @module_span: Span of the containing module.
-// @process_span: Span of the process owning this event control.
+// @module_range: Range of the containing module.
+// @process_range: Range of the process owning this event control.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_event_expression(syntax_walk *walk, TSNode node,
-                                  lemma_ir_source_span module_span,
-                                  lemma_ir_source_span process_span)
+                                  lemma_source_range module_range,
+                                  lemma_source_range process_range)
 {
     if (strcmp(ts_node_type(node), "event_expression") != 0) {
         uint32_t count = ts_node_named_child_count(node);
@@ -1458,7 +1367,7 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
             TSNode child = ts_node_named_child(node, index);
             if (!ts_node_is_extra(child) &&
                 strcmp(ts_node_type(child), "event_expression") == 0 &&
-                !visit_event_expression(walk, child, module_span, process_span)) {
+                !visit_event_expression(walk, child, module_range, process_range)) {
                 return 0;
             }
         }
@@ -1472,7 +1381,7 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
         if (!ts_node_is_extra(child) &&
             strcmp(ts_node_type(child), "event_expression") == 0) {
             ++nested_count;
-            if (!visit_event_expression(walk, child, module_span, process_span)) {
+            if (!visit_event_expression(walk, child, module_range, process_range)) {
                 return 0;
             }
         }
@@ -1500,8 +1409,8 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
         }
     }
     event.expression = syntax_text_for_node(walk->parsed, expression);
-    event.module_span = module_span;
-    event.process_span = process_span;
+    event.module_range = module_range;
+    event.process_range = process_range;
     lemma_syntax_view view = {0};
     view.kind = LEMMA_SYNTAX_PROCESS_EVENT_EXPRESSION;
     view.as.process_event_expression = event;
@@ -1513,16 +1422,16 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
 //
 // @walk: Active syntax traversal state.
 // @process_node: Process construct node.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_process(syntax_walk *walk, TSNode process_node,
-                         lemma_ir_source_span module_span)
+                         lemma_source_range module_range)
 {
     TSNode keyword = syntax_unique_child(process_node, "always_keyword");
     TSNode statement = syntax_unique_child(process_node, "statement");
     if (ts_node_is_null(keyword) || ts_node_is_null(statement)) {
-        return emit_opaque_module_item(walk, process_node, module_span);
+        return emit_opaque_module_item(walk, process_node, module_range);
     }
     lemma_syntax_text keyword_text = syntax_text_for_node(walk->parsed, keyword);
     lemma_syntax_process process = {0};
@@ -1543,7 +1452,7 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
     TSNode control = {0};
     TSNode body = {0};
     if (!find_process_parts(statement, &control, &body)) {
-        return emit_opaque_module_item(walk, process_node, module_span);
+        return emit_opaque_module_item(walk, process_node, module_range);
     }
     process.control_kind = LEMMA_SYNTAX_PROCESS_CONTROL_NONE;
     if (!ts_node_is_null(control)) {
@@ -1556,8 +1465,8 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
         process.control = syntax_text_for_node(walk->parsed, control);
     }
     process.source = syntax_text_for_node(walk->parsed, process_node);
-    process.module_span = module_span;
-    process.process_span = process.source.span;
+    process.module_range = module_range;
+    process.process_range = process.source.source_range;
     lemma_syntax_view view = {0};
     view.kind = LEMMA_SYNTAX_PROCESS;
     view.as.process = process;
@@ -1569,13 +1478,13 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
         strcmp(ts_node_type(control), "event_control") == 0) {
         TSNode clocking = syntax_unique_child(control, "clocking_event");
         if (!ts_node_is_null(clocking) &&
-            !visit_event_expression(walk, clocking, module_span,
-                                    process.process_span)) {
+            !visit_event_expression(walk, clocking, module_range,
+                                    process.process_range)) {
             return 0;
         }
     }
-    return visit_statement_node(walk, body, module_span, process.process_span,
-                                process.process_span, 0U);
+    return visit_statement_node(walk, body, module_range, process.process_range,
+                                process.process_range, 0U);
 }
 
 //--------------------------------------------------------
@@ -1583,19 +1492,19 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
 //
 // @walk: Active syntax traversal state.
 // @header: Module header node.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_module_header(syntax_walk *walk, TSNode header,
-                               lemma_ir_source_span module_span)
+                               lemma_source_range module_range)
 {
     if (strcmp(ts_node_type(header), "module_ansi_header") != 0) {
-        return emit_opaque_module_item(walk, header, module_span);
+        return emit_opaque_module_item(walk, header, module_range);
     }
     TSNode parameter_list = syntax_unique_child(header, "parameter_port_list");
     TSNode port_list = syntax_unique_child(header, "list_of_port_declarations");
-    return visit_parameter_ports(walk, parameter_list, module_span) &&
-           visit_ports(walk, port_list, module_span);
+    return visit_parameter_ports(walk, parameter_list, module_range) &&
+           visit_ports(walk, port_list, module_range);
 }
 
 //--------------------------------------------------------
@@ -1604,13 +1513,13 @@ static int visit_module_header(syntax_walk *walk, TSNode header,
 // @walk: Active syntax traversal state.
 // @module: Module declaration whose body is visited.
 // @header: Header child skipped during body traversal, or null.
-// @module_span: Span of the containing module.
+// @module_range: Range of the containing module.
 // @returns: Nonzero after complete traversal; zero after stop or failure.
 //--------------------------------------------------------
 static int visit_body(syntax_walk *walk, TSNode module, TSNode header,
-                      lemma_ir_source_span module_span)
+                      lemma_source_range module_range)
 {
-    body_visit body = {walk, header, module_span};
+    body_visit body = {walk, header, module_range};
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
         module, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
         visit_body_child, &body);
@@ -1626,14 +1535,14 @@ static int visit_body(syntax_walk *walk, TSNode module, TSNode header,
 //--------------------------------------------------------
 static int visit_module(syntax_walk *walk, TSNode module)
 {
-    lemma_ir_source_span module_span = syntax_span_for_node(module);
+    lemma_source_range module_range = syntax_range_for_node(module);
     TSNode header = syntax_child_of_either(
         module, "module_ansi_header", "module_nonansi_header");
     TSNode name = syntax_unique_child(header, "simple_identifier");
     lemma_syntax_module_boundary boundary = {0};
     boundary.kind = LEMMA_SYNTAX_MODULE_BEGIN;
     boundary.name = syntax_text_for_node(walk->parsed, name);
-    boundary.module_span = module_span;
+    boundary.module_range = module_range;
     lemma_syntax_view begin_view = {0};
     begin_view.kind = LEMMA_SYNTAX_MODULE_BOUNDARY;
     begin_view.as.module_boundary = boundary;
@@ -1642,14 +1551,14 @@ static int visit_module(syntax_walk *walk, TSNode module)
     }
 
     if (ts_node_is_null(header)) {
-        if (!emit_opaque_module_item(walk, module, module_span)) {
+        if (!emit_opaque_module_item(walk, module, module_range)) {
             return 0;
         }
-    } else if (!visit_module_header(walk, header, module_span)) {
+    } else if (!visit_module_header(walk, header, module_range)) {
         return 0;
     }
 
-    if (!visit_body(walk, module, header, module_span)) {
+    if (!visit_body(walk, module, header, module_range)) {
         return 0;
     }
 
@@ -1684,7 +1593,7 @@ static lemma_ts_child_visit_action visit_source_child(
             return LEMMA_TS_CHILD_VISIT_CONTINUE;
         }
     } else {
-        if (emit_opaque_module_item(visit->walk, child, (lemma_ir_source_span){0})) {
+        if (emit_opaque_module_item(visit->walk, child, (lemma_source_range){0})) {
             return LEMMA_TS_CHILD_VISIT_CONTINUE;
         }
     }
