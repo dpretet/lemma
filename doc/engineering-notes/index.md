@@ -49,6 +49,9 @@ authoritative source and update the note.
   outline using one owning object and array-position IDs, plus the first
   scalar/vector alias slice, frontend-first implementation order, and direct
   builder handoff; allocator policy remains open.
+- [First-profile frontend C review](frontend-code-review.md) — verified
+  drive-strength acceptance and open stack-depth, test-oracle, and packed-bound
+  syntax findings, scoped to the current alias-only frontend.
 
 The design specifications remain the source of truth. Start with the
 [specification reading guide](../../README.md#specifications);
