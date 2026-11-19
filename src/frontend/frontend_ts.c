@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#define LEMMA_SYNTAX_WALK_MAX_DEPTH 128U
+
 typedef struct syntax_walk {
     const lemma_parsed_source *parsed;
     lemma_syntax_visitor visitor;
@@ -49,27 +51,24 @@ static lemma_syntax_text syntax_text_for_node(const lemma_parsed_source *parsed,
 static lemma_source_range syntax_range_for_node(TSNode node)
 {
     lemma_source_range range = {0};
-    (void)lemma_frontend_ts_node_range(node, &range);
+    if (!ts_node_is_null(node)) {
+        (void)lemma_frontend_ts_node_range(node, &range);
+    }
     return range;
 }
 
 //--------------------------------------------------------
-// Form a borrowed source view from two node boundaries in the same parsed tree.
+// Form a borrowed source view from two nodes in the parsed tree.
 //
-// @parsed: Live parsed-source handle that owns the tree and borrows the source.
-// @first: Node providing the first byte and point of the range.
-// @last: Node providing the exclusive end byte and point of the range.
-// @returns: Borrowed half-open source slice, or an empty view on invalid bounds.
+// @parsed: Live parsed-source handle with non-NULL source and tree.
+// @first: Non-NULL node in parsed's tree providing the first byte and point.
+// @last: Non-NULL node in parsed's tree providing the exclusive end byte and point.
+// @returns: Borrowed half-open source slice, or empty for invalid ranges/bounds.
 //--------------------------------------------------------
 static lemma_syntax_text syntax_text_between_nodes(
     const lemma_parsed_source *parsed, TSNode first, TSNode last)
 {
     lemma_syntax_text text = {0};
-    if (parsed == NULL || parsed->source == NULL || ts_node_is_null(first) ||
-        ts_node_is_null(last) || first.tree != parsed->tree || last.tree != parsed->tree) {
-        return text;
-    }
-
     lemma_source_range first_range = {0};
     lemma_source_range last_range = {0};
     if (lemma_frontend_ts_node_range(first, &first_range) != LEMMA_TS_RANGE_VALID ||
@@ -100,6 +99,9 @@ static lemma_syntax_text syntax_text_between_nodes(
 //--------------------------------------------------------
 static TSNode syntax_unique_child(TSNode parent, const char *type)
 {
+    if (ts_node_is_null(parent)) {
+        return (TSNode){0};
+    }
     TSNode child = {0};
     if (lemma_frontend_ts_unique_child_by_type(
             parent, type, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
@@ -137,6 +139,9 @@ static TSNode syntax_child_of_either(TSNode parent, const char *first_type,
 //--------------------------------------------------------
 static TSNode syntax_child_any(TSNode parent, const char *type)
 {
+    if (ts_node_is_null(parent)) {
+        return (TSNode){0};
+    }
     TSNode child = {0};
     if (lemma_frontend_ts_unique_child_by_type(
             parent, type, LEMMA_TS_CHILD_FILTER_ALL,
@@ -317,16 +322,13 @@ static lemma_syntax_text syntax_packed_dimensions(
 //--------------------------------------------------------
 // Collect declaration keywords by Tree-sitter grammar-node type.
 //
-// @node: Type syntax node or a descendant to inspect.
+// @node: Non-NULL type syntax node or descendant to inspect.
 // @facts: Syntax flags updated for exact keyword nodes.
 // @returns: None.
 //--------------------------------------------------------
 static void collect_declaration_type_facts(TSNode node,
                                            declaration_type_facts *facts)
 {
-    if (ts_node_is_null(node)) {
-        return;
-    }
     const char *type = ts_node_type(node);
     facts->has_wire |= strcmp(type, "wire") == 0;
     facts->has_logic |= strcmp(type, "logic") == 0;
@@ -807,6 +809,306 @@ static TSNode get_condition_if_present(TSNode expression)
 }
 
 //--------------------------------------------------------
+// Visit one expression node and its operands in depth-first source order.
+//
+// @walk: Active syntax traversal state.
+// @node: Non-NULL expression-related Tree-sitter node being inspected.
+// @module_range: Range of the containing module.
+// @assignment_range: Range of the continuous assignment owning this expression.
+// @parent_range: Range of the parent expression, or assignment for the root.
+// @depth: Expression nesting depth; walks stop at the shared 128-level bound.
+// @child_index: Operand position in the parent expression.
+// @returns: Nonzero after extraction; zero after visitor stop, failure, or depth overflow.
+//--------------------------------------------------------
+static int visit_expression_node(syntax_walk *walk, TSNode node,
+                                lemma_source_range module_range,
+                                lemma_source_range assignment_range,
+                                lemma_source_range parent_range, size_t depth,
+                                size_t child_index);
+
+//--------------------------------------------------------
+// Emit one Lemma-owned expression view after visiting its operands.
+//
+// @walk: Active syntax traversal state.
+// @node: Tree-sitter node providing the expression's source provenance.
+// @kind: Syntax-only expression category.
+// @token_node: Identifier/operator node, or null when the node has no token.
+// @module_range: Range of the containing module.
+// @assignment_range: Range of the owning continuous assignment.
+// @parent_range: Range of the parent expression or owning assignment.
+// @depth: Expression nesting depth.
+// @child_index: Operand position in the parent expression.
+// @operand_count: Number of source-ordered operands.
+// @returns: Nonzero when the syntax visitor continues.
+//--------------------------------------------------------
+static int emit_expression_view(syntax_walk *walk, TSNode node,
+                                lemma_syntax_expression_kind kind,
+                                TSNode token_node,
+                                lemma_source_range module_range,
+                                lemma_source_range assignment_range,
+                                lemma_source_range parent_range, size_t depth,
+                                size_t child_index, size_t operand_count)
+{
+    lemma_syntax_expression expression = {0};
+    expression.kind = kind;
+    expression.source = syntax_text_for_node(walk->parsed, node);
+    expression.token = syntax_text_for_node(walk->parsed, token_node);
+    expression.module_range = module_range;
+    expression.assignment_range = assignment_range;
+    expression.parent_range = parent_range;
+    expression.depth = depth;
+    expression.child_index = child_index;
+    expression.operand_count = operand_count;
+    lemma_syntax_view view = {0};
+    view.kind = LEMMA_SYNTAX_EXPRESSION;
+    view.as.expression = expression;
+    return syntax_emit(walk, &view);
+}
+
+//--------------------------------------------------------
+// Find up to two direct named operand nodes, excluding a unary operator.
+//
+// @node: Expression node whose immediate named children are inspected.
+// @operands: Receives the first two operands in source order.
+// @operand_count: Receives the total direct operand count.
+// @returns: Nonzero when the node has one or two direct operands.
+//--------------------------------------------------------
+static int expression_operands(TSNode node, TSNode operands[2],
+                               size_t *operand_count)
+{
+    *operand_count = 0U;
+    uint32_t count = ts_node_named_child_count(node);
+    for (uint32_t index = 0U; index < count; ++index) {
+        TSNode child = ts_node_named_child(node, index);
+        if (ts_node_is_extra(child) ||
+            strcmp(ts_node_type(child), "unary_operator") == 0) {
+            continue;
+        }
+        if (*operand_count < 2U) {
+            operands[*operand_count] = child;
+        }
+        ++*operand_count;
+    }
+    return *operand_count == 1U || *operand_count == 2U;
+}
+
+//--------------------------------------------------------
+// Classify one unary operator token without assigning RTL meaning elsewhere.
+//
+// @token: Borrowed exact source slice for a unary_operator node.
+// @returns: Syntax-only kind for supported unary forms, or OTHER.
+//--------------------------------------------------------
+static lemma_syntax_expression_kind syntax_unary_operator_kind(
+    lemma_syntax_text token)
+{
+    if (token.data == NULL) {
+        return LEMMA_SYNTAX_EXPRESSION_OTHER;
+    }
+    if (token.length == 1U && token.data[0] == '!') {
+        return LEMMA_SYNTAX_EXPRESSION_LOGICAL_NOT;
+    }
+    if (token.length == 1U && token.data[0] == '~') {
+        return LEMMA_SYNTAX_EXPRESSION_BITWISE_NOT;
+    }
+    if (token.length == 1U && token.data[0] == '&') {
+        return LEMMA_SYNTAX_EXPRESSION_REDUCTION_AND;
+    }
+    if (token.length == 2U && token.data[0] == '~' && token.data[1] == '&') {
+        return LEMMA_SYNTAX_EXPRESSION_REDUCTION_NAND;
+    }
+    if (token.length == 1U && token.data[0] == '|') {
+        return LEMMA_SYNTAX_EXPRESSION_REDUCTION_OR;
+    }
+    if (token.length == 2U && token.data[0] == '~' && token.data[1] == '|') {
+        return LEMMA_SYNTAX_EXPRESSION_REDUCTION_NOR;
+    }
+    if (token.length == 1U && token.data[0] == '^') {
+        return LEMMA_SYNTAX_EXPRESSION_REDUCTION_XOR;
+    }
+    if (token.length == 2U &&
+        ((token.data[0] == '~' && token.data[1] == '^') ||
+         (token.data[0] == '^' && token.data[1] == '~'))) {
+        return LEMMA_SYNTAX_EXPRESSION_REDUCTION_XNOR;
+    }
+    return LEMMA_SYNTAX_EXPRESSION_OTHER;
+}
+
+//--------------------------------------------------------
+// Classify one supported binary operator from its exact direct-child token.
+//
+// @node: Expression node whose anonymous direct operator token is inspected.
+// @returns: Syntax-only kind for supported binary forms, or OTHER.
+//--------------------------------------------------------
+static lemma_syntax_expression_kind syntax_binary_operator_kind(TSNode node)
+{
+    static const struct {
+        const char *token;
+        lemma_syntax_expression_kind kind;
+    } operators[] = {
+        {"&&", LEMMA_SYNTAX_EXPRESSION_LOGICAL_AND},
+        {"||", LEMMA_SYNTAX_EXPRESSION_LOGICAL_OR},
+        {"&", LEMMA_SYNTAX_EXPRESSION_BITWISE_AND},
+        {"|", LEMMA_SYNTAX_EXPRESSION_BITWISE_OR},
+        {"^", LEMMA_SYNTAX_EXPRESSION_BITWISE_XOR},
+        {"~^", LEMMA_SYNTAX_EXPRESSION_BITWISE_XNOR},
+        {"^~", LEMMA_SYNTAX_EXPRESSION_BITWISE_XNOR},
+        {"+", LEMMA_SYNTAX_EXPRESSION_ADD},
+        {"-", LEMMA_SYNTAX_EXPRESSION_SUBTRACT},
+        {"*", LEMMA_SYNTAX_EXPRESSION_MULTIPLY},
+        {"==", LEMMA_SYNTAX_EXPRESSION_EQUAL},
+        {"!=", LEMMA_SYNTAX_EXPRESSION_NOT_EQUAL},
+        {"<", LEMMA_SYNTAX_EXPRESSION_LESS},
+        {"<=", LEMMA_SYNTAX_EXPRESSION_LESS_EQUAL},
+        {">", LEMMA_SYNTAX_EXPRESSION_GREATER},
+        {">=", LEMMA_SYNTAX_EXPRESSION_GREATER_EQUAL}
+    };
+    for (size_t index = 0U; index < sizeof(operators) / sizeof(operators[0]);
+         ++index) {
+        if (!ts_node_is_null(syntax_child_any(node, operators[index].token))) {
+            return operators[index].kind;
+        }
+    }
+    return LEMMA_SYNTAX_EXPRESSION_OTHER;
+}
+
+//--------------------------------------------------------
+// Extract syntax-only expression nodes without assigning RTL meaning.
+//
+// @walk: Active syntax traversal state.
+// @node: Non-NULL expression-related Tree-sitter node being inspected.
+// @module_range: Range of the containing module.
+// @assignment_range: Range of the continuous assignment owning this expression.
+// @parent_range: Range of the parent expression, or assignment for the root.
+// @depth: Expression nesting depth; walks stop at the shared 128-level bound.
+// @child_index: Operand position in the parent expression.
+// @returns: Nonzero after extraction; zero after visitor stop, failure, or depth overflow.
+//--------------------------------------------------------
+static int visit_expression_node(syntax_walk *walk, TSNode node,
+                                lemma_source_range module_range,
+                                lemma_source_range assignment_range,
+                                lemma_source_range parent_range, size_t depth,
+                                size_t child_index)
+{
+    if (depth >= LEMMA_SYNTAX_WALK_MAX_DEPTH) {
+        return 0;
+    }
+    const char *type = ts_node_type(node);
+    if (strcmp(type, "simple_identifier") == 0) {
+        return emit_expression_view(
+            walk, node, LEMMA_SYNTAX_EXPRESSION_IDENTIFIER, node, module_range,
+            assignment_range, parent_range, depth, child_index, 0U);
+    }
+
+    if (strcmp(type, "expression") == 0) {
+        TSNode unary_operator = syntax_unique_child(node, "unary_operator");
+        if (!ts_node_is_null(unary_operator)) {
+            TSNode operands[2] = {{0}};
+            size_t operand_count = 0U;
+            if (!expression_operands(node, operands, &operand_count) ||
+                operand_count != 1U) {
+                return emit_expression_view(
+                    walk, node, LEMMA_SYNTAX_EXPRESSION_OTHER, unary_operator,
+                    module_range, assignment_range, parent_range, depth,
+                    child_index, 0U);
+            }
+            lemma_syntax_text token = syntax_text_for_node(walk->parsed, unary_operator);
+            lemma_syntax_expression_kind kind =
+                syntax_unary_operator_kind(token);
+            lemma_source_range current_range = syntax_range_for_node(node);
+            if (!visit_expression_node(
+                    walk, operands[0], module_range, assignment_range,
+                    current_range, depth + 1U, 0U)) {
+                return 0;
+            }
+            return emit_expression_view(
+                walk, node, kind, unary_operator, module_range, assignment_range,
+                parent_range, depth, child_index, 1U);
+        }
+
+        TSNode operands[2] = {{0}};
+        size_t operand_count = 0U;
+        if (expression_operands(node, operands, &operand_count) &&
+            operand_count == 2U) {
+            lemma_syntax_expression_kind kind =
+                syntax_binary_operator_kind(node);
+            TSNode operator_node = {0};
+            static const char *const operator_tokens[] = {
+                "&&", "||", "&", "|", "^", "~^", "^~", "+", "-", "*",
+                "==", "!=", "<", "<=", ">", ">="
+            };
+            for (size_t index = 0U;
+                 index < sizeof(operator_tokens) / sizeof(operator_tokens[0]);
+                 ++index) {
+                operator_node = syntax_child_any(node, operator_tokens[index]);
+                if (!ts_node_is_null(operator_node)) {
+                    break;
+                }
+            }
+            lemma_source_range current_range = syntax_range_for_node(node);
+            for (size_t index = 0U; index < 2U; ++index) {
+                if (!visit_expression_node(
+                        walk, operands[index], module_range, assignment_range,
+                        current_range, depth + 1U, index)) {
+                    return 0;
+                }
+            }
+            return emit_expression_view(
+                walk, node, kind, operator_node, module_range, assignment_range,
+                parent_range, depth, child_index, 2U);
+        }
+    }
+
+    if (strcmp(type, "primary") == 0) {
+        TSNode open = syntax_child_any(node, "(");
+        TSNode close = syntax_child_any(node, ")");
+        if (!ts_node_is_null(open) && !ts_node_is_null(close)) {
+            TSNode operands[2] = {{0}};
+            size_t operand_count = 0U;
+            if (!expression_operands(node, operands, &operand_count) ||
+                operand_count != 1U) {
+                return emit_expression_view(
+                    walk, node, LEMMA_SYNTAX_EXPRESSION_OTHER,
+                    (TSNode){0}, module_range, assignment_range, parent_range,
+                    depth, child_index, 0U);
+            }
+            lemma_source_range current_range = syntax_range_for_node(node);
+            if (!visit_expression_node(
+                    walk, operands[0], module_range, assignment_range,
+                    current_range, depth + 1U, 0U)) {
+                return 0;
+            }
+            return emit_expression_view(
+                walk, node, LEMMA_SYNTAX_EXPRESSION_PARENTHESIZED,
+                (TSNode){0}, module_range, assignment_range, parent_range,
+                depth, child_index, 1U);
+        }
+    }
+
+    TSNode sole_child = {0};
+    size_t named_count = 0U;
+    uint32_t count = ts_node_named_child_count(node);
+    for (uint32_t index = 0U; index < count; ++index) {
+        TSNode child = ts_node_named_child(node, index);
+        if (!ts_node_is_extra(child)) {
+            sole_child = child;
+            ++named_count;
+        }
+    }
+    if (named_count == 1U &&
+        (strcmp(type, "expression") == 0 ||
+         strcmp(type, "mintypmax_expression") == 0 ||
+         strcmp(type, "primary") == 0 ||
+         strcmp(type, "hierarchical_identifier") == 0)) {
+        return visit_expression_node(
+            walk, sole_child, module_range, assignment_range, parent_range,
+            depth, child_index);
+    }
+    return emit_expression_view(
+        walk, node, LEMMA_SYNTAX_EXPRESSION_OTHER, (TSNode){0}, module_range,
+        assignment_range, parent_range, depth, child_index, 0U);
+}
+
+//--------------------------------------------------------
 // Emit each continuous assignment pair from a module item.
 //
 // @walk: Active syntax traversal state.
@@ -872,6 +1174,11 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
         view.kind = LEMMA_SYNTAX_CONTINUOUS_ASSIGNMENT;
         view.as.continuous_assignment = item;
         if (!syntax_emit(walk, &view)) {
+            return 0;
+        }
+        if (!visit_expression_node(
+                walk, expression, module_range, item.assignment.source_range,
+                item.assignment.source_range, 0U, 0U)) {
             return 0;
         }
     }
@@ -1093,13 +1400,19 @@ static int visit_statement_children(syntax_walk *walk, TSNode parent,
 }
 
 //--------------------------------------------------------
-// Find the first statement body nested under a loop-control wrapper.
+// Find the first statement body under a loop-control wrapper within a depth bound.
 //
+// @walk: Active traversal state updated to FAILED if the bound is exceeded.
 // @node: Loop node or direct child inspected.
-// @returns: First nested statement node, or a null node when absent.
+// @depth: Current wrapper depth, with the loop node at zero.
+// @returns: First nested statement node, or null when absent or too deep.
 //--------------------------------------------------------
-static TSNode first_loop_body(TSNode node)
+static TSNode first_loop_body(syntax_walk *walk, TSNode node, size_t depth)
 {
+    if (depth >= LEMMA_SYNTAX_WALK_MAX_DEPTH) {
+        walk->result = LEMMA_SYNTAX_VISIT_FAILED;
+        return (TSNode){0};
+    }
     const char *type = ts_node_type(node);
     if (strcmp(type, "statement_or_null") == 0 ||
         strcmp(type, "statement") == 0 ||
@@ -1117,9 +1430,12 @@ static TSNode first_loop_body(TSNode node)
         if (ts_node_is_extra(child)) {
             continue;
         }
-        TSNode body = first_loop_body(child);
+        TSNode body = first_loop_body(walk, child, depth + 1U);
         if (!ts_node_is_null(body)) {
             return body;
+        }
+        if (walk->result != LEMMA_SYNTAX_VISIT_COMPLETE) {
+            return (TSNode){0};
         }
     }
     return (TSNode){0};
@@ -1229,6 +1545,10 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
                                 lemma_source_range process_range,
                                 lemma_source_range parent_range, size_t depth)
 {
+    if (depth >= LEMMA_SYNTAX_WALK_MAX_DEPTH) {
+        walk->result = LEMMA_SYNTAX_VISIT_FAILED;
+        return 0;
+    }
     const char *type = ts_node_type(node);
     if (strcmp(type, "statement") == 0 ||
         strcmp(type, "statement_item") == 0 ||
@@ -1284,7 +1604,10 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
         header = syntax_text_for_node(walk->parsed, assignment_operator(search));
     } else if (strcmp(type, "loop_statement") == 0) {
         kind = LEMMA_SYNTAX_STATEMENT_LOOP;
-        TSNode body = first_loop_body(node);
+        TSNode body = first_loop_body(walk, node, 0U);
+        if (walk->result != LEMMA_SYNTAX_VISIT_COMPLETE) {
+            return 0;
+        }
         if (!ts_node_is_null(body)) {
             header = statement_prefix(walk->parsed, node, body);
         }
@@ -1308,7 +1631,10 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
                                         current_range, depth + 1U);
     }
     if (kind == LEMMA_SYNTAX_STATEMENT_LOOP) {
-        TSNode body = first_loop_body(node);
+        TSNode body = first_loop_body(walk, node, 0U);
+        if (walk->result != LEMMA_SYNTAX_VISIT_COMPLETE) {
+            return 0;
+        }
         if (!ts_node_is_null(body)) {
             return visit_statement_node(walk, body, module_range, process_range,
                                         current_range, depth + 1U);
@@ -1318,15 +1644,22 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
 }
 
 //--------------------------------------------------------
-// Find the timing control and executable body inside an always statement.
+// Find the timing control and executable body within a bounded wrapper walk.
 //
+// @walk: Active traversal state updated to FAILED if the bound is exceeded.
 // @node: Statement wrapper under an always construct.
+// @depth: Current wrapper depth, with the outer statement at zero.
 // @control: Receives an event or delay control when found.
 // @body: Receives the executable statement when found.
-// @returns: Nonzero if a body statement was found.
+// @returns: Nonzero if a body statement was found within the depth bound.
 //--------------------------------------------------------
-static int find_process_parts(TSNode node, TSNode *control, TSNode *body)
+static int find_process_parts(syntax_walk *walk, TSNode node, size_t depth,
+                              TSNode *control, TSNode *body)
 {
+    if (depth >= LEMMA_SYNTAX_WALK_MAX_DEPTH) {
+        walk->result = LEMMA_SYNTAX_VISIT_FAILED;
+        return 0;
+    }
     const char *type = ts_node_type(node);
     if (strcmp(type, "procedural_timing_control_statement") == 0) {
         *control = syntax_child_of_either(node, "event_control", "delay_control");
@@ -1338,8 +1671,12 @@ static int find_process_parts(TSNode node, TSNode *control, TSNode *body)
         uint32_t count = ts_node_named_child_count(node);
         for (uint32_t index = 0U; index < count; ++index) {
             TSNode child = ts_node_named_child(node, index);
-            if (!ts_node_is_extra(child) && find_process_parts(child, control, body)) {
+            if (!ts_node_is_extra(child) &&
+                find_process_parts(walk, child, depth + 1U, control, body)) {
                 return 1;
+            }
+            if (walk->result != LEMMA_SYNTAX_VISIT_COMPLETE) {
+                return 0;
             }
         }
         return 0;
@@ -1355,19 +1692,25 @@ static int find_process_parts(TSNode node, TSNode *control, TSNode *body)
 // @node: Event-expression node or wrapper.
 // @module_range: Range of the containing module.
 // @process_range: Range of the process owning this event control.
+// @depth: Current recursive event-expression depth, with the root at zero.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
 //--------------------------------------------------------
 static int visit_event_expression(syntax_walk *walk, TSNode node,
                                   lemma_source_range module_range,
-                                  lemma_source_range process_range)
+                                  lemma_source_range process_range, size_t depth)
 {
+    if (depth >= LEMMA_SYNTAX_WALK_MAX_DEPTH) {
+        walk->result = LEMMA_SYNTAX_VISIT_FAILED;
+        return 0;
+    }
     if (strcmp(ts_node_type(node), "event_expression") != 0) {
         uint32_t count = ts_node_named_child_count(node);
         for (uint32_t index = 0U; index < count; ++index) {
             TSNode child = ts_node_named_child(node, index);
             if (!ts_node_is_extra(child) &&
                 strcmp(ts_node_type(child), "event_expression") == 0 &&
-                !visit_event_expression(walk, child, module_range, process_range)) {
+                !visit_event_expression(walk, child, module_range, process_range,
+                                        depth + 1U)) {
                 return 0;
             }
         }
@@ -1381,7 +1724,8 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
         if (!ts_node_is_extra(child) &&
             strcmp(ts_node_type(child), "event_expression") == 0) {
             ++nested_count;
-            if (!visit_event_expression(walk, child, module_range, process_range)) {
+            if (!visit_event_expression(walk, child, module_range, process_range,
+                                        depth + 1U)) {
                 return 0;
             }
         }
@@ -1451,7 +1795,10 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
 
     TSNode control = {0};
     TSNode body = {0};
-    if (!find_process_parts(statement, &control, &body)) {
+    if (!find_process_parts(walk, statement, 0U, &control, &body)) {
+        if (walk->result != LEMMA_SYNTAX_VISIT_COMPLETE) {
+            return 0;
+        }
         return emit_opaque_module_item(walk, process_node, module_range);
     }
     process.control_kind = LEMMA_SYNTAX_PROCESS_CONTROL_NONE;
@@ -1479,7 +1826,7 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
         TSNode clocking = syntax_unique_child(control, "clocking_event");
         if (!ts_node_is_null(clocking) &&
             !visit_event_expression(walk, clocking, module_range,
-                                    process.process_range)) {
+                                    process.process_range, 0U)) {
             return 0;
         }
     }
@@ -1608,17 +1955,13 @@ static lemma_ts_child_visit_action visit_source_child(
 // @parsed: Live parsed-source handle, borrowed for the duration of the visit.
 // @visitor: Non-NULL callback invoked for each source-ordered syntax event.
 // @context: Caller-provided context borrowed for the duration of the visit.
-// @returns: COMPLETE after traversal, STOPPED after visitor stop, FAILED after
-//     visitor failure, or INVALID_INPUT for a null handle or visitor.
+// @returns: COMPLETE after traversal, STOPPED after visitor stop, or FAILED
+//     after visitor failure or an invalid action for valid arguments.
 //--------------------------------------------------------
 lemma_syntax_visit_result lemma_frontend_visit_syntax(
     const lemma_parsed_source *parsed, lemma_syntax_visitor visitor,
     void *context)
 {
-    if (parsed == NULL || parsed->tree == NULL || parsed->source == NULL ||
-        visitor == NULL) {
-        return LEMMA_SYNTAX_VISIT_INVALID_INPUT;
-    }
     syntax_walk walk = {
         parsed, visitor, context, LEMMA_SYNTAX_VISIT_COMPLETE
     };
@@ -1627,9 +1970,6 @@ lemma_syntax_visit_result lemma_frontend_visit_syntax(
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
         root, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
         visit_source_child, &visit);
-    if (result == LEMMA_TS_CHILD_VISIT_INVALID_INPUT) {
-        return LEMMA_SYNTAX_VISIT_INVALID_INPUT;
-    }
     if (result == LEMMA_TS_CHILD_VISIT_FAILED) {
         return LEMMA_SYNTAX_VISIT_FAILED;
     }

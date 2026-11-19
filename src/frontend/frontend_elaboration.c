@@ -14,14 +14,27 @@ typedef struct port_attributes {
     int valid;
 } port_attributes;
 
+#define LEMMA_ELABORATION_EXPRESSION_MAX_DEPTH 128U
+
+typedef struct expression_frame {
+    lemma_source_range source_range;
+    uint32_t operand_ids[2];
+    unsigned char operand_present[2];
+    int active;
+} expression_frame;
+
 typedef struct elaboration_context {
     lemma_circuit_builder *builder;
     lemma_frontend_diagnostic *diagnostic;
     lemma_source_range module_range;
     lemma_source_range pending_group_range;
+    lemma_source_range pending_assignment_range;
     port_attributes current_port;
+    expression_frame expression_frames[LEMMA_ELABORATION_EXPRESSION_MAX_DEPTH];
+    uint32_t pending_target_signal_id;
     size_t module_count;
     int has_pending_port;
+    int has_pending_assignment;
     int failed;
 } elaboration_context;
 
@@ -60,6 +73,7 @@ static void set_diagnostic(lemma_frontend_diagnostic *diagnostic,
     }
     memset(diagnostic, 0, sizeof(*diagnostic));
     diagnostic->stage = stage;
+    diagnostic->severity = LEMMA_FRONTEND_DIAGNOSTIC_SEVERITY_ERROR;
     diagnostic->code = code;
     (void)snprintf(diagnostic->message, sizeof(diagnostic->message), "%s", message);
     if (has_source_range != 0) {
@@ -163,15 +177,289 @@ static int is_simple_identifier(lemma_syntax_text text)
 }
 
 //--------------------------------------------------------
+// Store one completed expression as an operand of its syntax parent.
+//
+// @context: Active elaboration state containing bounded expression frames.
+// @expression: Completed syntax node with its parent range and child index.
+// @expression_id: Existing IR expression ID produced for this node.
+// @returns: Nonzero when the parent link is valid and stored.
+//--------------------------------------------------------
+static int store_expression_child(elaboration_context *context,
+                                  const lemma_syntax_expression *expression,
+                                  uint32_t expression_id)
+{
+    if (expression->depth == 0U ||
+        expression->depth >= LEMMA_ELABORATION_EXPRESSION_MAX_DEPTH ||
+        expression->child_index >= 2U) {
+        return 0;
+    }
+    expression_frame *frame = &context->expression_frames[expression->depth - 1U];
+    if (frame->active == 0) {
+        memset(frame, 0, sizeof(*frame));
+        frame->active = 1;
+        frame->source_range = expression->parent_range;
+    } else if (!ranges_equal(frame->source_range, expression->parent_range)) {
+        return 0;
+    }
+    size_t child_index = expression->child_index;
+    if (frame->operand_present[child_index] != 0U) {
+        return 0;
+    }
+    frame->operand_ids[child_index] = expression_id;
+    frame->operand_present[child_index] = 1U;
+    return 1;
+}
+
+//--------------------------------------------------------
+// Retrieve and consume the source-ordered child expression IDs of one node.
+//
+// @context: Active elaboration state containing bounded expression frames.
+// @expression: Parent syntax node requesting its operands.
+// @operand_ids: Receives the one or two child IDs in source order.
+// @returns: Nonzero when all declared child links match this parent range.
+//--------------------------------------------------------
+static int take_expression_children(elaboration_context *context,
+                                   const lemma_syntax_expression *expression,
+                                   uint32_t operand_ids[2])
+{
+    if (expression->depth >= LEMMA_ELABORATION_EXPRESSION_MAX_DEPTH ||
+        expression->operand_count == 0U || expression->operand_count > 2U) {
+        return 0;
+    }
+    expression_frame *frame = &context->expression_frames[expression->depth];
+    if (frame->active == 0 ||
+        !ranges_equal(frame->source_range, expression->source.source_range)) {
+        return 0;
+    }
+    for (size_t index = 0U; index < expression->operand_count; ++index) {
+        if (frame->operand_present[index] == 0U) {
+            return 0;
+        }
+        operand_ids[index] = frame->operand_ids[index];
+    }
+    memset(frame, 0, sizeof(*frame));
+    return 1;
+}
+
+//--------------------------------------------------------
+// Map a classified syntax operator to its typed circuit-IR operator kind.
+//
+// @syntax_kind: Borrowed syntax category to map.
+// @ir_kind: Receives the corresponding IR kind on success.
+// @returns: Nonzero for a supported typed operator; zero for other syntax.
+//--------------------------------------------------------
+static int syntax_operator_ir_kind(lemma_syntax_expression_kind syntax_kind,
+                                   lemma_ir_expression_kind *ir_kind)
+{
+    switch (syntax_kind) {
+    case LEMMA_SYNTAX_EXPRESSION_BITWISE_NOT:
+        *ir_kind = LEMMA_IR_EXPRESSION_BITWISE_NOT;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_BITWISE_AND:
+        *ir_kind = LEMMA_IR_EXPRESSION_BITWISE_AND;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_BITWISE_OR:
+        *ir_kind = LEMMA_IR_EXPRESSION_BITWISE_OR;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_BITWISE_XOR:
+        *ir_kind = LEMMA_IR_EXPRESSION_BITWISE_XOR;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_BITWISE_XNOR:
+        *ir_kind = LEMMA_IR_EXPRESSION_BITWISE_XNOR;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_REDUCTION_AND:
+        *ir_kind = LEMMA_IR_EXPRESSION_REDUCTION_AND;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_REDUCTION_NAND:
+        *ir_kind = LEMMA_IR_EXPRESSION_REDUCTION_NAND;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_REDUCTION_OR:
+        *ir_kind = LEMMA_IR_EXPRESSION_REDUCTION_OR;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_REDUCTION_NOR:
+        *ir_kind = LEMMA_IR_EXPRESSION_REDUCTION_NOR;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_REDUCTION_XOR:
+        *ir_kind = LEMMA_IR_EXPRESSION_REDUCTION_XOR;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_REDUCTION_XNOR:
+        *ir_kind = LEMMA_IR_EXPRESSION_REDUCTION_XNOR;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_ADD:
+        *ir_kind = LEMMA_IR_EXPRESSION_ADD;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_SUBTRACT:
+        *ir_kind = LEMMA_IR_EXPRESSION_SUBTRACT;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_MULTIPLY:
+        *ir_kind = LEMMA_IR_EXPRESSION_MULTIPLY;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_EQUAL:
+        *ir_kind = LEMMA_IR_EXPRESSION_EQUAL;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_NOT_EQUAL:
+        *ir_kind = LEMMA_IR_EXPRESSION_NOT_EQUAL;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_LESS:
+        *ir_kind = LEMMA_IR_EXPRESSION_LESS;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_LESS_EQUAL:
+        *ir_kind = LEMMA_IR_EXPRESSION_LESS_EQUAL;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_GREATER:
+        *ir_kind = LEMMA_IR_EXPRESSION_GREATER;
+        return 1;
+    case LEMMA_SYNTAX_EXPRESSION_GREATER_EQUAL:
+        *ir_kind = LEMMA_IR_EXPRESSION_GREATER_EQUAL;
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+//--------------------------------------------------------
+// Return the arity encoded by one supported circuit-IR expression kind.
+//
+// @kind: Expression kind inspected.
+// @operand_count: Receives zero, one, or two for a recognized kind.
+// @returns: Nonzero for read, logical, and fixture-bounded bit-vector kinds.
+//--------------------------------------------------------
+static int ir_expression_operand_count(lemma_ir_expression_kind kind,
+                                      size_t *operand_count)
+{
+    switch (kind) {
+    case LEMMA_IR_EXPRESSION_READ_SIGNAL:
+        *operand_count = 0U;
+        return 1;
+    case LEMMA_IR_EXPRESSION_LOGICAL_NOT:
+    case LEMMA_IR_EXPRESSION_BITWISE_NOT:
+    case LEMMA_IR_EXPRESSION_REDUCTION_AND:
+    case LEMMA_IR_EXPRESSION_REDUCTION_NAND:
+    case LEMMA_IR_EXPRESSION_REDUCTION_OR:
+    case LEMMA_IR_EXPRESSION_REDUCTION_NOR:
+    case LEMMA_IR_EXPRESSION_REDUCTION_XOR:
+    case LEMMA_IR_EXPRESSION_REDUCTION_XNOR:
+        *operand_count = 1U;
+        return 1;
+    case LEMMA_IR_EXPRESSION_LOGICAL_AND:
+    case LEMMA_IR_EXPRESSION_LOGICAL_OR:
+    case LEMMA_IR_EXPRESSION_BITWISE_AND:
+    case LEMMA_IR_EXPRESSION_BITWISE_OR:
+    case LEMMA_IR_EXPRESSION_BITWISE_XOR:
+    case LEMMA_IR_EXPRESSION_BITWISE_XNOR:
+    case LEMMA_IR_EXPRESSION_ADD:
+    case LEMMA_IR_EXPRESSION_SUBTRACT:
+    case LEMMA_IR_EXPRESSION_MULTIPLY:
+    case LEMMA_IR_EXPRESSION_EQUAL:
+    case LEMMA_IR_EXPRESSION_NOT_EQUAL:
+    case LEMMA_IR_EXPRESSION_LESS:
+    case LEMMA_IR_EXPRESSION_LESS_EQUAL:
+    case LEMMA_IR_EXPRESSION_GREATER:
+    case LEMMA_IR_EXPRESSION_GREATER_EQUAL:
+        *operand_count = 2U;
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+//--------------------------------------------------------
+// Lower one supported syntax expression node into a typed IR expression.
+//
+// @context: Active elaboration state and circuit builder.
+// @expression: Borrowed syntax expression event with its provenance.
+// @expression_id: Receives the resulting IR ID on success.
+// @returns: 1 on success, 0 for invalid parent links, or -1 when the builder fails.
+//--------------------------------------------------------
+static int lower_expression_node(elaboration_context *context,
+                                 const lemma_syntax_expression *expression,
+                                 uint32_t *expression_id)
+{
+    uint32_t operands[2] = {0U, 0U};
+    if (!take_expression_children(context, expression, operands)) {
+        return 0;
+    }
+    if (expression->kind == LEMMA_SYNTAX_EXPRESSION_PARENTHESIZED) {
+        if (expression->operand_count != 1U) {
+            return 0;
+        }
+        *expression_id = operands[0];
+        return 1;
+    }
+    if (expression->kind == LEMMA_SYNTAX_EXPRESSION_LOGICAL_NOT) {
+        if (expression->operand_count != 1U) {
+            return 0;
+        }
+        return lemma_circuit_builder_add_logical_not(
+                   context->builder, operands[0],
+                   expression->source.source_range, expression_id)
+            ? 1
+            : -1;
+    }
+    if (expression->kind == LEMMA_SYNTAX_EXPRESSION_LOGICAL_AND ||
+        expression->kind == LEMMA_SYNTAX_EXPRESSION_LOGICAL_OR) {
+        if (expression->operand_count != 2U) {
+            return 0;
+        }
+        lemma_ir_expression_kind kind =
+            expression->kind == LEMMA_SYNTAX_EXPRESSION_LOGICAL_AND
+                ? LEMMA_IR_EXPRESSION_LOGICAL_AND
+                : LEMMA_IR_EXPRESSION_LOGICAL_OR;
+        return lemma_circuit_builder_add_logical_binary(
+                   context->builder, kind, operands[0], operands[1],
+                   expression->source.source_range, expression_id)
+             ? 1
+             : -1;
+    }
+    lemma_ir_expression_kind kind = LEMMA_IR_EXPRESSION_READ_SIGNAL;
+    if (syntax_operator_ir_kind(expression->kind, &kind)) {
+        size_t expected_count = 0U;
+        if (!ir_expression_operand_count(kind, &expected_count) ||
+            expression->operand_count != expected_count) {
+            return 0;
+        }
+        const lemma_ir_expression *left =
+            lemma_circuit_builder_expression_at(context->builder, operands[0]);
+        const lemma_ir_expression *right = expression->operand_count == 2U
+            ? lemma_circuit_builder_expression_at(context->builder, operands[1])
+            : NULL;
+        if (left->is_signed || (right != NULL && right->is_signed)) {
+            context->failed = 1;
+            set_diagnostic(context->diagnostic,
+                           LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+                           "rtl.operator_signedness",
+                           "bitwise, arithmetic, and comparison operands must be unsigned",
+                           expression->source.source_range, 1);
+            return -2;
+        }
+        if (right != NULL && left->width != right->width) {
+            context->failed = 1;
+            set_diagnostic(context->diagnostic,
+                           LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+                           "rtl.operator_width",
+                           "binary operator operands must have the same width",
+                           expression->source.source_range, 1);
+            return -2;
+        }
+        return lemma_circuit_builder_add_operator(
+                   context->builder, kind, operands, expression->operand_count,
+                   expression->source.source_range, expression_id)
+            ? 1
+            : -1;
+    }
+    return 0;
+}
+
+//--------------------------------------------------------
 // Parse a borrowed unsigned decimal bound and reject non-decimal syntax.
 //
 // @text: Borrowed bound slice extracted from one packed dimension.
-// @value: Required output for the parsed bound.
+// @value: Non-NULL output for the parsed bound.
 // @returns: Nonzero for a nonempty, in-range decimal number with no extra text.
 //--------------------------------------------------------
 static int parse_decimal_bound(lemma_syntax_text text, uint32_t *value)
 {
-    if (text.data == NULL || text.length == 0U || value == NULL) {
+    if (text.data == NULL || text.length == 0U) {
         return 0;
     }
     uint32_t result = 0U;
@@ -193,16 +481,13 @@ static int parse_decimal_bound(lemma_syntax_text text, uint32_t *value)
 //--------------------------------------------------------
 // Resolve one supported packed dimension's decimal bounds to a positive width.
 //
-// @group: Declaration group with borrowed first-dimension bound slices.
-// @width: Required output for the resolved bit width.
+// @group: Non-NULL declaration group with borrowed first-dimension bound slices.
+// @width: Non-NULL output for the resolved bit width.
 // @returns: Nonzero for a scalar or exactly one valid decimal dimension.
 //--------------------------------------------------------
 static int packed_width(const lemma_syntax_declaration_group *group,
                         uint32_t *width)
 {
-    if (group == NULL || width == NULL) {
-        return 0;
-    }
     if (group->packed_dimension_count == 0U) {
         *width = 1U;
         return 1;
@@ -275,87 +560,196 @@ static size_t count_signal_drivers(const lemma_circuit_builder *builder,
     size_t driver_count = lemma_circuit_builder_driver_count(builder);
     for (size_t index = 0U; index < driver_count; ++index) {
         const lemma_ir_driver *driver = lemma_circuit_builder_driver_at(builder, index);
-        if (driver != NULL && driver->target_signal_id == signal_id) {
+        if (driver->target_signal_id == signal_id) {
             ++count;
         }
     }
     return count;
 }
 
+// One adjacency-list edge from a driven signal to a referenced signal.
+typedef struct signal_dependency_edge {
+    uint32_t source_signal_id;
+    size_t next_edge;
+} signal_dependency_edge;
+
 //--------------------------------------------------------
-// Detect cycles in the final direct-alias graph using temporary color state.
+// Append one signal dependency edge, growing its storage with checked arithmetic.
 //
-// @builder: Builder whose signal, expression, and driver arrays are inspected.
-// @cycle_signal_id: Optional output receiving a signal in the detected cycle.
-// @returns: 1 for acyclic, 0 for a cycle, or -1 for invalid data/allocation failure.
+// @edges: Mutable edge array pointer.
+// @edge_count: Number of edges currently stored.
+// @edge_capacity: Current edge-array capacity.
+// @heads: Per-target adjacency-list heads.
+// @target_signal_id: Signal driven by the expression.
+// @source_signal_id: Signal read by the expression.
+// @returns: Nonzero on success; zero on size overflow or allocation failure.
 //--------------------------------------------------------
-static int check_alias_cycles(const lemma_circuit_builder *builder,
-                              uint32_t *cycle_signal_id)
+static int append_dependency_edge(signal_dependency_edge **edges,
+                                  size_t *edge_count, size_t *edge_capacity,
+                                  size_t *heads, uint32_t target_signal_id,
+                                  uint32_t source_signal_id)
+{
+    if (*edge_count == *edge_capacity) {
+        size_t next_capacity = *edge_capacity == 0U ? 8U : *edge_capacity * 2U;
+        if (next_capacity < *edge_capacity ||
+            next_capacity > SIZE_MAX / sizeof(**edges)) {
+            return 0;
+        }
+        signal_dependency_edge *grown = realloc(
+            *edges, next_capacity * sizeof(**edges));
+        if (grown == NULL) {
+            return 0;
+        }
+        *edges = grown;
+        *edge_capacity = next_capacity;
+    }
+    size_t index = (*edge_count)++;
+    (*edges)[index] = (signal_dependency_edge){
+        source_signal_id, heads[target_signal_id]
+    };
+    heads[target_signal_id] = index;
+    return 1;
+}
+
+//--------------------------------------------------------
+// Detect cycles in the signal dependencies of all driver expressions.
+//
+// @builder: Valid builder with at least one signal; stored driver, expression,
+//     and signal IDs refer to entries in their respective arrays.
+// @cycle_signal_id: Required output receiving zero or a signal in the detected cycle.
+// @returns: 1 for acyclic, 0 for a cycle, or -1 for temporary storage/stack failure.
+//--------------------------------------------------------
+static int check_combinational_cycles(const lemma_circuit_builder *builder,
+                                      uint32_t *cycle_signal_id)
 {
     size_t count = lemma_circuit_builder_signal_count(builder);
-    if (cycle_signal_id != NULL) {
-        *cycle_signal_id = 0U;
-    }
-    if (count == 0U) {
-        return 1;
-    }
-    if (count > SIZE_MAX / sizeof(uint32_t)) {
+    size_t expression_count =
+        lemma_circuit_builder_expression_count(builder);
+    *cycle_signal_id = 0U;
+    if (count > SIZE_MAX / sizeof(size_t) ||
+        count > SIZE_MAX / sizeof(uint32_t) ||
+        expression_count > SIZE_MAX / sizeof(uint32_t)) {
         return -1;
     }
-    uint32_t *source_by_target = malloc(count * sizeof(*source_by_target));
-    uint32_t *path = malloc(count * sizeof(*path));
+    size_t *heads = malloc(count * sizeof(*heads));
+    uint32_t *signal_stack = malloc(count * sizeof(*signal_stack));
+    size_t *edge_stack = malloc(count * sizeof(*edge_stack));
     unsigned char *state = calloc(count, sizeof(*state));
-    if (source_by_target == NULL || path == NULL || state == NULL) {
-        free(source_by_target);
-        free(path);
+    uint32_t *expression_stack = expression_count == 0U
+        ? NULL
+        : malloc(expression_count * sizeof(*expression_stack));
+    unsigned char *expression_seen = expression_count == 0U
+        ? NULL
+        : calloc(expression_count, sizeof(*expression_seen));
+    if (heads == NULL || signal_stack == NULL || edge_stack == NULL ||
+        state == NULL ||
+        (expression_count != 0U &&
+         (expression_stack == NULL || expression_seen == NULL))) {
+        free(heads);
+        free(signal_stack);
+        free(edge_stack);
         free(state);
+        free(expression_stack);
+        free(expression_seen);
         return -1;
     }
     for (size_t index = 0U; index < count; ++index) {
-        source_by_target[index] = UINT32_MAX;
+        heads[index] = SIZE_MAX;
     }
+    signal_dependency_edge *edges = NULL;
+    size_t edge_count = 0U;
+    size_t edge_capacity = 0U;
     size_t drivers = lemma_circuit_builder_driver_count(builder);
     for (size_t index = 0U; index < drivers; ++index) {
         const lemma_ir_driver *driver = lemma_circuit_builder_driver_at(builder, index);
-        const lemma_ir_expression *expression = driver == NULL
-            ? NULL
-            : lemma_circuit_builder_expression_at(builder, driver->expression_id);
-        if (driver == NULL || expression == NULL ||
-            driver->target_signal_id >= count || expression->signal_id >= count) {
-            free(source_by_target);
-            free(path);
-            free(state);
-            return -1;
+        size_t stack_count = 0U;
+        expression_stack[stack_count++] = driver->expression_id;
+        expression_seen[driver->expression_id] = 1U;
+        while (stack_count != 0U) {
+            uint32_t expression_id = expression_stack[--stack_count];
+            const lemma_ir_expression *expression =
+                lemma_circuit_builder_expression_at(builder, expression_id);
+            size_t operand_count = 0U;
+            if (expression->kind == LEMMA_IR_EXPRESSION_READ_SIGNAL) {
+                if (!append_dependency_edge(
+                        &edges, &edge_count, &edge_capacity, heads,
+                        driver->target_signal_id, expression->signal_id)) {
+                    free(heads);
+                    free(signal_stack);
+                    free(edge_stack);
+                    free(state);
+                    free(expression_stack);
+                    free(expression_seen);
+                    free(edges);
+                    return -1;
+                }
+                continue;
+            }
+            (void)ir_expression_operand_count(expression->kind, &operand_count);
+            for (size_t operand = 0U; operand < operand_count; ++operand) {
+                uint32_t child_id = expression->operand_ids[operand];
+                if (expression_seen[child_id] == 0U) {
+                    if (stack_count >= expression_count) {
+                        free(heads);
+                        free(signal_stack);
+                        free(edge_stack);
+                        free(state);
+                        free(expression_stack);
+                        free(expression_seen);
+                        free(edges);
+                        return -1;
+                    }
+                    expression_seen[child_id] = 1U;
+                    expression_stack[stack_count++] = child_id;
+                }
+            }
         }
-        source_by_target[driver->target_signal_id] = expression->signal_id;
+        memset(expression_seen, 0, expression_count * sizeof(*expression_seen));
     }
 
     int result = 1;
     for (size_t start = 0U; start < count && result == 1; ++start) {
-        size_t path_count = 0U;
-        uint32_t current = (uint32_t)start;
-        while (current != UINT32_MAX) {
-            if (state[current] == 1U) {
-                if (cycle_signal_id != NULL) {
-                    *cycle_signal_id = current;
-                }
+        if (state[start] != 0U) {
+            continue;
+        }
+        size_t stack_count = 1U;
+        signal_stack[0] = (uint32_t)start;
+        edge_stack[0] = heads[start];
+        state[start] = 1U;
+        while (stack_count != 0U) {
+            size_t top = stack_count - 1U;
+            size_t edge_index = edge_stack[top];
+            if (edge_index == SIZE_MAX) {
+                state[signal_stack[top]] = 2U;
+                --stack_count;
+                continue;
+            }
+            edge_stack[top] = edges[edge_index].next_edge;
+            uint32_t dependency = edges[edge_index].source_signal_id;
+            if (state[dependency] == 1U) {
+                *cycle_signal_id = dependency;
                 result = 0;
                 break;
             }
-            if (state[current] == 2U) {
-                break;
+            if (state[dependency] == 0U) {
+                if (stack_count >= count) {
+                    result = -1;
+                    break;
+                }
+                signal_stack[stack_count] = dependency;
+                edge_stack[stack_count] = heads[dependency];
+                state[dependency] = 1U;
+                ++stack_count;
             }
-            state[current] = 1U;
-            path[path_count++] = current;
-            current = source_by_target[current];
-        }
-        for (size_t index = 0U; index < path_count; ++index) {
-            state[path[index]] = 2U;
         }
     }
-    free(source_by_target);
-    free(path);
+    free(heads);
+    free(signal_stack);
+    free(edge_stack);
     free(state);
+    free(expression_stack);
+    free(expression_seen);
+    free(edges);
     return result;
 }
 
@@ -460,31 +854,17 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         const lemma_syntax_continuous_assignment *assignment =
             &view->as.continuous_assignment;
         uint32_t target_id = 0U;
-        uint32_t source_id = 0U;
-        if (!is_simple_identifier(assignment->destination_signal) ||
-            !is_simple_identifier(assignment->expression)) {
+        if (state->has_pending_assignment != 0 ||
+            !is_simple_identifier(assignment->destination_signal)) {
             return reject_syntax(state, "rtl.assignment_form",
-                                 "assignment must connect simple signals directly",
+                                 "assignment target must be a simple signal",
                                  assignment->assignment.source_range, 1);
         }
         if (!lemma_circuit_builder_find_signal(
                 state->builder, assignment->destination_signal.data,
-                assignment->destination_signal.length,
-                &target_id) ||
-            !lemma_circuit_builder_find_signal(
-                state->builder, assignment->expression.data,
-                assignment->expression.length, &source_id)) {
+                assignment->destination_signal.length, &target_id)) {
             return reject_syntax(state, "rtl.undeclared_signal",
-                                 "assignment references a signal outside the port list",
-                                 assignment->assignment.source_range, 1);
-        }
-        const lemma_ir_signal *target =
-            lemma_circuit_builder_signal_at(state->builder, target_id);
-        const lemma_ir_signal *source =
-            lemma_circuit_builder_signal_at(state->builder, source_id);
-        if (target == NULL || source == NULL) {
-            return reject_syntax(state, "ir.invalid_signal",
-                                 "assignment references an invalid signal ID",
+                                 "assignment target is outside the port list",
                                  assignment->assignment.source_range, 1);
         }
         lemma_ir_port_direction target_direction = LEMMA_IR_PORT_INPUT;
@@ -493,7 +873,7 @@ static lemma_syntax_visit_action elaborate_syntax_event(
              index < lemma_circuit_builder_port_count(state->builder); ++index) {
             const lemma_ir_port *port =
                 lemma_circuit_builder_port_at(state->builder, index);
-            if (port != NULL && port->signal_id == target_id) {
+            if (port->signal_id == target_id) {
                 target_direction = port->direction;
                 target_is_port = 1;
                 break;
@@ -501,29 +881,111 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         }
         if (target_is_port == 0 || target_direction != LEMMA_IR_PORT_OUTPUT) {
             return reject_syntax(state, "rtl.input_driver",
-                                 "continuous assignment target must be an output port",
-                                 assignment->lvalue.source_range, 1);
-        }
-        if (target->width != source->width) {
-            return reject_syntax(state, "rtl.alias_width",
-                                 "alias source and output widths must match",
-                                 assignment->assignment.source_range, 1);
+                                  "continuous assignment target must be an output port",
+                                  assignment->lvalue.source_range, 1);
         }
         if (count_signal_drivers(state->builder, target_id) != 0U) {
             return reject_syntax(state, "rtl.multiple_drivers",
                                  "output port has more than one driver",
                                  assignment->lvalue.source_range, 1);
         }
-        uint32_t expression_id = 0U;
-        if (!lemma_circuit_builder_add_read_signal(
-                state->builder, source_id, assignment->expression.source_range,
-                &expression_id) ||
-            !lemma_circuit_builder_add_driver(
-                state->builder, target_id, expression_id, assignment->assignment.source_range)) {
-            return reject_builder(state, "ir.out_of_memory",
-                                  "unable to store a continuous driver in the circuit IR",
-                                  assignment->assignment.source_range, 1);
+        state->pending_target_signal_id = target_id;
+        state->pending_assignment_range = assignment->assignment.source_range;
+        memset(state->expression_frames, 0, sizeof(state->expression_frames));
+        state->has_pending_assignment = 1;
+        return LEMMA_SYNTAX_VISIT_CONTINUE;
+    }
+    if (view->kind == LEMMA_SYNTAX_EXPRESSION) {
+        const lemma_syntax_expression *expression = &view->as.expression;
+        if (state->has_pending_assignment == 0 ||
+            !ranges_equal(state->pending_assignment_range,
+                          expression->assignment_range)) {
+            return reject_syntax(state, "rtl.expression_context",
+                                 "expression is not attached to a continuous assignment",
+                                 expression->source.source_range, 1);
         }
+        if (expression->kind == LEMMA_SYNTAX_EXPRESSION_OTHER) {
+            return reject_syntax(state, "rtl.expression_form",
+                                 "continuous assignment expression is unsupported",
+                                 expression->source.source_range, 1);
+        }
+        uint32_t expression_id = 0U;
+        if (expression->kind == LEMMA_SYNTAX_EXPRESSION_IDENTIFIER) {
+            uint32_t signal_id = 0U;
+            if (!is_simple_identifier(expression->token)) {
+                return reject_syntax(state, "rtl.expression_form",
+                                     "signal read must use a simple identifier",
+                                     expression->source.source_range, 1);
+            }
+            if (!lemma_circuit_builder_find_signal(
+                    state->builder, expression->token.data,
+                    expression->token.length, &signal_id)) {
+                return reject_syntax(state, "rtl.undeclared_signal",
+                                     "expression references a signal outside the port list",
+                                     expression->token.source_range, 1);
+            }
+            if (!lemma_circuit_builder_add_read_signal(
+                    state->builder, signal_id, expression->source.source_range,
+                    &expression_id)) {
+                return reject_builder(state, "ir.out_of_memory",
+                                      "unable to store a signal read in circuit IR",
+                                      expression->source.source_range, 1);
+            }
+        } else {
+            int lower_result =
+                lower_expression_node(state, expression, &expression_id);
+            if (lower_result < 0) {
+                if (lower_result == -2) {
+                    return LEMMA_SYNTAX_VISIT_FAIL;
+                }
+                return reject_builder(state, "ir.out_of_memory",
+                                      "unable to store an operator in circuit IR",
+                                      expression->source.source_range, 1);
+            }
+            if (lower_result == 0) {
+                return reject_builder(state, "ir.expression_tree",
+                                      "expression operator has invalid parent links",
+                                      expression->source.source_range, 1);
+            }
+        }
+        if (expression->depth != 0U) {
+            if (!store_expression_child(state, expression, expression_id)) {
+                return reject_builder(state, "ir.expression_tree",
+                                      "expression parent/child links are invalid",
+                                      expression->source.source_range, 1);
+            }
+            return LEMMA_SYNTAX_VISIT_CONTINUE;
+        }
+        if (expression->child_index != 0U ||
+            !ranges_equal(expression->parent_range,
+                          state->pending_assignment_range)) {
+            return reject_builder(state, "ir.expression_tree",
+                                  "expression root is not attached to its assignment",
+                                  expression->source.source_range, 1);
+        }
+        const lemma_ir_signal *target = lemma_circuit_builder_signal_at(
+            state->builder, state->pending_target_signal_id);
+        const lemma_ir_expression *root = lemma_circuit_builder_expression_at(
+            state->builder, expression_id);
+        if (target->width != root->width) {
+            return reject_syntax(
+                state,
+                root->kind == LEMMA_IR_EXPRESSION_READ_SIGNAL
+                    ? "rtl.alias_width"
+                    : "rtl.assignment_width",
+                root->kind == LEMMA_IR_EXPRESSION_READ_SIGNAL
+                    ? "alias source and output widths must match"
+                    : "expression result and output widths must match",
+                expression->source.source_range, 1);
+        }
+        if (!lemma_circuit_builder_add_driver(
+                state->builder, state->pending_target_signal_id,
+                expression_id, state->pending_assignment_range)) {
+            return reject_builder(state, "ir.out_of_memory",
+                                  "unable to store a continuous driver in circuit IR",
+                                  state->pending_assignment_range, 1);
+        }
+        state->has_pending_assignment = 0;
         return LEMMA_SYNTAX_VISIT_CONTINUE;
     }
     if (view->kind == LEMMA_SYNTAX_PROCESS ||
@@ -549,7 +1011,7 @@ static lemma_syntax_visit_action elaborate_syntax_event(
 }
 
 //--------------------------------------------------------
-// Check that every output has one driver and aliases are acyclic.
+// Check that every output has one driver and driver dependencies are acyclic.
 //
 // @context: Completed elaboration context and final IR builder.
 // @returns: Nonzero when the circuit satisfies the first-profile driver rules.
@@ -560,12 +1022,6 @@ static int validate_drivers(elaboration_context *context)
     for (size_t index = 0U; index < port_count; ++index) {
         const lemma_ir_port *port =
             lemma_circuit_builder_port_at(context->builder, index);
-        if (port == NULL) {
-            set_diagnostic(context->diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
-                           "ir.invalid_port", "circuit contains an invalid port record",
-                           context->module_range, 1);
-            return 0;
-        }
         if (port->direction != LEMMA_IR_PORT_OUTPUT ||
             count_signal_drivers(context->builder, port->signal_id) != 0U) {
             continue;
@@ -576,27 +1032,26 @@ static int validate_drivers(elaboration_context *context)
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.output_undriven",
                        "each output port must have one direct signal driver",
-                       signal != NULL ? signal->source : context->module_range,
-                       signal != NULL);
+                       signal->source, 1);
         return 0;
     }
     uint32_t cycle_signal_id = 0U;
-    int cycle_result = check_alias_cycles(context->builder, &cycle_signal_id);
+    int cycle_result = check_combinational_cycles(context->builder,
+                                                  &cycle_signal_id);
     if (cycle_result == 0) {
         const lemma_ir_signal *signal =
             lemma_circuit_builder_signal_at(context->builder, cycle_signal_id);
         set_diagnostic(context->diagnostic,
                        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                        "rtl.combinational_cycle",
-                       "output aliases form a combinational cycle",
-                       signal != NULL ? signal->source : context->module_range,
-                       signal != NULL);
+                       "combinational driver dependencies contain a cycle",
+                       signal->source, 1);
         return 0;
     }
     if (cycle_result < 0) {
         set_diagnostic(context->diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
                        "ir.validation_failed",
-                       "unable to validate circuit alias dependencies",
+                       "unable to validate circuit expression dependencies",
                        context->module_range, 1);
         return 0;
     }
@@ -606,11 +1061,11 @@ static int validate_drivers(elaboration_context *context)
 //--------------------------------------------------------
 // Validate and elaborate the sole flat module into builder-owned IR storage.
 //
-// @parsed: Live parsed-source handle borrowed for the call.
-// @builder: Fresh caller-owned builder to receive the final IR storage.
+// @parsed: Successfully parsed, live non-NULL handle borrowed for the call.
+// @builder: Non-NULL fresh caller-owned builder to receive the final IR storage.
 // @diagnostic: Optional diagnostic output, cleared on entry when provided.
-// @returns: Nonzero on success; zero for invalid input, unsupported RTL, or
-//     allocation failure; destroy, rather than finalize, the builder on failure.
+// @returns: Nonzero on success; zero for unsupported RTL or an operation failure;
+//     destroy, rather than finalize, the builder on failure.
 //--------------------------------------------------------
 int lemma_frontend_elaborate(const lemma_parsed_source *parsed,
                              lemma_circuit_builder *builder,
@@ -618,13 +1073,6 @@ int lemma_frontend_elaborate(const lemma_parsed_source *parsed,
 {
     if (diagnostic != NULL) {
         memset(diagnostic, 0, sizeof(*diagnostic));
-    }
-    if (parsed == NULL || builder == NULL) {
-        set_diagnostic(diagnostic,
-                       LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                       "rtl.invalid_input", "parsed source and builder are required",
-                       (lemma_source_range){0}, 0);
-        return 0;
     }
     elaboration_context context = {0};
     context.builder = builder;

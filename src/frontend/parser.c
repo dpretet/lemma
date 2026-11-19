@@ -8,6 +8,8 @@
 
 #include <tree_sitter/tree-sitter-systemverilog.h>
 
+#define LEMMA_PARSE_TREE_WALK_MAX_DEPTH 128U
+
 //--------------------------------------------------------
 // Reset an optional diagnostic before a parsing operation.
 //
@@ -38,6 +40,7 @@ static void set_parse_diagnostic(lemma_frontend_diagnostic *diagnostic,
         return;
     }
     diagnostic->stage = LEMMA_FRONTEND_STAGE_PARSING;
+    diagnostic->severity = LEMMA_FRONTEND_DIAGNOSTIC_SEVERITY_ERROR;
     diagnostic->code = code;
     (void)snprintf(diagnostic->message, sizeof(diagnostic->message), "%s", message);
     if (!ts_node_is_null(node)) {
@@ -50,21 +53,34 @@ static void set_parse_diagnostic(lemma_frontend_diagnostic *diagnostic,
 }
 
 //--------------------------------------------------------
-// Locate the first parser error or missing node in source order.
+// Locate the first parser error or missing node in source order within a depth bound.
 //
 // @node: Root or descendant node inspected recursively.
-// @returns: Earliest error node, or a null node when none exists.
+// @depth: Current depth, with the root at zero.
+// @depth_exceeded: Set when a descendant could not be inspected within the bound.
+// @deep_node: Receives the deepest node at which inspection stopped.
+// @returns: Earliest error node, or a null node when none exists or depth is exceeded.
 //--------------------------------------------------------
-static TSNode first_syntax_error(TSNode node)
+static TSNode first_syntax_error(TSNode node, size_t depth, int *depth_exceeded,
+                                TSNode *deep_node)
 {
     if (ts_node_is_error(node) || ts_node_is_missing(node)) {
         return node;
     }
     uint32_t count = ts_node_child_count(node);
+    if (depth >= LEMMA_PARSE_TREE_WALK_MAX_DEPTH && count != 0U) {
+        *depth_exceeded = 1;
+        *deep_node = node;
+        return (TSNode){0};
+    }
     for (uint32_t index = 0U; index < count; ++index) {
-        TSNode found = first_syntax_error(ts_node_child(node, index));
+        TSNode found = first_syntax_error(
+            ts_node_child(node, index), depth + 1U, depth_exceeded, deep_node);
         if (!ts_node_is_null(found)) {
             return found;
+        }
+        if (*depth_exceeded != 0) {
+            return (TSNode){0};
         }
     }
     return (TSNode){0};
@@ -111,7 +127,15 @@ lemma_parsed_source *lemma_frontend_parse(const char *source, size_t length,
 
     TSNode root = ts_tree_root_node(tree);
     if (ts_node_has_error(root)) {
-        TSNode error = first_syntax_error(root);
+        int depth_exceeded = 0;
+        TSNode deep_node = {0};
+        TSNode error = first_syntax_error(root, 0U, &depth_exceeded, &deep_node);
+        if (depth_exceeded != 0) {
+            set_parse_diagnostic(diagnostic, "parse.tree_too_deep",
+                                 "syntax tree exceeds parser inspection depth", deep_node);
+            ts_tree_delete(tree);
+            return NULL;
+        }
         set_parse_diagnostic(diagnostic, "parse.syntax", "source contains a syntax error", error);
         ts_tree_delete(tree);
         return NULL;

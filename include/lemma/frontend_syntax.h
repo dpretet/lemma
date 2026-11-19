@@ -104,6 +104,54 @@ typedef struct lemma_syntax_continuous_assignment {
     lemma_source_range module_range;
 } lemma_syntax_continuous_assignment;
 
+// Syntax-only expression node kinds. OTHER preserves expressions outside the
+// currently classified syntax forms without assigning them RTL semantics.
+typedef enum lemma_syntax_expression_kind {
+    LEMMA_SYNTAX_EXPRESSION_IDENTIFIER,
+    LEMMA_SYNTAX_EXPRESSION_PARENTHESIZED,
+    LEMMA_SYNTAX_EXPRESSION_LOGICAL_NOT,
+    LEMMA_SYNTAX_EXPRESSION_LOGICAL_AND,
+    LEMMA_SYNTAX_EXPRESSION_LOGICAL_OR,
+    LEMMA_SYNTAX_EXPRESSION_BITWISE_NOT,
+    LEMMA_SYNTAX_EXPRESSION_BITWISE_AND,
+    LEMMA_SYNTAX_EXPRESSION_BITWISE_OR,
+    LEMMA_SYNTAX_EXPRESSION_BITWISE_XOR,
+    LEMMA_SYNTAX_EXPRESSION_BITWISE_XNOR,
+    LEMMA_SYNTAX_EXPRESSION_REDUCTION_AND,
+    LEMMA_SYNTAX_EXPRESSION_REDUCTION_NAND,
+    LEMMA_SYNTAX_EXPRESSION_REDUCTION_OR,
+    LEMMA_SYNTAX_EXPRESSION_REDUCTION_NOR,
+    LEMMA_SYNTAX_EXPRESSION_REDUCTION_XOR,
+    LEMMA_SYNTAX_EXPRESSION_REDUCTION_XNOR,
+    LEMMA_SYNTAX_EXPRESSION_ADD,
+    LEMMA_SYNTAX_EXPRESSION_SUBTRACT,
+    LEMMA_SYNTAX_EXPRESSION_MULTIPLY,
+    LEMMA_SYNTAX_EXPRESSION_EQUAL,
+    LEMMA_SYNTAX_EXPRESSION_NOT_EQUAL,
+    LEMMA_SYNTAX_EXPRESSION_LESS,
+    LEMMA_SYNTAX_EXPRESSION_LESS_EQUAL,
+    LEMMA_SYNTAX_EXPRESSION_GREATER,
+    LEMMA_SYNTAX_EXPRESSION_GREATER_EQUAL,
+    LEMMA_SYNTAX_EXPRESSION_OTHER
+} lemma_syntax_expression_kind;
+
+// One expression node emitted in depth-first source order after its operands.
+// Parent range and child index link operands to their immediate parent; root
+// nodes link to their continuous assignment. source is the full node slice;
+// token is its identifier/operator spelling when present. Slices are borrowed
+// for the callback only.
+typedef struct lemma_syntax_expression {
+    lemma_syntax_expression_kind kind;
+    lemma_syntax_text source;
+    lemma_syntax_text token;
+    lemma_source_range module_range;
+    lemma_source_range assignment_range;
+    lemma_source_range parent_range;
+    size_t depth;
+    size_t child_index;
+    size_t operand_count;
+} lemma_syntax_expression;
+
 // Syntactic process keyword categories; OTHER preserves an unclassified
 // process keyword without assigning it behavioral meaning.
 typedef enum lemma_syntax_process_kind {
@@ -190,6 +238,7 @@ typedef enum lemma_syntax_kind {
     LEMMA_SYNTAX_DECLARATION_GROUP,
     LEMMA_SYNTAX_DECLARATOR,
     LEMMA_SYNTAX_CONTINUOUS_ASSIGNMENT,
+    LEMMA_SYNTAX_EXPRESSION,
     LEMMA_SYNTAX_PROCESS,
     LEMMA_SYNTAX_PROCESS_EVENT_EXPRESSION,
     LEMMA_SYNTAX_STATEMENT,
@@ -205,6 +254,7 @@ typedef struct lemma_syntax_view {
         lemma_syntax_declaration_group declaration_group;
         lemma_syntax_declarator declarator;
         lemma_syntax_continuous_assignment continuous_assignment;
+        lemma_syntax_expression expression;
         lemma_syntax_process process;
         lemma_syntax_process_event_expression process_event_expression;
         lemma_syntax_statement statement;
@@ -231,8 +281,9 @@ typedef enum lemma_syntax_visit_action {
 typedef lemma_syntax_visit_action (*lemma_syntax_visitor)(
     const lemma_syntax_view *view, void *context);
 
-// Result distinguishes full traversal, visitor-requested stop, failure, and
-// invalid arguments.
+// Result distinguishes full traversal, visitor-requested stop, and failure.
+// INVALID_INPUT is reserved and is not returned by
+// lemma_frontend_visit_syntax when its caller meets the documented preconditions.
 typedef enum lemma_syntax_visit_result {
     LEMMA_SYNTAX_VISIT_COMPLETE,
     LEMMA_SYNTAX_VISIT_STOPPED,
@@ -246,18 +297,22 @@ typedef enum lemma_syntax_visit_result {
 // names retain source order and each declarator carries its group range. ANSI
 // shorthand port identifiers have a group with a false explicit-header flag
 // and absent common attribute slices, rather than copied or inferred attributes.
-// Module events group source-ordered items; process events precede event
-// expressions and preorder statements. Root statements name their process as
-// parent at depth zero; nested statements name their immediate parent and
-// increase depth by one. Unknown module items and statements retain opaque
-// source slices.
+// Module events group source-ordered items; each continuous-assignment event is
+// followed by its expression nodes in depth-first left-to-right order, with
+// operand nodes preceding their parent. Expression parent ranges and child
+// indexes reconstruct their links. Process events precede event expressions and
+// preorder statements. Root statements name their process as parent at depth
+// zero; nested statements name their immediate parent and increase depth by one.
+// Unknown module items and statements retain opaque source slices.
 //
-// @parsed: Live parsed-source handle, borrowed for the duration of the visit.
-// @visitor: Non-NULL callback invoked synchronously for each emitted event.
-// @context: Caller-provided context borrowed for the duration of the visit.
-// @returns: COMPLETE after traversal, STOPPED after visitor stop, FAILED after
-//     visitor failure or an invalid action, or INVALID_INPUT for a NULL handle
-//     or visitor; invalid input does not invoke the visitor.
+// @parsed: Non-NULL live handle with a non-NULL tree and source, borrowed for the
+//     duration of the visit; the caller must satisfy this precondition.
+// @visitor: Non-NULL callback invoked synchronously for each emitted event; the
+//     caller must satisfy this precondition.
+// @context: Optional caller-provided context, which may be NULL and is borrowed
+//     for the duration of the visit.
+// @returns: COMPLETE after traversal, STOPPED after visitor stop, or FAILED
+//     after visitor failure or an invalid action when arguments meet preconditions.
 //--------------------------------------------------------
 lemma_syntax_visit_result lemma_frontend_visit_syntax(
     const lemma_parsed_source *parsed, lemma_syntax_visitor visitor,

@@ -25,10 +25,11 @@ reset.
   `comb_unsigned_to_signed_casts.sv`, `comb_signed_sign_extend.sv`,
   `comb_unsigned_zero_extend.sv`, `comb_signed_truncate.sv`, and
   `comb_unsigned_truncate.sv`.
-- **Vector operators:** `comb_vector_bitwise_operators.sv`,
-  `comb_vector_reduction_operators.sv`, `comb_vector_logical_operators.sv`,
-  `comb_vector_unsigned_add.sv`, `comb_vector_unsigned_subtract.sv`,
-  `comb_vector_unsigned_multiply.sv`, and `comb_vector_unsigned_comparisons.sv`.
+- **Vector operators checked through IR:** `comb_vector_bitwise_operators.sv`,
+  `comb_vector_reduction_operators.sv`, `comb_vector_unsigned_add.sv`,
+  `comb_vector_unsigned_subtract.sv`, `comb_vector_unsigned_multiply.sv`, and
+  `comb_vector_unsigned_comparisons.sv`.
+- **Vector operators pending IR support:** `comb_vector_logical_operators.sv`.
 - **Packed construction and selection:** `comb_vector_concatenation.sv`,
   `comb_vector_constant_selects.sv`, and `comb_vector_variable_selects.sv`.
 
@@ -39,14 +40,16 @@ mixed-width or signed operator sizing are not yet specified.
 
 ## Test status
 
-All 54 current fixtures pass the Tree-sitter syntax parser. The two fixtures
-[`comb_continuous_assign_alias.sv`](comb_continuous_assign_alias.sv) and
-[`comb_vector_width_signedness_alias.sv`](comb_vector_width_signedness_alias.sv)
-are additionally checked by frontend unit tests through validation/elaboration
-and circuit-IR construction. The remaining 52 fixtures are syntax-only: they
-have not been checked against the supported RTL subset or lowered to IR. The
-IR tests check structure, not equations or proof behavior. The first
-expected-result/SVA case is `seq_continuous_assign_alias.sv`:
+All 54 current fixtures pass the Tree-sitter syntax parser. Nine fixtures are
+additionally checked by frontend unit tests through validation/elaboration and
+circuit-IR construction:
+[`comb_continuous_assign_alias.sv`](comb_continuous_assign_alias.sv),
+[`comb_continuous_assign_boolean.sv`](comb_continuous_assign_boolean.sv),
+[`comb_vector_width_signedness_alias.sv`](comb_vector_width_signedness_alias.sv),
+and the six vector-operator fixtures listed above. The remaining 45 fixtures
+are syntax-only: they have not been checked against the supported RTL subset or
+lowered to IR. The IR tests check structure, not equations or proof behavior.
+The first expected-result/SVA case is `seq_continuous_assign_alias.sv`:
 
 - Expected sequential structure: FFD with Q=`y`, D=`a`, clocked on posedge
   `clk`, with active-high asynchronous reset `areset` to zero.

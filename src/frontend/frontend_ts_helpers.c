@@ -29,17 +29,13 @@ static int selected_child(TSNode child, lemma_ts_child_filter filter)
 // @filter: Valid child filter.
 // @visitor: Non-NULL callback invoked synchronously.
 // @context: Caller value borrowed during callbacks.
-// @returns: COMPLETE, STOPPED, FAILED, or INVALID_INPUT as documented.
+// @returns: COMPLETE or STOPPED after traversal, or FAILED after callback failure
+//     or an invalid callback action.
 //--------------------------------------------------------
 lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
     TSNode parent, lemma_ts_child_filter filter,
     lemma_ts_child_visitor visitor, void *context)
 {
-    if (ts_node_is_null(parent) || visitor == NULL ||
-        filter < LEMMA_TS_CHILD_FILTER_ALL ||
-        filter > LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS) {
-        return LEMMA_TS_CHILD_VISIT_INVALID_INPUT;
-    }
     uint32_t count = ts_node_child_count(parent);
     for (uint32_t index = 0U; index < count; ++index) {
         TSNode child = ts_node_child(parent, index);
@@ -64,20 +60,14 @@ lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
 // @parent: Non-null parent node.
 // @type: Nonempty exact node type.
 // @filter: Valid child filter.
-// @child: Required output initialized to a null node.
-// @returns: UNIQUE, MISSING, AMBIGUOUS, or INVALID_INPUT.
+// @child: Non-NULL output initialized to a null node.
+// @returns: UNIQUE, MISSING, or AMBIGUOUS; the arguments satisfy their
+//     documented preconditions.
 //--------------------------------------------------------
 lemma_ts_child_type_result lemma_frontend_ts_unique_child_by_type(
     TSNode parent, const char *type, lemma_ts_child_filter filter, TSNode *child)
 {
-    if (child != NULL) {
-        *child = (TSNode){0};
-    }
-    if (child == NULL || type == NULL || type[0] == '\0' || ts_node_is_null(parent) ||
-        filter < LEMMA_TS_CHILD_FILTER_ALL ||
-        filter > LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS) {
-        return LEMMA_TS_CHILD_TYPE_INVALID_INPUT;
-    }
+    *child = (TSNode){0};
     size_t matches = 0U;
     TSNode found = {0};
     uint32_t count = ts_node_child_count(parent);
@@ -134,18 +124,14 @@ lemma_ts_child_field_result lemma_frontend_ts_child_by_field_name(
 // Convert Tree-sitter coordinates to Lemma's half-open range.
 //
 // @node: Non-null node whose range is requested.
-// @range: Required output initialized to zero.
-// @returns: VALID when representable; INVALID_INPUT otherwise.
+// @range: Non-NULL output initialized to zero.
+// @returns: VALID when representable; INVALID_INPUT when a position cannot be
+//     represented by lemma_source_range.
 //--------------------------------------------------------
 lemma_ts_range_result lemma_frontend_ts_node_range(
     TSNode node, lemma_source_range *range)
 {
-    if (range != NULL) {
-        memset(range, 0, sizeof(*range));
-    }
-    if (range == NULL || ts_node_is_null(node)) {
-        return LEMMA_TS_RANGE_INVALID_INPUT;
-    }
+    memset(range, 0, sizeof(*range));
     TSPoint start = ts_node_start_point(node);
     TSPoint end = ts_node_end_point(node);
     uint32_t start_byte = ts_node_start_byte(node);
@@ -171,21 +157,16 @@ lemma_ts_range_result lemma_frontend_ts_node_range(
 //--------------------------------------------------------
 // Form a checked borrowed slice from a node belonging to parsed's tree.
 //
-// @parsed: Live handle owning the node's tree and borrowing its source.
-// @node: Node whose range is requested.
-// @text: Required output initialized to an empty slice.
-// @returns: VALID with a borrowed slice, or INVALID_INPUT for bad ranges/inputs.
+// @parsed: Live non-NULL handle with non-NULL source and tree.
+// @node: Non-null node from parsed's tree.
+// @text: Non-NULL output initialized to an empty slice.
+// @returns: VALID with a borrowed slice, or INVALID_INPUT for an unrepresentable
+//     node range or source offsets outside the borrowed source buffer.
 //--------------------------------------------------------
 lemma_ts_text_result lemma_frontend_ts_node_text(
     const lemma_parsed_source *parsed, TSNode node, lemma_syntax_text *text)
 {
-    if (text != NULL) {
-        memset(text, 0, sizeof(*text));
-    }
-    if (parsed == NULL || parsed->source == NULL || parsed->tree == NULL || text == NULL ||
-        ts_node_is_null(node) || node.tree != parsed->tree) {
-        return LEMMA_TS_TEXT_INVALID_INPUT;
-    }
+    memset(text, 0, sizeof(*text));
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
     if ((size_t)start > parsed->source_length || (size_t)end > parsed->source_length ||

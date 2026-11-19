@@ -13,21 +13,29 @@ not silently ignore them or guess their intended meaning.
 
 This document is a working specification. **TBD** items are not yet normative.
 
-### First implementation profile (incremental)
+### Fixture-bounded frontend profile (incremental)
 
-The first frontend/IR implementation profile is a deliberately narrow starting
-slice, not a permanent product limit or a replacement for the broader target
-below. Comments and whitespace are trivia: they do not count as design units
-or module items. It accepts one selected, flat module with an ANSI port list
-containing scalar or explicitly sized packed `wire`/`logic` input and output
-ports. Packed range bounds must be concrete decimal integers; declared
-signedness is retained and omitted signedness is unsigned. A module may contain
-direct continuous assignments, each connecting one declared signal to an
-output port of the same width. Each output must have exactly one driver, input
-ports cannot be driven, and output-to-output alias cycles are rejected.
-Assignment right-hand sides
-must be simple signal references; expressions, selects, constants, and other
-non-signal forms are outside this profile.
+The current conformance target is the exact set of constructs exercised by the
+54 standalone modules in [`tests/fixtures/rtl`](../tests/fixtures/rtl/README.md):
+27 combinational modules and 27 corresponding clocked modules. The corpus is an
+incremental profile, not a permanent product limit or a replacement for the
+broader target below. Passing these fixtures through circuit-IR construction
+does not imply support for other syntax in the same construct families.
+
+The profile accepts one flat module with an ANSI port list. Ports are scalar or
+explicitly sized, descending packed `wire` or `logic` inputs and outputs; the
+fixtures also use output `reg` declarations for procedural assignments. Packed
+range bounds are concrete decimal integers. Declared signedness is retained and
+omitted signedness is unsigned. The supported declaration forms include the
+bare ANSI shorthand inherited after a fully specified declaration, as described
+below.
+
+The module may contain the continuous assignments, one internal packed `wire`
+declaration, complete combinational processes, and clocked processes represented
+by the corpus. Their exact expression and statement forms are limited to those
+listed in Sections 6–8. Each driven signal has one driver; inputs cannot be
+driven. Unsupported or ambiguous behavior must be rejected rather than omitted
+from the circuit IR.
 
 An ANSI port may also be written as a bare identifier after a fully specified
 supported port declaration, for example `input logic signed [3:0] a, b`. The
@@ -37,15 +45,12 @@ continue to inherit those attributes. Partial omissions, such as specifying a
 direction but omitting a required `wire`/`logic` type, are outside this profile
 and must be rejected.
 
-Parameters and parameter overrides, hierarchy, generate constructs,
-procedural logic, internal declarations, and all other module items are outside
-this slice and must be rejected rather than omitted from the circuit IR. The
-accepted examples are
-[`comb_continuous_assign_alias.sv`](../tests/fixtures/rtl/comb_continuous_assign_alias.sv)
-for scalar I/O and
-[`comb_vector_width_signedness_alias.sv`](../tests/fixtures/rtl/comb_vector_width_signedness_alias.sv)
-for signed and unsigned four-bit packed I/O. These examples do not narrow the
-broader RTL goals and TBD areas in this document.
+Parameters and parameter overrides, hierarchy, generate constructs, and module
+items not listed in this profile remain outside it. The two alias fixtures are
+the smallest accepted examples; the full corpus catalog describes the additional
+combinational and sequential forms. The fixture files are conformance inputs,
+not proof oracles: building circuit IR does not evaluate their assertions or
+prove properties.
 
 ## 2. Source languages
 
@@ -147,11 +152,12 @@ Lemma's two-state interpretation of indeterminate bits.
 
 ### Packed concatenation
 
-Lemma supports concatenation of packed signal operands using `{a, b, ...}`.
-The result is an unsigned packed vector whose width is the sum of the operand
-widths. Operands retain their declared widths and are ordered from most
-significant (leftmost) to least significant (rightmost); concatenation does not
-extend or truncate its operands. Replication and unsized operands remain TBD.
+Lemma supports concatenation of packed operands using `{a, b, ...}`. Operands
+may be packed signal expressions or sized constants, as in the fixture's
+`{6'b0, io_selc}`. The result is an unsigned packed vector whose width is the
+sum of the operand widths. Operands retain their widths and are ordered from
+most significant (leftmost) to least significant (rightmost); concatenation
+does not extend or truncate its operands. Replication remains TBD.
 
 ### Constant packed bit-selects and part-selects
 
@@ -160,7 +166,9 @@ For a descending packed vector, Lemma supports in-range constant bit-selects
 A bit-select produces one bit; a part-select produces `msb - lsb + 1` bits,
 preserving the selected bits' order. Select results are unsigned. Variable
 bit-selects (`value[index]`) and indexed part-selects using `+:` are also
-supported when their indices are unsigned expressions with concrete widths.
+supported when their dynamic indices are unsigned expressions with concrete
+widths. Constant indices, bounds, and widths use the fixture-bounded
+decimal-literal exception above.
 The width of an indexed part-select must be a positive elaboration-time
 constant; its result width is that constant. For a descending packed vector,
 `value[base +: width]` selects `value[base + width - 1 : base]`, preserving
@@ -243,17 +251,43 @@ nonzero and false when all bits are zero; the condition's signedness does not
 change this test. Indeterminate bits follow Lemma's two-state interpretation,
 so each bit is an unconstrained binary choice when evaluating the condition.
 
-The exact supported statement and expression forms are **TBD**.
+The supported combinational processes are the `always @(*)` and `always_comb`
+forms in the fixture corpus. Their bodies use blocking assignments, nested
+`if`/`else`, the shown complete `case` form with a `default`, and source-order
+assignment overrides. Conditions use two-state truth: zero is false and any
+nonzero value is true. A `case` item matches the selector's complete two-state
+value; the `default` branch covers values not listed by explicit items.
+
+Combinational assignments in the corpus assign every driven variable on every
+path. Incomplete assignments, inferred latches, loops, `casez`, `casex`, and
+other statement forms are outside this profile. Elaboration must reject an
+incomplete assignment rather than construct an incomplete circuit equation.
+
+The expression forms accepted in continuous assignments and process
+assignments are the signal references, sized binary/decimal literals, and
+operators appearing in the fixture corpus: unary logical and bitwise operators;
+binary logical, bitwise, arithmetic, and comparison operators; reductions;
+packed concatenation; the two signedness casts and their `$signed`/`$unsigned`
+forms; and the shown bit/part selects. The arithmetic operators are limited to
+same-width unsigned operands and the comparison operators to same-width
+operands. The detailed result widths and signedness are specified in Sections
+2–4 of this document.
+
+Unsized decimal literals remain unsupported generally. The fixture-bounded
+exceptions are the nonnegative constants used only as selection indices,
+bounds, or widths in `value[3]`, `value[5:2]`, `value[3 +: 5]`, and
+`value[7:3]`. They are resolved as elaboration-time constants using standard
+SystemVerilog sizing for those select forms; this must not be treated as general
+support for unsized literal expressions.
 
 ## 7. Sequential logic
 
 Sequential logic may be described using clocked procedural blocks.
 
-An RTL design may contain clocked processes from any number of clock domains.
-The supported event controls and rules for identifying each process's clock
-domain remain subject to the subset defined here; a design is not rejected
-solely because it contains multiple domains. Property-specific restrictions on
-cross-domain dependencies are defined in the SVA support specification.
+The longer-term target permits clocked processes from multiple domains;
+property-specific restrictions on cross-domain dependencies are defined in the
+SVA support specification. The fixture-bounded profile is narrower: its
+sequential modules use one clocked process and one clock signal.
 
 Within a sequential block:
 
@@ -269,25 +303,32 @@ Within a sequential block:
 Reset semantics are defined in [register-semantics.md](register-semantics.md).
 A sequential process may contain at most one asynchronous reset event control.
 Conditions in the process body—including a signal conventionally named
-`srst`—are ordinary RTL control logic, not additional reset events. Supported
-MVP event controls are `@(posedge <clock>)`, optionally with one asynchronous
-reset as `@(posedge <clock> or posedge <reset>)` or
-`@(posedge <clock> or negedge <reset>)`. When a reset event is present, the
-process must test that reset with a condition matching its asserted polarity:
-`if (<reset>)` for `posedge <reset>` or `if (!<reset>)` for `negedge <reset>`.
-This does not specify semantics when clock and reset events coincide. Other
-assignment semantics remain TBD. This source-order priority rule applies only
-to assignments within one process; multiple procedural drivers for a register
-are unsupported in the MVP and must be diagnosed.
+`srst`—are ordinary RTL control logic, not additional reset events. The fixture
+profile supports a clocked process with
+`@(posedge <clock> or posedge <reset>)` or
+`@(posedge <clock> or negedge <reset>)`. A process may update multiple
+registers, but the sequential fixtures use one clocked process and one clock
+signal per module. Other event controls, multiple clocked processes, and
+multiple clock domains are outside this profile. When a reset event is present,
+the process must test that reset with a condition matching its asserted
+polarity: `if (<reset>)` for `posedge <reset>` or `if (!<reset>)` for
+`negedge <reset>`.
+When an asynchronous reset is active at a coincident clock edge, the reset value
+is imposed, as specified in
+[`register-semantics.md`](register-semantics.md). Other event combinations
+outside the fixture forms remain unsupported. This source-order priority rule
+applies only to assignments within one process; multiple procedural drivers for
+a register are unsupported in the MVP and must be diagnosed.
 
 ## 8. Process restrictions
 
 A single procedural process must be exclusively combinational or sequential.
 Mixing the two styles in one process is unsupported and must be diagnosed.
 
-The rules for incomplete combinational assignments, inferred latches, and
-conflicting assignments remain **TBD**. Multiple procedural drivers for a
-register are unsupported in the MVP and must be diagnosed.
+The fixture profile rejects incomplete combinational assignments and inferred
+latches. Every register assigned by a fixture process is explicitly assigned
+in the asynchronous reset branch and on every normal process path. Multiple
+procedural drivers for one signal are unsupported and must be diagnosed.
 
 ## 9. Internal representation boundary
 
@@ -322,9 +363,12 @@ of the initial supported subset:
   the MVP.
 
 Other constructs—including user-defined functions, system functions other than
-`$signed` / `$unsigned`, tasks, interfaces, assertions, memories, arrays,
-structs, and `always_ff`—remain **TBD**
-until explicitly specified.
+`$signed` / `$unsigned`, tasks, interfaces, memories, arrays, structs, and
+`always_ff`—remain **TBD** until explicitly specified. The assertion in
+`seq_continuous_assign_alias.sv` is a property-model input, not circuit logic:
+the circuit-IR frontend recognizes it as separate syntax but does not include
+it in the circuit or evaluate/prove it. Property modeling remains a distinct
+stage governed by [`sva-support.md`](sva-support.md).
 
 ## 11. Conformance tests
 

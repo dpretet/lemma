@@ -10,10 +10,17 @@ typedef enum lemma_frontend_stage {
     LEMMA_FRONTEND_STAGE_CIRCUIT_IR
 } lemma_frontend_stage;
 
+// Severity attached to a frontend diagnostic.
+typedef enum lemma_frontend_diagnostic_severity {
+    LEMMA_FRONTEND_DIAGNOSTIC_SEVERITY_WARNING,
+    LEMMA_FRONTEND_DIAGNOSTIC_SEVERITY_ERROR
+} lemma_frontend_diagnostic_severity;
+
 // Diagnostic output; code is implementation-owned and remains valid while
 // inspected, while message is stored inline.
 typedef struct lemma_frontend_diagnostic {
     lemma_frontend_stage stage;
+    lemma_frontend_diagnostic_severity severity;
     const char *code;
     char message[192];
     int has_source_range;

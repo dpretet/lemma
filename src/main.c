@@ -71,7 +71,7 @@ static char *read_file(const char *path, size_t *length)
 }
 
 //--------------------------------------------------------
-// Render a frontend diagnostic for the source file.
+// Render a warning or error diagnostic for the source file.
 //
 // @path: Source path used by the CLI.
 // @diagnostic: Diagnostic returned by the frontend entry point.
@@ -81,13 +81,18 @@ static void print_frontend_diagnostic(const char *path,
                                       const lemma_frontend_diagnostic *diagnostic)
 {
     const char *code = diagnostic->code != NULL ? diagnostic->code : "frontend.error";
+    const char *severity =
+        diagnostic->severity == LEMMA_FRONTEND_DIAGNOSTIC_SEVERITY_WARNING
+            ? "warning"
+            : "error";
     if (diagnostic->has_source_range != 0) {
-        fprintf(stderr, "%s:%zu:%zu: %s (%s)\n", path,
+        fprintf(stderr, "%s:%zu:%zu: %s: %s (%s)\n", path,
                 diagnostic->source_range.start_row + 1U,
                 diagnostic->source_range.start_column + 1U,
-                diagnostic->message, code);
+                severity, diagnostic->message, code);
     } else {
-        fprintf(stderr, "%s: %s (%s)\n", path, diagnostic->message, code);
+        fprintf(stderr, "%s: %s: %s (%s)\n", path, severity,
+                diagnostic->message, code);
     }
 }
 
@@ -124,15 +129,22 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    lemma_frontend_diagnostic diagnostic = {0};
-    lemma_circuit *circuit = lemma_frontend_build(source, source_length, &diagnostic);
+    lemma_frontend_result *result = lemma_frontend_build(source, source_length);
     free(source);
-    if (circuit == NULL) {
-        print_frontend_diagnostic(source_path, &diagnostic);
+    if (result == NULL) {
+        fprintf(stderr, "%s: unable to allocate frontend result\n", source_path);
+        return EXIT_FAILURE;
+    }
+    for (size_t index = 0U; index < result->diagnostic_count; ++index) {
+        print_frontend_diagnostic(source_path, &result->diagnostics[index]);
+    }
+    if (result->circuit == NULL) {
+        lemma_frontend_result_destroy(result);
         return EXIT_FAILURE;
     }
 
-    printf("front end built circuit: %s (%s)\n", source_path, circuit->module_name);
-    lemma_circuit_destroy(circuit);
+    printf("front end built circuit: %s (%s)\n", source_path,
+           result->circuit->module_name);
+    lemma_frontend_result_destroy(result);
     return EXIT_SUCCESS;
 }

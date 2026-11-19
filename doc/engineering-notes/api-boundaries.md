@@ -6,8 +6,9 @@
   diagnostic-stage granularity, job-status, public function declarations,
   clock-selection, parameter-value, and trace-content boundaries, shared
   arbitrary-width bit-vector type, parsed-source lifetime, syntax-view visitor,
-  nested Tree-sitter extraction call structure, elaboration-to-IR handoff, and
-  stack-depth robustness priority);
+  nested Tree-sitter extraction call structure, elaboration-to-IR handoff,
+  expression syntax event ordering, caller-owned validation of internal
+  preconditions, and verified stack-depth handling);
   provisional (including asynchronous-reset transitions in traces); open
   (target-label encoding, result serialization, and NULL-argument behavior)
 - **Date:** 2026-11-08
@@ -40,13 +41,16 @@
   and does not prescribe a flat traversal implementation. Continuous-assignment
   extraction gets the target, right-hand expression, and an optional top-level
   ternary condition through separate helpers; the full lvalue and RHS source
-  slices remain available.
+  slices remain available. Expression syntax nodes are exposed as separate
+  Lemma-owned views rather than Tree-sitter nodes.
 - **Decision:** The syntax visitor exposes source-ordered views for module
   boundaries, parameters, ports and module-scope declarators, continuous
-  assignments, processes and event expressions, and nested process statements.
-  Statement views retain parent ranges and depth; unclassified module items and
-  statements remain opaque source slices. These views describe syntax only and
-  do not imply RTL acceptance or semantic process classification.
+  assignments and their expression nodes, processes and event expressions, and
+  nested process statements. Expression views retain source provenance and
+  parent/operand relationships; statement views retain parent ranges and depth.
+  Unclassified module items and statements remain opaque source slices. These
+  views describe syntax only and do not imply RTL acceptance or semantic process
+  classification.
 - **Decision:** Shared declaration syntax is emitted once as a declaration-group
   view, followed by per-name declarator views linked by the group source range.
   ANSI port declarators with omitted headers preserve that omission; extraction
@@ -193,11 +197,42 @@
 - **Decision:** Stack-depth robustness for source-controlled Tree-sitter walks
   is important. Do not allow deep input to terminate the process through C stack
   exhaustion; address recursive walks before expanding frontend acceptance.
-- **Open:** `first_syntax_error` in `src/frontend/parser.c` and nested statement
-  walks such as `first_loop_body` and `visit_statement_node` in
-  `src/frontend/frontend_ts.c` currently recurse without a Lemma depth limit.
-  Replace them with iterative traversal or add a checked limit that returns a
-  structured diagnostic, with regression tests for deep input.
+- **Decision (accepted 2026-11-17; clarified 2026-11-18):** Callers validate
+  documented preconditions before calling; callees do not repeat the same
+  argument or semantic checks. This applies even when a function is declared in
+  a public header. A function may validate raw input when that behavior is part
+  of its documented contract. Functions still handle failures from operations
+  they perform, such as allocation failure and checked size arithmetic.
+  Assertions may catch violated programmer invariants in Debug builds, but do
+  not replace handling for fallible operations.
+- **Decision (accepted 2026-11-17):** The elaborator validates operator kind,
+  arity, operand IDs, and operand types before calling the internal IR operator
+  builder. The builder treats those as caller preconditions; it still handles
+  its own allocation, capacity, and size failures.
+- **Decision (accepted 2026-11-18):** `lemma_frontend_visit_syntax` requires a
+  live parsed-source handle and non-NULL visitor from its caller. Its callers
+  already guarantee those preconditions, so the function does not repeat the
+  checks or return an invalid-input result.
+- **Resolved (verified 2026-11-17):** Source-controlled recursive walks in
+  `parser.c` and `frontend_ts.c` enforce a 128-level bound. Deep syntax-error
+  inspection returns a source-located `parse.tree_too_deep` diagnostic;
+  syntax extraction returns `LEMMA_SYNTAX_VISIT_FAILED` when its walk exceeds
+  the bound because that API has no diagnostic output. Parser and visitor
+  regressions exercise 160 nested constructs, and the parser test sweeps the
+  complete 54-file RTL fixture corpus. See
+  [`parser.c`](../../src/frontend/parser.c),
+  [`frontend_ts.c`](../../src/frontend/frontend_ts.c),
+  [`test_parser.c`](../../tests/unit/test_parser.c), and
+  [`test_frontend.c`](../../tests/unit/test_frontend.c).
+- **Resolved (verified 2026-11-17):** Continuous-assignment expression syntax
+  is emitted as Lemma-owned callback views in depth-first left-to-right order,
+  with each node's operands preceding it and parent range/child index preserving
+  the tree. Extraction records syntax and provenance only; lowering consumes
+  those views to create typed IR. The expression walk shares the 128-level
+  bound. See [`frontend_syntax.h`](../../include/lemma/frontend_syntax.h),
+  [`frontend_ts.c`](../../src/frontend/frontend_ts.c),
+  [`frontend_elaboration.c`](../../src/frontend/frontend_elaboration.c), and
+  [`test_frontend.c`](../../tests/unit/test_frontend.c).
 - **Resolved (verified 2026-11-08):** Declaration-group extraction classifies
   type keywords from Tree-sitter node kinds, and elaboration consumes those typed
   facts rather than searching raw type text. The escaped user-defined type

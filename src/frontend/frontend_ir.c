@@ -74,18 +74,17 @@ void lemma_circuit_builder_destroy(lemma_circuit_builder *builder)
 }
 
 //--------------------------------------------------------
-// Copy a borrowed non-NUL-terminated module-name slice into builder storage.
+// Copy a validated nonempty module-name slice into a fresh builder.
 //
-// @builder: Mutable builder.
-// @name: Non-NULL module-name bytes.
-// @name_length: Number of readable module-name bytes.
-// @returns: Nonzero on success, zero for invalid input or allocation failure.
+// @builder: Fresh mutable builder.
+// @name: Non-NULL readable module-name bytes borrowed for the call.
+// @name_length: Positive number of readable bytes, not SIZE_MAX.
+// @returns: Nonzero on success; zero if the length overflows or allocation fails.
 //--------------------------------------------------------
 int lemma_circuit_builder_set_module_name(lemma_circuit_builder *builder,
                                           const char *name, size_t name_length)
 {
-    if (builder == NULL || name == NULL || name_length == 0U ||
-        name_length == SIZE_MAX || builder->storage.module_name != NULL) {
+    if (name_length == SIZE_MAX) {
         return 0;
     }
     char *copy = malloc(name_length + 1U);
@@ -101,15 +100,16 @@ int lemma_circuit_builder_set_module_name(lemma_circuit_builder *builder,
 //--------------------------------------------------------
 // Append one signal, copying its name and returning its array-position ID.
 //
-// @builder: Mutable builder.
-// @name: Non-NULL signal-name bytes borrowed for the call.
-// @name_length: Number of readable name bytes.
+// @builder: Valid mutable builder.
+// @name: Non-NULL readable bytes of a validated signal identifier.
+// @name_length: Positive number of readable bytes, not SIZE_MAX.
 // @width: Positive signal width.
 // @is_signed: Declared signedness.
 // @is_port: Whether the signal is a module port.
 // @source: Signal declaration range.
-// @signal_id: Required output for the new ID.
-// @returns: Nonzero on success, zero for invalid input, ID limit, or allocation failure.
+// @signal_id: Valid output pointer for the new ID.
+// @returns: Nonzero on success; zero if the name length overflows, signal-ID
+//     capacity is exhausted, or reservation/name allocation fails.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_signal(lemma_circuit_builder *builder,
                                      const char *name, size_t name_length,
@@ -117,8 +117,7 @@ int lemma_circuit_builder_add_signal(lemma_circuit_builder *builder,
                                      lemma_source_range source,
                                      uint32_t *signal_id)
 {
-    if (builder == NULL || name == NULL || name_length == 0U ||
-        name_length == SIZE_MAX || width == 0U || signal_id == NULL ||
+    if (name_length == SIZE_MAX ||
         builder->storage.signal_count >= UINT32_MAX ||
         !reserve_one((void **)&builder->storage.signals, builder->storage.signal_count,
                      &builder->signal_capacity, sizeof(*builder->storage.signals))) {
@@ -141,18 +140,17 @@ int lemma_circuit_builder_add_signal(lemma_circuit_builder *builder,
 //--------------------------------------------------------
 // Append an ordered port record referring to a known signal.
 //
-// @builder: Mutable builder.
-// @signal_id: Existing signal array-position ID.
-// @direction: Input or output direction.
-// @returns: Nonzero on success, zero for invalid ID/direction or allocation failure.
+// @builder: Valid mutable builder.
+// @signal_id: ID returned by a successful add_signal call on this builder.
+// @direction: Validated input or output direction.
+// @returns: Nonzero on success; zero if port-ID capacity is exhausted or
+//     reservation fails.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_port(lemma_circuit_builder *builder,
                                    uint32_t signal_id,
                                    lemma_ir_port_direction direction)
 {
-    if (builder == NULL || signal_id >= builder->storage.signal_count ||
-        (direction != LEMMA_IR_PORT_INPUT && direction != LEMMA_IR_PORT_OUTPUT) ||
-        builder->storage.port_count >= UINT32_MAX ||
+    if (builder->storage.port_count >= UINT32_MAX ||
         !reserve_one((void **)&builder->storage.ports, builder->storage.port_count,
                      &builder->port_capacity, sizeof(*builder->storage.ports))) {
         return 0;
@@ -166,20 +164,19 @@ int lemma_circuit_builder_add_port(lemma_circuit_builder *builder,
 //--------------------------------------------------------
 // Append a read-signal expression with type copied from its signal.
 //
-// @builder: Mutable builder.
-// @signal_id: Existing signal ID.
+// @builder: Valid mutable builder.
+// @signal_id: Existing signal ID returned by a successful lookup on this builder.
 // @source: Expression source range.
-// @expression_id: Required output for the new ID.
-// @returns: Nonzero on success, zero for invalid ID, limit, or allocation failure.
+// @expression_id: Valid output pointer for the new ID.
+// @returns: Nonzero on success; zero if expression-ID capacity is exhausted or
+//     reservation fails.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
                                           uint32_t signal_id,
                                           lemma_source_range source,
                                           uint32_t *expression_id)
 {
-    if (builder == NULL || expression_id == NULL ||
-        signal_id >= builder->storage.signal_count ||
-        builder->storage.expression_count >= UINT32_MAX ||
+    if (builder->storage.expression_count >= UINT32_MAX ||
         !reserve_one((void **)&builder->storage.expressions,
                      builder->storage.expression_count, &builder->expression_capacity,
                      sizeof(*builder->storage.expressions))) {
@@ -188,8 +185,131 @@ int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
     lemma_ir_signal *signal = &builder->storage.signals[signal_id];
     size_t index = builder->storage.expression_count++;
     builder->storage.expressions[index] = (lemma_ir_expression){
-        LEMMA_IR_EXPRESSION_READ_SIGNAL, signal_id, signal->width,
-        signal->is_signed, source
+        .kind = LEMMA_IR_EXPRESSION_READ_SIGNAL,
+        .signal_id = signal_id,
+        .width = signal->width,
+        .is_signed = signal->is_signed,
+        .source = source
+    };
+    *expression_id = (uint32_t)index;
+    return 1;
+}
+
+//--------------------------------------------------------
+// Append a one-bit unsigned logical-negation expression.
+//
+// @builder: Valid mutable builder receiving the expression.
+// @operand_id: Valid existing operand expression ID.
+// @source: Expression source range.
+// @expression_id: Valid output pointer for the new ID.
+// @returns: Nonzero on success; zero if expression-ID capacity is exhausted or
+//     reservation fails.
+//--------------------------------------------------------
+int lemma_circuit_builder_add_logical_not(lemma_circuit_builder *builder,
+                                          uint32_t operand_id,
+                                          lemma_source_range source,
+                                          uint32_t *expression_id)
+{
+    if (builder->storage.expression_count >= UINT32_MAX ||
+        !reserve_one((void **)&builder->storage.expressions,
+                     builder->storage.expression_count, &builder->expression_capacity,
+                     sizeof(*builder->storage.expressions))) {
+        return 0;
+    }
+    size_t index = builder->storage.expression_count++;
+    builder->storage.expressions[index] = (lemma_ir_expression){
+        .kind = LEMMA_IR_EXPRESSION_LOGICAL_NOT,
+        .operand_ids = {operand_id, 0U},
+        .width = 1U,
+        .is_signed = false,
+        .source = source
+    };
+    *expression_id = (uint32_t)index;
+    return 1;
+}
+
+//--------------------------------------------------------
+// Append a one-bit unsigned logical AND or OR expression.
+//
+// @builder: Valid mutable builder receiving the expression.
+// @kind: Validated logical AND or logical OR expression kind.
+// @left_operand_id: Valid existing left operand expression ID.
+// @right_operand_id: Valid existing right operand expression ID.
+// @source: Expression source range.
+// @expression_id: Valid output pointer for the new ID.
+// @returns: Nonzero on success; zero if expression-ID capacity is exhausted or
+//     reservation fails.
+//--------------------------------------------------------
+int lemma_circuit_builder_add_logical_binary(
+    lemma_circuit_builder *builder, lemma_ir_expression_kind kind,
+    uint32_t left_operand_id, uint32_t right_operand_id,
+    lemma_source_range source, uint32_t *expression_id)
+{
+    if (builder->storage.expression_count >= UINT32_MAX ||
+        !reserve_one((void **)&builder->storage.expressions,
+                     builder->storage.expression_count, &builder->expression_capacity,
+                     sizeof(*builder->storage.expressions))) {
+        return 0;
+    }
+    size_t index = builder->storage.expression_count++;
+    builder->storage.expressions[index] = (lemma_ir_expression){
+        .kind = kind,
+        .operand_ids = {left_operand_id, right_operand_id},
+        .width = 1U,
+        .is_signed = false,
+        .source = source
+    };
+    *expression_id = (uint32_t)index;
+    return 1;
+}
+
+//--------------------------------------------------------
+// Append a typed bitwise, reduction, arithmetic, or comparison operator.
+//
+// @builder: Non-NULL mutable builder receiving the expression.
+// @kind: Supported non-logical bit-vector operator kind, validated by the caller.
+// @operand_ids: Non-NULL array of existing expression IDs in source order,
+//     validated by the caller.
+// @operand_count: Validated arity for kind, either one or two.
+// @source: Expression source range.
+// @expression_id: Non-NULL output receiving the new ID only on success.
+// @returns: Nonzero on success; zero for expression-ID capacity or allocation
+//     failure. The caller must provide non-NULL pointers, valid IDs, unsigned
+//     operands, and matching widths for binary operands.
+//--------------------------------------------------------
+int lemma_circuit_builder_add_operator(
+    lemma_circuit_builder *builder, lemma_ir_expression_kind kind,
+    const uint32_t operand_ids[2], size_t operand_count,
+    lemma_source_range source, uint32_t *expression_id)
+{
+    if (builder->storage.expression_count >= UINT32_MAX) {
+        return 0;
+    }
+    const lemma_ir_expression *left =
+        &builder->storage.expressions[operand_ids[0]];
+
+    uint32_t result_width = left->width;
+    if (kind >= LEMMA_IR_EXPRESSION_REDUCTION_AND &&
+        kind <= LEMMA_IR_EXPRESSION_REDUCTION_XNOR) {
+        result_width = 1U;
+    } else if (kind >= LEMMA_IR_EXPRESSION_EQUAL &&
+               kind <= LEMMA_IR_EXPRESSION_GREATER_EQUAL) {
+        result_width = 1U;
+    }
+    if (!reserve_one((void **)&builder->storage.expressions,
+                     builder->storage.expression_count,
+                     &builder->expression_capacity,
+                     sizeof(*builder->storage.expressions))) {
+        return 0;
+    }
+    size_t index = builder->storage.expression_count++;
+    builder->storage.expressions[index] = (lemma_ir_expression){
+        .kind = kind,
+        .operand_ids = {operand_ids[0],
+                        operand_count == 2U ? operand_ids[1] : 0U},
+        .width = result_width,
+        .is_signed = false,
+        .source = source
     };
     *expression_id = (uint32_t)index;
     return 1;
@@ -198,20 +318,19 @@ int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
 //--------------------------------------------------------
 // Append a combinational driver referring to an existing signal and expression.
 //
-// @builder: Mutable builder.
-// @target_signal_id: Existing target signal ID.
-// @expression_id: Existing expression ID.
+// @builder: Valid mutable builder.
+// @target_signal_id: Valid existing target signal ID.
+// @expression_id: Valid existing expression ID.
 // @source: Assignment source range.
-// @returns: Nonzero on success, zero for invalid IDs, limit, or allocation failure.
+// @returns: Nonzero on success; zero if driver-ID capacity is exhausted or
+//     reservation fails.
 //--------------------------------------------------------
 int lemma_circuit_builder_add_driver(lemma_circuit_builder *builder,
                                      uint32_t target_signal_id,
                                      uint32_t expression_id,
                                      lemma_source_range source)
 {
-    if (builder == NULL || target_signal_id >= builder->storage.signal_count ||
-        expression_id >= builder->storage.expression_count ||
-        builder->storage.driver_count >= UINT32_MAX ||
+    if (builder->storage.driver_count >= UINT32_MAX ||
         !reserve_one((void **)&builder->storage.drivers, builder->storage.driver_count,
                      &builder->driver_capacity, sizeof(*builder->storage.drivers))) {
         return 0;
@@ -225,19 +344,16 @@ int lemma_circuit_builder_add_driver(lemma_circuit_builder *builder,
 //--------------------------------------------------------
 // Find an existing signal by exact source-name bytes without copying them.
 //
-// @builder: Builder containing the signal table.
-// @name: Non-NULL source-name bytes.
-// @name_length: Number of name bytes to match.
-// @signal_id: Required output set only when a match exists.
-// @returns: Nonzero when found; zero for invalid input or no match.
+// @builder: Valid builder containing the signal table.
+// @name: Readable bytes of a nonempty, validated identifier.
+// @name_length: Positive number of identifier bytes to match.
+// @signal_id: Valid output pointer, written only when a match exists.
+// @returns: Nonzero when found; zero when no signal matches.
 //--------------------------------------------------------
 int lemma_circuit_builder_find_signal(const lemma_circuit_builder *builder,
                                       const char *name, size_t name_length,
                                       uint32_t *signal_id)
 {
-    if (builder == NULL || name == NULL || name_length == 0U || signal_id == NULL) {
-        return 0;
-    }
     for (size_t index = 0U; index < builder->storage.signal_count; ++index) {
         const char *stored = builder->storage.signals[index].name;
         size_t stored_length = strlen(stored);
@@ -253,111 +369,114 @@ int lemma_circuit_builder_find_signal(const lemma_circuit_builder *builder,
 //--------------------------------------------------------
 // Return the number of signals currently stored in the builder.
 //
-// @builder: Builder whose final IR signal table is inspected.
-// @returns: Number of stored signals, or zero for a null builder.
+// @builder: Valid non-NULL builder whose signal table is inspected.
+// @returns: Number of stored signals.
 //--------------------------------------------------------
 size_t lemma_circuit_builder_signal_count(const lemma_circuit_builder *builder)
 {
-    return builder == NULL ? 0U : builder->storage.signal_count;
+    return builder->storage.signal_count;
 }
 
 //--------------------------------------------------------
 // Read a signal from the builder's final IR storage.
 //
-// @builder: Builder containing the signal.
+// @builder: Valid non-NULL builder containing the signal table.
 // @signal_id: Signal array-position ID.
-// @returns: Borrowed signal pointer, or NULL for invalid input or ID.
+// @returns: Borrowed signal pointer, valid until this signal table changes or
+//     the builder is destroyed; NULL when the ID is out of bounds.
 //--------------------------------------------------------
 const lemma_ir_signal *lemma_circuit_builder_signal_at(
     const lemma_circuit_builder *builder, uint32_t signal_id)
 {
-    if (builder == NULL || signal_id >= builder->storage.signal_count) {
-        return NULL;
-    }
     return &builder->storage.signals[signal_id];
 }
 
 //--------------------------------------------------------
 // Return the number of ordered ports currently stored in the builder.
 //
-// @builder: Builder whose final IR port table is inspected.
-// @returns: Number of stored ports, or zero for a null builder.
+// @builder: Valid non-NULL builder whose port table is inspected.
+// @returns: Number of stored ports.
 //--------------------------------------------------------
 size_t lemma_circuit_builder_port_count(const lemma_circuit_builder *builder)
 {
-    return builder == NULL ? 0U : builder->storage.port_count;
+    return builder->storage.port_count;
 }
 
 //--------------------------------------------------------
 // Read an ordered port from the builder's final IR storage.
 //
-// @builder: Builder containing the port.
+// @builder: Valid non-NULL builder containing the port table.
 // @port_index: Port array index.
-// @returns: Borrowed port pointer, or NULL for invalid input or index.
+// @returns: Borrowed port pointer, valid until this port table changes or the
+//     builder is destroyed; NULL when the index is out of bounds.
 //--------------------------------------------------------
 const lemma_ir_port *lemma_circuit_builder_port_at(
     const lemma_circuit_builder *builder, size_t port_index)
 {
-    if (builder == NULL || port_index >= builder->storage.port_count) {
-        return NULL;
-    }
     return &builder->storage.ports[port_index];
 }
 
 //--------------------------------------------------------
 // Return the number of drivers currently stored in the builder.
 //
-// @builder: Builder whose final IR driver table is inspected.
-// @returns: Number of stored drivers, or zero for a null builder.
+// @builder: Valid non-NULL builder whose driver table is inspected.
+// @returns: Number of stored drivers.
 //--------------------------------------------------------
 size_t lemma_circuit_builder_driver_count(const lemma_circuit_builder *builder)
 {
-    return builder == NULL ? 0U : builder->storage.driver_count;
+    return builder->storage.driver_count;
+}
+
+//--------------------------------------------------------
+// Return the number of expressions currently stored in the builder.
+//
+// @builder: Valid non-NULL builder whose expression table is inspected.
+// @returns: Number of stored expressions.
+//--------------------------------------------------------
+size_t lemma_circuit_builder_expression_count(
+    const lemma_circuit_builder *builder)
+{
+    return builder->storage.expression_count;
 }
 
 //--------------------------------------------------------
 // Read a driver from the builder's final IR storage.
 //
-// @builder: Builder containing the driver.
+// @builder: Valid non-NULL builder containing the driver table.
 // @driver_index: Driver array index.
-// @returns: Borrowed driver pointer, or NULL for invalid input or index.
+// @returns: Borrowed driver pointer, valid until this driver table changes or
+//     the builder is destroyed; NULL when the index is out of bounds.
 //--------------------------------------------------------
 const lemma_ir_driver *lemma_circuit_builder_driver_at(
     const lemma_circuit_builder *builder, size_t driver_index)
 {
-    if (builder == NULL || driver_index >= builder->storage.driver_count) {
-        return NULL;
-    }
     return &builder->storage.drivers[driver_index];
 }
 
 //--------------------------------------------------------
 // Read an expression from the builder's final IR storage.
 //
-// @builder: Builder containing the expression.
+// @builder: Valid non-NULL builder containing the expression table.
 // @expression_id: Expression array-position ID.
-// @returns: Borrowed expression pointer, or NULL for invalid input or ID.
+// @returns: Borrowed expression pointer, valid until this expression table
+//     changes or the builder is destroyed; NULL when the ID is out of bounds.
 //--------------------------------------------------------
 const lemma_ir_expression *lemma_circuit_builder_expression_at(
     const lemma_circuit_builder *builder, uint32_t expression_id)
 {
-    if (builder == NULL || expression_id >= builder->storage.expression_count) {
-        return NULL;
-    }
     return &builder->storage.expressions[expression_id];
 }
 
 //--------------------------------------------------------
 // Transfer the builder's sole circuit storage into a caller-owned circuit.
 //
-// @builder: Builder consumed only when finalization succeeds.
-// @returns: Owned circuit, or NULL on allocation failure with builder intact.
+// @builder: Valid populated builder after successful elaboration; consumed only
+//     when finalization succeeds.
+// @returns: Caller-owned circuit on success; NULL on allocation failure with the
+//     builder intact.
 //--------------------------------------------------------
 lemma_circuit *lemma_circuit_builder_finalize(lemma_circuit_builder *builder)
 {
-    if (builder == NULL || builder->storage.module_name == NULL) {
-        return NULL;
-    }
     lemma_circuit *circuit = malloc(sizeof(*circuit));
     if (circuit == NULL) {
         return NULL;

@@ -4,7 +4,7 @@
 > frontend rebuild. It is not a normative RTL specification. Current specs and
 > later user alignment take precedence.
 
-**Date:** 2026-11-10
+**Date:** 2026-11-17
 
 ## Purpose and implementation boundary
 
@@ -81,14 +81,34 @@ unknown module items or statements.
   `rtl-support.md` specifies them.
 - Function comments in C/H files must follow the exact separator-delimited
   format in `AGENTS.md`.
+- Check documented preconditions before calling a function, including a
+  function declared in a public header. The callee may rely on them and should
+  not repeat the same argument or semantic checks. Keep checks for failures
+  caused by operations performed inside the function, such as allocation and
+  checked size arithmetic. See
+  [`api-boundaries.md`](doc/engineering-notes/api-boundaries.md).
 
 ## Implementation status
 
 The frontend implementation is present in `src/frontend/`: parsing, nested
 Tree-sitter extraction, first-profile validation/elaboration, IR builder, and the
-one-shot entry point. The CLI loads a file and calls that entry point; it does
-not claim proof success. The builder owns the final IR arrays and returns a
-circuit on successful finalization.
+one-shot entry point. `lemma_frontend_build` returns a caller-owned result with
+an optional circuit and a read-only diagnostic array; parse, RTL, and IR
+failures return a result with an error diagnostic, while NULL is reserved for
+result allocation failure. The result owns its circuit and diagnostics. The CLI
+prints diagnostics and reports circuit construction only; it does not claim
+proof success.
+
+User-aligned next target: all 54 modules in `tests/fixtures/rtl/` must pass
+validation/elaboration and produce circuit IR, without proof execution. The exact
+constructs in those fixtures define the support boundary; `doc/rtl-support.md`
+and `doc/internal-representation.md` now describe that boundary. The one inline
+assertion is outside circuit IR and is not modeled or proved by this milestone.
+
+Source-controlled recursive parser and syntax walks now stop at a checked
+128-level limit. A parser error tree that exceeds the bound returns a
+source-located diagnostic; syntax visitation returns its failure result. Tests
+exercise 160 nested constructs and parse all 54 fixtures.
 
 Reusable direct-child and checked range/text Tree-sitter helpers now live in
 `frontend_ts_helpers.c`; grammar-specific nested visitors remain private in
@@ -108,27 +128,67 @@ without changing layout or coordinate semantics.
 
 ## Next implementation scope
 
-The documented first profile is implemented; syntax extraction also describes
-processes, declarations, and statements that the first profile rejects. Do not
-extend RTL acceptance without updating `doc/rtl-support.md` and adding focused
-tests. `lemma_run_job`, SVA/proof modeling, and solver execution remain out of
-scope.
+Circuit-IR lowering covers the scalar and vector alias fixtures,
+`comb_continuous_assign_boolean.sv`, and the six vector bitwise, reduction,
+unsigned arithmetic, and unsigned comparison fixtures. Syntax extraction
+classifies these forms while retaining source provenance and parent/operand
+relationships. Lowering preserves source-ordered operand IDs, typed widths and
+signedness, and all nested signal dependencies. The other 45 fixture modules
+remain pending RTL/IR checks; parser coverage of all 54 fixtures is not full IR
+coverage. Mixed-width and signed bit-vector operators, division/remainder,
+constants, selections, conversions, procedural processes, FFDs, and warning
+support remain outside this slice. Continue with focused expression, sequential,
+and other fixture-bounded IR slices and expected-IR and boundary tests. Do not
+add constructs beyond the fixture-bounded RTL specification.
+`lemma_run_job`, assertion modeling, proof modeling, and solver execution remain
+out of scope.
 
-The two agreed C refactors are complete. Keep extraction syntax-only and preserve
-raw provenance; do not infer or inherit declaration attributes during extraction.
-The typed facts distinguish escaped/user-defined types from built-in wire/logic,
-and retain all packed dimensions so elaboration can reject unsupported extras.
-Preserve the packed-range comment behavior and tests. Do not broaden RTL
-acceptance without updating `doc/rtl-support.md` and adding focused tests.
+Duplicate-check cleanup is complete across the internal circuit-builder API:
+elaboration validates argument and semantic preconditions before calling the
+builder, and the builder relies on those contracts. This includes valid builder,
+name, width, direction, ID, and output-pointer arguments; `finalize` likewise
+requires a populated builder after successful elaboration. Count queries require
+a non-NULL builder. The signal, port, driver, and expression accessors require a
+non-NULL builder and in-range ID/index from their callers; they return borrowed
+pointers valid for the table lifetime and do not repeat bounds checks.
+
+Intentional checks remain for SIZE_MAX name lengths before adding a terminator,
+signal/port/expression/driver ID capacity, array reservation and allocation
+failures, and final circuit allocation failure. Its destroy functions remain
+NULL-safe. In particular, elaboration validates operator kind, arity, operand
+IDs, signedness, and widths before calling the IR operator builder, which
+continues to rely on those preconditions while checking expression-ID capacity
+and allocation failure.
+
+Keep extraction syntax-only and preserve raw provenance; do not infer or inherit
+declaration attributes during extraction. The typed facts distinguish
+escaped/user-defined types from built-in wire/logic and retain all packed
+dimensions so elaboration can reject unsupported extras. Preserve the
+packed-range comment behavior and tests.
+
+The remaining frontend caller-precondition cleanup is complete. The syntax
+visitor relies on its caller to provide a live parsed handle with non-NULL tree
+and source plus a non-NULL callback; it does not re-check these preconditions.
+Elaboration's internal entry requires the successfully parsed handle and fresh
+builder already provided by `frontend_build`; its accessors and cycle traversal
+rely on IDs established by successful lookup/appends and indices bounded by
+builder counts, including the circuit-builder accessors.
+The Tree-sitter child, unique-child, range, and text helpers likewise rely on
+their audited callers to provide required arguments; optional nodes are checked
+at the grammar wrappers before helper calls. Intentional checks remain for
+public parse inputs, optional diagnostics, unsupported RTL and semantic
+validation, callback stop/failure, source offsets and coordinate
+representability, allocation and size arithmetic, and temporary traversal-stack
+bounds. The field-name child helper remains defensive because it has no
+first-party callers to audit.
 
 ## Verification
 
-`./flow.sh test` passes all seven CTest targets after the rebuild. Unit coverage
-checks parser failures, scalar/vector alias IR, inherited ANSI shorthand ports,
-syntax-view grouping, assignment destination/RHS/ternary-condition slices,
-process statements, typed declaration facts and borrowed bounds, escaped-type
-and extra-packed-dimension rejection, and first-profile RTL rejections.
-Keep the build warning-clean and run the full test command after C changes.
+The parser test verifies the complete 54-file corpus. Circuit-IR tests cover
+the alias baseline, boolean continuous assignment, and the six vector-operator
+fixtures; the remaining 45 fixtures are still pending RTL/IR implementation.
+The latest independent run passed all 7 CTest targets and `git diff --check`.
+`./flow.sh test` is the required full validation command after C changes.
 
 ## Deferred review findings (triaged 2026-11-08)
 
@@ -145,8 +205,7 @@ Packed-range comment behavior remains covered after the typed-bound refactor:
 valid ranges with inter-token comments are accepted and an unterminated block
 comment is rejected.
 
-Stack-depth robustness is an accepted priority. The parser's recursive error
-search and the syntax visitor's recursive statement walks must not exhaust the C
-stack on deeply nested input. Replace them with iterative traversal or add a
-checked depth limit and diagnostic before broadening the accepted frontend
-profile; cover the limit with a deep-input regression test.
+Stack-depth robustness is addressed for the recursive parser error search and
+syntax statement, loop, and event walks. The 128-level bound and 160-level
+regressions are recorded in
+[`doc/engineering-notes/api-boundaries.md`](doc/engineering-notes/api-boundaries.md).

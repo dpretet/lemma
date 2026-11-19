@@ -31,7 +31,9 @@ typedef enum lemma_ts_child_visit_action {
     LEMMA_TS_CHILD_VISIT_FAIL
 } lemma_ts_child_visit_action;
 
-// Result distinguishes full traversal, requested stop, failure, and bad input.
+// Result distinguishes full traversal, requested stop, and failure.
+// INVALID_INPUT is reserved; calls satisfying the helper preconditions cannot
+// produce it.
 typedef enum lemma_ts_child_visit_result {
     LEMMA_TS_CHILD_VISIT_COMPLETE,
     LEMMA_TS_CHILD_VISIT_STOPPED,
@@ -39,7 +41,8 @@ typedef enum lemma_ts_child_visit_result {
     LEMMA_TS_CHILD_VISIT_INVALID_INPUT
 } lemma_ts_child_visit_result;
 
-// Result of looking up a direct child by type.
+// Result of looking up a direct child by type; INVALID_INPUT is reserved because
+// the helper relies on its documented argument preconditions.
 typedef enum lemma_ts_child_type_result {
     LEMMA_TS_CHILD_TYPE_MISSING,
     LEMMA_TS_CHILD_TYPE_UNIQUE,
@@ -89,9 +92,8 @@ typedef lemma_ts_child_visit_action (*lemma_ts_child_visitor)(
 // @filter: Valid child filter selecting all, named, or named non-extra children.
 // @visitor: Non-NULL callback invoked synchronously for each selected child.
 // @context: Caller-provided value borrowed for the duration of the visit.
-// @returns: COMPLETE after full traversal, STOPPED after a requested stop,
-//     FAILED after callback failure or an invalid callback action, or
-//     INVALID_INPUT for a null parent, null visitor, or invalid filter.
+// @returns: COMPLETE after full traversal, STOPPED after a requested stop, or
+//     FAILED after callback failure or an invalid callback action.
 //--------------------------------------------------------
 lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
     TSNode parent, lemma_ts_child_filter filter,
@@ -99,14 +101,15 @@ lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
 
 //--------------------------------------------------------
 // Find a unique direct child by exact node type without allocation; initialize
-// the output to a null node before validating inputs.
+// the output to a null node before searching.
 //
 // @parent: Non-null node whose immediate children are searched.
 // @type: Non-empty NUL-terminated exact Tree-sitter node type string.
 // @filter: Valid child filter selecting all, named, or named non-extra children.
-// @child: Required output set to a null node on entry and unless one match exists.
+// @child: Non-NULL output set to a null node on entry and unless one match exists.
 // @returns: UNIQUE and stores the matching node, MISSING when none match,
-//     AMBIGUOUS when more than one matches, or INVALID_INPUT for invalid arguments.
+//     or AMBIGUOUS when more than one matches. Parent, type, filter, and output
+//     satisfy their documented preconditions.
 //--------------------------------------------------------
 lemma_ts_child_type_result lemma_frontend_ts_unique_child_by_type(
     TSNode parent, const char *type, lemma_ts_child_filter filter,
@@ -129,9 +132,9 @@ lemma_ts_child_field_result lemma_frontend_ts_child_by_field_name(
 // Obtain a node's half-open byte and zero-based row/column range without allocation.
 //
 // @node: Non-null Tree-sitter node whose range is requested.
-// @range: Required output initialized to a zero range on entry.
-// @returns: VALID with the node's half-open source range, or INVALID_INPUT for
-//     a null node, NULL output, or unrepresentable position.
+// @range: Non-NULL output initialized to a zero range on entry.
+// @returns: VALID with the node's half-open source range, or INVALID_INPUT when
+//     a position cannot be represented by lemma_source_range.
 //--------------------------------------------------------
 lemma_ts_range_result lemma_frontend_ts_node_range(
     TSNode node, lemma_source_range *range);
@@ -140,11 +143,11 @@ lemma_ts_range_result lemma_frontend_ts_node_range(
 // Form a checked borrowed source slice for a node in parsed's tree without
 // allocation; the slice remains valid only while parsed's source is alive.
 //
-// @parsed: Live parsed-source handle whose source and tree are borrowed.
-// @node: Non-null node belonging to parsed's tree.
-// @text: Required output initialized to an empty zero slice on entry.
-// @returns: VALID with a borrowed source slice and range, or INVALID_INPUT for
-//     invalid arguments, a foreign/null node, or an out-of-range node range.
+// @parsed: Live non-NULL handle with non-NULL source and tree; both are borrowed.
+// @node: Non-null node from parsed's tree.
+// @text: Non-NULL output initialized to an empty zero slice on entry.
+// @returns: VALID with a borrowed source slice and range, or INVALID_INPUT when
+//     the node range is unrepresentable or outside the borrowed source buffer.
 //--------------------------------------------------------
 lemma_ts_text_result lemma_frontend_ts_node_text(
     const lemma_parsed_source *parsed, TSNode node, lemma_syntax_text *text);

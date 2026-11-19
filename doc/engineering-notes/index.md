@@ -41,17 +41,23 @@ authoritative source and update the note.
   encapsulation, shared source-range API, internal stage separation, job/result
   and proof-status contract, diagnostic layouts/stages, borrowed module/process
   syntax visitor with typed declaration-group/declarator events, nested grammar visitors and
-  split reusable Tree-sitter helpers, CLI entry flow, direct elaboration-to-IR
-  builder handoff, and stack-depth robustness priority; target-label encoding,
-  serialization, one verified frontend acceptance gap, and traversal mitigation
-  remain open.
+  split reusable Tree-sitter helpers, source-ordered expression syntax views,
+  CLI entry flow, direct elaboration-to-IR builder handoff, caller-owned
+  validation of function preconditions, and verified stack-depth handling;
+  target-label encoding, serialization, and one verified frontend acceptance
+  gap remain open.
 - [Circuit IR storage](circuit-ir-storage.md) — accepted private C storage
   outline using one owning object and array-position IDs, plus the first
   scalar/vector alias slice, frontend-first implementation order, and direct
   builder handoff; allocator policy remains open.
 - [First-profile frontend C review](frontend-code-review.md) — verified
-  drive-strength acceptance and open stack-depth, test-oracle, and packed-bound
-  syntax findings, scoped to the current alias-only frontend.
+  drive-strength acceptance, bounded recursive walks, and parser fixture sweep;
+  open test-oracle and packed-bound syntax findings, scoped to the current
+  alias-only frontend.
+- [Fixture-driven circuit IR scope](fixture-elaboration.md) — accepted target
+  to elaborate all 54 RTL fixtures into circuit IR, using their exact constructs
+  as the normative boundary, returning warnings with successful circuit results,
+  and keeping proof execution out of scope.
 
 The design specifications remain the source of truth. Start with the
 [specification reading guide](../../README.md#specifications);

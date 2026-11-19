@@ -146,6 +146,12 @@ subsequent property-model and proof-model stages. An IR consumer must preserve
 the circuit's input/state distinction and FFD transition behavior when building
 the proof model.
 
+The fixture-bounded RTL profile includes one source module with an inline
+assertion. That property is not part of the circuit and does not prevent
+construction of the circuit-only IR. The circuit frontend does not evaluate or
+prove the assertion; a later property-model stage handles it separately. A
+circuit IR result therefore makes no claim about the assertion's outcome.
+
 ## 7. Schematic visualization
 
 A schematic view of an elaborated circuit should be based on this IR and show

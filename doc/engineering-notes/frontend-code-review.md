@@ -1,7 +1,7 @@
 # First-Profile Frontend C Review
 
-- **Status:** verified (drive-strength acceptance and review baseline); open
-  (stack-depth handling, test-oracle coverage, packed-bound syntax)
+- **Status:** verified (drive-strength acceptance, stack-depth handling, and
+  parser fixture sweep); open (test-oracle coverage, packed-bound syntax)
 - **Date:** 2026-11-10
 - **Reviewed base:** `b8a13764955fa15bc5f0ae01e1d3b83c08c4b8e0`
 - **Scope:** First-party C sources, headers, and tests for the current frontend,
@@ -26,17 +26,19 @@
   [`internal-representation.md`](../internal-representation.md), and the
   previously recorded open finding in [`api-boundaries.md`](api-boundaries.md).
 
-### Tree-sitter walks have unbounded recursion
+### Tree-sitter recursive walks are bounded
 
-- **Status:** open; recursive source-controlled walks are verified by inspection,
-  but stack exhaustion was not reproduced in this review.
+- **Status:** resolved and verified 2026-11-17.
 - `first_syntax_error` recursively descends the parse tree. Syntax extraction
   also recurses through loop bodies, nested statements, and event expressions.
-  Deep input can exhaust the C stack instead of returning a structured error.
-- Replace these walks with iterative traversal or enforce a checked depth limit
-  that returns a diagnostic; add deep-input regression tests.
+  These source-controlled paths now have explicit depth bounds.
+- Parser error inspection and syntax extraction now stop at a checked 128-level
+  limit. Parser rejection has a source-located diagnostic; the syntax visitor
+  reports its existing failure result. Regressions exercise 160 nested constructs.
 - Evidence: [`parser.c`](../../src/frontend/parser.c),
-  [`frontend_ts.c`](../../src/frontend/frontend_ts.c), and the open item in
+  [`frontend_ts.c`](../../src/frontend/frontend_ts.c),
+  [`test_parser.c`](../../tests/unit/test_parser.c),
+  [`test_frontend.c`](../../tests/unit/test_frontend.c), and
   [`api-boundaries.md`](api-boundaries.md).
 
 ### Rejection test oracles do not consistently check classification
@@ -45,9 +47,8 @@
 - Most rows in `test_frontend_rejects_unsupported_constructs` only require a
   rejection, non-NULL code, and source range. They do not assert the expected
   diagnostic stage or code, so stage-classification regressions can pass.
-- Record the expected stage and code per case. The fixture catalog also states
-  that all 54 RTL fixtures parse, but the CTest suite has no parser sweep for
-  that corpus; add one to keep the claim regression-tested.
+- Record the expected stage and code per case. The parser fixture sweep now
+  checks all 54 `.sv` files, but exact rejection classifications remain open.
 - Evidence: [`test_frontend.c`](../../tests/unit/test_frontend.c),
   [`CMakeLists.txt`](../../CMakeLists.txt),
   [`RTL fixture README`](../../tests/fixtures/rtl/README.md), and

@@ -30,13 +30,38 @@ typedef struct lemma_ir_port {
 
 // Expression forms currently represented by the private circuit IR.
 typedef enum lemma_ir_expression_kind {
-    LEMMA_IR_EXPRESSION_READ_SIGNAL
+    LEMMA_IR_EXPRESSION_READ_SIGNAL,
+    LEMMA_IR_EXPRESSION_LOGICAL_NOT,
+    LEMMA_IR_EXPRESSION_LOGICAL_AND,
+    LEMMA_IR_EXPRESSION_LOGICAL_OR,
+    LEMMA_IR_EXPRESSION_BITWISE_NOT,
+    LEMMA_IR_EXPRESSION_BITWISE_AND,
+    LEMMA_IR_EXPRESSION_BITWISE_OR,
+    LEMMA_IR_EXPRESSION_BITWISE_XOR,
+    LEMMA_IR_EXPRESSION_BITWISE_XNOR,
+    LEMMA_IR_EXPRESSION_REDUCTION_AND,
+    LEMMA_IR_EXPRESSION_REDUCTION_NAND,
+    LEMMA_IR_EXPRESSION_REDUCTION_OR,
+    LEMMA_IR_EXPRESSION_REDUCTION_NOR,
+    LEMMA_IR_EXPRESSION_REDUCTION_XOR,
+    LEMMA_IR_EXPRESSION_REDUCTION_XNOR,
+    LEMMA_IR_EXPRESSION_ADD,
+    LEMMA_IR_EXPRESSION_SUBTRACT,
+    LEMMA_IR_EXPRESSION_MULTIPLY,
+    LEMMA_IR_EXPRESSION_EQUAL,
+    LEMMA_IR_EXPRESSION_NOT_EQUAL,
+    LEMMA_IR_EXPRESSION_LESS,
+    LEMMA_IR_EXPRESSION_LESS_EQUAL,
+    LEMMA_IR_EXPRESSION_GREATER,
+    LEMMA_IR_EXPRESSION_GREATER_EQUAL
 } lemma_ir_expression_kind;
 
-// An expression whose signal_id indexes the containing circuit's signals.
+// A typed expression; reads use signal_id, while operators use source-ordered
+// operand_ids. Unary operators use operand_ids[0] and leave [1] zero.
 typedef struct lemma_ir_expression {
     lemma_ir_expression_kind kind;
     uint32_t signal_id;
+    uint32_t operand_ids[2];
     uint32_t width;
     bool is_signed;
     lemma_source_range source;
