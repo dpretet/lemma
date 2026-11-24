@@ -1,7 +1,7 @@
 # Frontend Header Reset Handoff
 
 > **Status: HISTORICAL.** Superseded by
-> [`FRONTEND_API_HANDOFF.md`](../../FRONTEND_API_HANDOFF.md). This is a handoff,
+> [`2026-11-19_FRONTEND_API_HANDOFF.md`](2026-11-19_FRONTEND_API_HANDOFF.md). This is a handoff,
 > not a normative specification; current specifications and user alignment take
 > precedence.
 

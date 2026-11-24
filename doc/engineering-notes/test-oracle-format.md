@@ -24,5 +24,5 @@
   avoids coupling expectations to unstable node IDs or solver internals; decide
   separately whether a human-readable catalog should be generated from it.
 - **References:** [RTL fixture catalog](../../tests/fixtures/rtl/README.md),
-  [fixture preparation checkpoint](../checkpoint/rtl_fixture_preparation.md),
+  [fixture preparation checkpoint](../checkpoint/2026-10-15_rtl_fixture_preparation.md),
   and [internal representation](../internal-representation.md).

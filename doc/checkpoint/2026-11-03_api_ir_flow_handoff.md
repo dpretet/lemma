@@ -1,7 +1,7 @@
 # Frontend and Circuit-IR Implementation Handoff
 
 > **Status: HISTORICAL.** Superseded by
-> [`frontend_header_reset_handoff.md`](frontend_header_reset_handoff.md).
+> [`2026-11-05_frontend_header_reset_handoff.md`](2026-11-05_frontend_header_reset_handoff.md).
 > Normative specifications and current code take precedence over this summary.
 
 **Checkpoint date:** 2026-11-03
@@ -41,7 +41,7 @@ job are later stages. Do not describe those planned stages as implemented.
   that prototype.
 
 See [`tests/fixtures/rtl/README.md`](../../tests/fixtures/rtl/README.md) and
-[`rtl_fixture_preparation.md`](rtl_fixture_preparation.md).
+[`2026-10-15_rtl_fixture_preparation.md`](2026-10-15_rtl_fixture_preparation.md).
 
 ## Agreed public API and execution flow
 
@@ -67,7 +67,7 @@ The accepted design is recorded in
 
 ## Parser helper boundary
 
-[`include/lemma/parser.h`](../../include/lemma/parser.h) declared the internal
+`include/lemma/parser.h` declared the internal
 parser helper `lemma_parse_source`, which returns a Tree-sitter `TSTree *`. The
 frontend uses this helper, as do the bootstrap CLI and parser tests. The header
 is not installed by the current build, and its use of Tree-sitter is not a

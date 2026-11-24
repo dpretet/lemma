@@ -1,8 +1,10 @@
 # Frontend API and Implementation Handoff
 
-> **Status: ACTIVE.** This root-level handoff records API choices and scopes the
-> frontend rebuild. It is not a normative RTL specification. Current specs and
-> later user alignment take precedence.
+> **Status: HISTORICAL; superseded by**
+> [`2026-11-24_frontend_review_and_ids_handoff.md`](2026-11-24_frontend_review_and_ids_handoff.md).
+> This archived handoff records API choices and frontend status as of
+> 2026-11-19. It is not a normative RTL specification; current code and specs
+> take precedence.
 
 **Date:** 2026-11-19
 
@@ -86,7 +88,7 @@ unknown module items or statements.
   not repeat the same argument or semantic checks. Keep checks for failures
   caused by operations performed inside the function, such as allocation and
   checked size arithmetic. See
-  [`api-boundaries.md`](doc/engineering-notes/api-boundaries.md).
+  [`api-boundaries.md`](../engineering-notes/api-boundaries.md).
 
 ## Implementation status
 
@@ -210,4 +212,4 @@ comment is rejected.
 Stack-depth robustness is addressed for the recursive parser error search and
 syntax statement, loop, and event walks. The 128-level bound and 160-level
 regressions are recorded in
-[`doc/engineering-notes/api-boundaries.md`](doc/engineering-notes/api-boundaries.md).
+[`api-boundaries.md`](../engineering-notes/api-boundaries.md).

@@ -44,4 +44,4 @@
 - **References:** [`RTL support`](../rtl-support.md),
   [`internal representation`](../internal-representation.md),
   [`fixture catalog`](../../tests/fixtures/rtl/README.md), and the active
-  [`frontend handoff`](../../FRONTEND_API_HANDOFF.md).
+  [`historical frontend handoff`](../checkpoint/2026-11-19_FRONTEND_API_HANDOFF.md).

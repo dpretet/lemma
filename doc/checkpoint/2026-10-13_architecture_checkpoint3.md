@@ -20,7 +20,7 @@ journey: explain formal concepts plainly rather than assuming verification
 background.
 
 For a future tutoring session, see
-[`formal_verification_tutorial_handoff.txt`](formal_verification_tutorial_handoff.txt).
+[`2026-10-13_formal_verification_tutorial_handoff.txt`](2026-10-13_formal_verification_tutorial_handoff.txt).
 
 The implementation language is C, with CMake as the build system. The initial
 parser uses the vendored Tree-sitter C runtime and
