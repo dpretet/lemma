@@ -142,10 +142,11 @@ broader FRISCV-inspired RTL roadmap is not an MVP acceptance requirement.
    signal within a process, rejection of multiple procedural drivers for one
    register, equivalent equations from complete `always @(*)` and `always_comb`
    blocks, vector-valued `if` conditions using nonzero truth, supported
-   asynchronous reset events, ordinary clocked control conditions, same-width
-   signedness conversions using both cast and system-function spellings, signed
-   extension, unsigned zero extension, and least-significant-bit truncation for
-   signed and unsigned assignments with source-located warnings. Tests also
+    asynchronous reset events, reset precedence over a coincident clock update,
+    ordinary clocked control conditions, same-width signedness conversions
+    using both cast and system-function spellings, signed extension, unsigned
+    zero extension, and least-significant-bit truncation for signed and unsigned
+    assignments with source-located warnings. Tests also
    cover same-width unsigned bitwise AND, OR, XOR, XNOR, and complement; unsigned
    vector reductions; same-width unsigned arithmetic and comparisons;
    concatenation width/order; and constant/variable bit-selects and fixed/`+:`

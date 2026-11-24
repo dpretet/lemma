@@ -6,17 +6,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 // Print the command-line form expected by the parser-stage executable.
 //
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 static void print_usage(void)
 {
     fprintf(stderr, "usage: lemma <source.sv>\n");
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Read a file into caller-owned NUL-terminated storage, within the parser's
 // input-length limit.
 //
@@ -24,7 +24,7 @@ static void print_usage(void)
 // @length: Receives the file byte length on success.
 // @returns: Caller-owned file contents on success, or NULL on file, size, read,
 //     or allocation failure; the caller must free a returned buffer.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 static char *read_file(const char *path, size_t *length)
 {
     FILE *file = fopen(path, "rb");
@@ -70,13 +70,13 @@ static char *read_file(const char *path, size_t *length)
     return contents;
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------
 // Render a warning or error diagnostic for the source file.
 //
 // @path: Source path used by the CLI.
 // @diagnostic: Diagnostic returned by the frontend entry point.
 // @returns: None.
-//--------------------------------------------------------
+//--------------------------------------------------------------
 static void print_frontend_diagnostic(const char *path,
                                       const lemma_frontend_diagnostic *diagnostic)
 {
@@ -96,13 +96,13 @@ static void print_frontend_diagnostic(const char *path,
     }
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Load one source file and run the frontend through circuit-IR construction.
 //
 // @argc: Number of command-line arguments.
 // @argv: Command-line argument strings.
 // @returns: EXIT_SUCCESS when a circuit is constructed, otherwise EXIT_FAILURE.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
     cag_option_context arguments;

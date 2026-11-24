@@ -1,6 +1,7 @@
 #include "lemma/frontend.h"
 #include "lemma/frontend_parse.h"
 #include "lemma/frontend_syntax.h"
+#include "lemma/circuit_ir_builder_internal.h"
 
 #include "unity.h"
 
@@ -16,12 +17,12 @@ typedef struct rejected_case {
 
 typedef struct expected_operator {
     lemma_ir_expression_kind kind;
-    uint32_t expression_id;
-    uint32_t left_expression_id;
-    uint32_t right_expression_id;
-    uint32_t left_signal_id;
-    uint32_t right_signal_id;
-    uint32_t target_signal_id;
+    size_t expression_id;
+    size_t left_expression_id;
+    size_t right_expression_id;
+    size_t left_signal_id;
+    size_t right_signal_id;
+    size_t target_signal_id;
     uint32_t result_width;
     const char *expression_text;
     const char *assignment_text;
@@ -64,13 +65,13 @@ typedef struct expression_event_capture {
     size_t count;
 } expression_event_capture;
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------------
 // Read a named RTL fixture into caller-owned NUL-terminated storage.
 //
 // @name: Fixture file name relative to tests/fixtures/rtl.
 // @length: Receives the byte length on success.
 // @returns: Caller-owned contents, or NULL on path, I/O, size, or allocation failure.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------------
 static char *read_fixture(const char *name, size_t *length)
 {
     char path[512];
@@ -109,12 +110,12 @@ static char *read_fixture(const char *name, size_t *length)
     return contents;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------------------
 // Build a result from a fixture whose module is the sole selected module.
 //
 // @name: RTL fixture file name.
 // @returns: Caller-owned frontend result, or NULL when loading or result allocation fails.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------------------
 static lemma_frontend_result *build_fixture(const char *name)
 {
     size_t length = 0U;
@@ -127,13 +128,13 @@ static lemma_frontend_result *build_fixture(const char *name)
     return result;
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------
 // Compare two source ranges without depending on structure padding.
 //
 // @left: First half-open source range.
 // @right: Second half-open source range.
 // @returns: Nonzero when every byte offset and source point matches.
-//--------------------------------------------------------
+//-------------------------------------------------------------------
 static int ranges_equal(lemma_source_range left, lemma_source_range right)
 {
     return left.start_byte == right.start_byte && left.end_byte == right.end_byte &&
@@ -141,13 +142,13 @@ static int ranges_equal(lemma_source_range left, lemma_source_range right)
            left.end_row == right.end_row && left.end_column == right.end_column;
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------
 // Compare one borrowed syntax slice with expected text during its callback.
 //
 // @text: Borrowed source slice to compare.
 // @expected: NUL-terminated expected spelling.
 // @returns: Nonzero when the source slice exactly matches expected.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------
 static int syntax_text_equals(lemma_syntax_text text, const char *expected)
 {
     size_t length = strlen(expected);
@@ -155,14 +156,14 @@ static int syntax_text_equals(lemma_syntax_text text, const char *expected)
            memcmp(text.data, expected, length) == 0;
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------
 // Check that a source range identifies the expected bytes in a test buffer.
 //
 // @range: Half-open source range to validate.
 // @source: NUL-terminated source buffer containing the range.
 // @expected: Expected source bytes.
 // @returns: Nonzero when offsets and bytes exactly match the expectation.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------
 static int range_matches_text(lemma_source_range range, const char *source,
                               const char *expected)
 {
@@ -173,13 +174,13 @@ static int range_matches_text(lemma_source_range range, const char *source,
            memcmp(source + range.start_byte, expected, expected_length) == 0;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Capture expression syntax metadata without retaining borrowed text slices.
 //
 // @view: Borrowed syntax event emitted by extraction.
 // @context: Bounded expression-event capture owned by the test.
 // @returns: CONTINUE to collect every expression node, or FAIL on overflow.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static lemma_syntax_visit_action capture_expression_events(
     const lemma_syntax_view *view, void *context)
 {
@@ -202,13 +203,13 @@ static lemma_syntax_visit_action capture_expression_events(
     return LEMMA_SYNTAX_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 // Count typed syntax events and verify declarators link to their group range.
 //
 // @view: Borrowed event emitted by the syntax visitor.
 // @context: Mutable counters owned by the test.
 // @returns: CONTINUE so the visitor examines every syntax event.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 static lemma_syntax_visit_action count_syntax_event(
     const lemma_syntax_view *view, void *context)
 {
@@ -252,13 +253,13 @@ static lemma_syntax_visit_action count_syntax_event(
     return LEMMA_SYNTAX_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 // Capture typed declaration facts without retaining callback-borrowed slices.
 //
 // @view: Borrowed syntax event emitted by extraction.
 // @context: Three-group fact capture owned by the test.
 // @returns: CONTINUE so all declaration groups are inspected.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 static lemma_syntax_visit_action capture_declaration_facts(
     const lemma_syntax_view *view, void *context)
 {
@@ -282,13 +283,13 @@ static lemma_syntax_visit_action capture_declaration_facts(
     return LEMMA_SYNTAX_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------
 // Stop extraction on the first event to verify callback stop propagation.
 //
 // @view: First borrowed syntax event.
 // @context: Counter incremented for the callback.
 // @returns: STOP to end traversal immediately.
-//--------------------------------------------------------
+//------------------------------------------------------------------------
 static lemma_syntax_visit_action stop_at_first_syntax_event(
     const lemma_syntax_view *view, void *context)
 {
@@ -298,13 +299,13 @@ static lemma_syntax_visit_action stop_at_first_syntax_event(
     return LEMMA_SYNTAX_VISIT_STOP;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Fail extraction on the first event to verify callback failure propagation.
 //
 // @view: First borrowed syntax event.
 // @context: Counter incremented for the callback.
 // @returns: FAIL to report a failed visit.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static lemma_syntax_visit_action fail_at_first_syntax_event(
     const lemma_syntax_view *view, void *context)
 {
@@ -314,11 +315,11 @@ static lemma_syntax_visit_action fail_at_first_syntax_event(
     return LEMMA_SYNTAX_VISIT_FAIL;
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------
 // Build the scalar alias fixture as a two-signal, one-driver circuit.
 //
 // @returns: None.
-//--------------------------------------------------------
+//--------------------------------------------------------------------
 void test_frontend_builds_scalar_alias_fixture(void)
 {
     lemma_frontend_result *result =
@@ -341,11 +342,11 @@ void test_frontend_builds_scalar_alias_fixture(void)
     lemma_frontend_result_destroy(result);
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Expose the boolean fixture as a source-ordered expression tree with parent links.
 //
 // @returns: None.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 void test_frontend_exposes_boolean_expression_syntax_tree(void)
 {
     size_t source_length = 0U;
@@ -428,11 +429,11 @@ void test_frontend_exposes_boolean_expression_syntax_tree(void)
     free(source);
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 // Lower the boolean fixture to typed logical operators and its output driver.
 //
 // @returns: None.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 void test_frontend_lowers_boolean_expression_fixture(void)
 {
     size_t source_length = 0U;
@@ -491,7 +492,7 @@ void test_frontend_lowers_boolean_expression_fixture(void)
     free(source);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Build one operator fixture and compare its typed nodes, IDs, and provenance.
 //
 // @fixture: RTL fixture file name.
@@ -499,7 +500,7 @@ void test_frontend_lowers_boolean_expression_fixture(void)
 // @expected_count: Number of operators and drivers in the fixture.
 // @expression_count: Exact count including the signal-read leaves.
 // @returns: None.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static void assert_operator_fixture(const char *fixture,
                                     const expected_operator *expected,
                                     size_t expected_count,
@@ -540,7 +541,7 @@ static void assert_operator_fixture(const char *fixture,
         TEST_ASSERT_FALSE(left->is_signed);
         const char *left_name = circuit->signals[item->left_signal_id].name;
         TEST_ASSERT_TRUE(range_matches_text(left->source, source, left_name));
-        if (item->right_signal_id != UINT32_MAX) {
+        if (item->right_signal_id != SIZE_MAX) {
             const lemma_ir_expression *right =
                 &circuit->expressions[item->right_expression_id];
             TEST_ASSERT_EQUAL(LEMMA_IR_EXPRESSION_READ_SIGNAL, right->kind);
@@ -566,11 +567,11 @@ static void assert_operator_fixture(const char *fixture,
     free(source);
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 // Lower the six vector operator fixtures to typed, source-located circuit IR.
 //
 // @returns: None.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 void test_frontend_lowers_vector_operator_fixtures(void)
 {
     static const expected_operator bitwise[] = {
@@ -584,23 +585,23 @@ void test_frontend_lowers_vector_operator_fixtures(void)
          "a ~^ b", "xnor_tilde_caret_result = a ~^ b"},
         {LEMMA_IR_EXPRESSION_BITWISE_XNOR, 14U, 12U, 13U, 0U, 1U, 6U, 4U,
          "a ^~ b", "xnor_caret_tilde_result = a ^~ b"},
-        {LEMMA_IR_EXPRESSION_BITWISE_NOT, 16U, 15U, 0U, 0U, UINT32_MAX, 7U, 4U,
+        {LEMMA_IR_EXPRESSION_BITWISE_NOT, 16U, 15U, 0U, 0U, SIZE_MAX, 7U, 4U,
          "~a", "complement_result = ~a"}
     };
     static const expected_operator reductions[] = {
-        {LEMMA_IR_EXPRESSION_REDUCTION_AND, 1U, 0U, 0U, 0U, UINT32_MAX, 1U, 1U,
+        {LEMMA_IR_EXPRESSION_REDUCTION_AND, 1U, 0U, 0U, 0U, SIZE_MAX, 1U, 1U,
          "&value", "and_result = &value"},
-        {LEMMA_IR_EXPRESSION_REDUCTION_NAND, 3U, 2U, 0U, 0U, UINT32_MAX, 2U, 1U,
+        {LEMMA_IR_EXPRESSION_REDUCTION_NAND, 3U, 2U, 0U, 0U, SIZE_MAX, 2U, 1U,
          "~&value", "nand_result = ~&value"},
-        {LEMMA_IR_EXPRESSION_REDUCTION_OR, 5U, 4U, 0U, 0U, UINT32_MAX, 3U, 1U,
+        {LEMMA_IR_EXPRESSION_REDUCTION_OR, 5U, 4U, 0U, 0U, SIZE_MAX, 3U, 1U,
          "|value", "or_result = |value"},
-        {LEMMA_IR_EXPRESSION_REDUCTION_NOR, 7U, 6U, 0U, 0U, UINT32_MAX, 4U, 1U,
+        {LEMMA_IR_EXPRESSION_REDUCTION_NOR, 7U, 6U, 0U, 0U, SIZE_MAX, 4U, 1U,
          "~|value", "nor_result = ~|value"},
-        {LEMMA_IR_EXPRESSION_REDUCTION_XOR, 9U, 8U, 0U, 0U, UINT32_MAX, 5U, 1U,
+        {LEMMA_IR_EXPRESSION_REDUCTION_XOR, 9U, 8U, 0U, 0U, SIZE_MAX, 5U, 1U,
          "^value", "xor_result = ^value"},
-        {LEMMA_IR_EXPRESSION_REDUCTION_XNOR, 11U, 10U, 0U, 0U, UINT32_MAX, 6U, 1U,
+        {LEMMA_IR_EXPRESSION_REDUCTION_XNOR, 11U, 10U, 0U, 0U, SIZE_MAX, 6U, 1U,
          "~^value", "xnor_tilde_caret_result = ~^value"},
-        {LEMMA_IR_EXPRESSION_REDUCTION_XNOR, 13U, 12U, 0U, 0U, UINT32_MAX, 7U, 1U,
+        {LEMMA_IR_EXPRESSION_REDUCTION_XNOR, 13U, 12U, 0U, 0U, SIZE_MAX, 7U, 1U,
          "^~value", "xnor_caret_tilde_result = ^~value"}
     };
     static const expected_operator addition[] = {
@@ -638,11 +639,11 @@ void test_frontend_lowers_vector_operator_fixtures(void)
     assert_operator_fixture("comb_vector_unsigned_comparisons.sv", comparisons, 6U, 18U);
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------------
 // Return an owned result containing a circuit and an empty read-only diagnostic array.
 //
 // @returns: None.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------------
 void test_frontend_result_owns_successful_circuit(void)
 {
     static const char source[] =
@@ -659,11 +660,11 @@ void test_frontend_result_owns_successful_circuit(void)
     lemma_frontend_result_destroy(NULL);
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Return parse rejection as an error diagnostic with parser stage and source range.
 //
 // @returns: None.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 void test_frontend_result_reports_parse_error(void)
 {
     static const char source[] = "module broken (";
@@ -685,11 +686,11 @@ void test_frontend_result_reports_parse_error(void)
     lemma_frontend_result_destroy(result);
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------------
 // Return unsupported RTL as an error diagnostic at the RTL stage with a source range.
 //
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------------
 void test_frontend_result_reports_rtl_error(void)
 {
     static const char source[] =
@@ -713,11 +714,11 @@ void test_frontend_result_reports_rtl_error(void)
     lemma_frontend_result_destroy(result);
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Preserve vector width and signedness through the alias expression and driver.
 //
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 void test_frontend_builds_signed_vector_alias_fixture(void)
 {
     lemma_frontend_result *result =
@@ -739,11 +740,11 @@ void test_frontend_builds_signed_vector_alias_fixture(void)
     lemma_frontend_result_destroy(result);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Preserve inherited ANSI attributes and accept comments between range tokens.
 //
 // @returns: None.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 void test_frontend_inherits_complete_ansi_port_attributes(void)
 {
     static const char source[] =
@@ -783,11 +784,51 @@ void test_frontend_inherits_complete_ansi_port_attributes(void)
     }
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
+// Resolve widths identically for ascending and descending packed declarations.
+//
+// @returns: None.
+//-----------------------------------------------------------------------------
+void test_frontend_accepts_ascending_and_descending_packed_ranges(void)
+{
+    static const struct {
+        const char *bounds;
+        uint32_t expected_width;
+    } cases[] = {
+        {"[7:0]", 8U},
+        {"[0:7]", 8U},
+        {"[7:3]", 5U},
+        {"[3:7]", 5U},
+        {"[0:0]", 1U}
+    };
+
+    for (size_t index = 0U; index < sizeof(cases) / sizeof(cases[0]); ++index) {
+        char source[192];
+        int written = snprintf(
+            source, sizeof(source),
+            "module top(input wire %s a, output wire %s y); "
+            "assign y = a; endmodule",
+            cases[index].bounds, cases[index].bounds);
+        TEST_ASSERT_TRUE(written >= 0 && (size_t)written < sizeof(source));
+
+        lemma_frontend_result *result =
+            lemma_frontend_build(source, (size_t)written);
+        TEST_ASSERT_NOT_NULL(result);
+        TEST_ASSERT_NOT_NULL_MESSAGE(result->circuit, cases[index].bounds);
+        TEST_ASSERT_EQUAL_UINT(0U, result->diagnostic_count);
+        TEST_ASSERT_EQUAL_UINT(cases[index].expected_width,
+                              result->circuit->signals[0].width);
+        TEST_ASSERT_EQUAL_UINT(cases[index].expected_width,
+                              result->circuit->signals[1].width);
+        lemma_frontend_result_destroy(result);
+    }
+}
+
+//--------------------------------------------------------------------------
 // Reject partial ANSI attribute omission and RTL outside the first profile.
 //
 // @returns: None.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------
 void test_frontend_rejects_unsupported_constructs(void)
 {
     // Port/header cases reject partial inherited attributes and inout direction.
@@ -854,11 +895,11 @@ void test_frontend_rejects_unsupported_constructs(void)
     }
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Reject unsupported bitwise/ternary expressions and detect nested-read cycles.
 //
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 void test_frontend_rejects_unsupported_expressions_and_nested_cycles(void)
 {
     // Boundary cases must reject nearby syntax at RTL validation, not parse time.
@@ -913,11 +954,11 @@ void test_frontend_rejects_unsupported_expressions_and_nested_cycles(void)
     lemma_frontend_result_destroy(cycle_result);
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Reject operator type mismatches and nearby forms outside the supported slice.
 //
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 void test_frontend_rejects_unsupported_operator_boundaries(void)
 {
     // Operator categories reject unsupported math, sizing, and signed operands.
@@ -1004,11 +1045,40 @@ void test_frontend_rejects_unsupported_operator_boundaries(void)
     }
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
+// Reject drive-strength syntax rather than lowering it as an ordinary alias.
+//
+// @returns: None.
+//-----------------------------------------------------------------------------
+void test_frontend_rejects_continuous_assignment_drive_strength(void)
+{
+    static const char source[] =
+        "module top(input wire a, output wire y); "
+        "assign (strong1, weak0) y = a; endmodule";
+    lemma_frontend_result *result =
+        lemma_frontend_build(source, sizeof(source) - 1U);
+
+    TEST_ASSERT_NOT_NULL(result);
+    TEST_ASSERT_NULL(result->circuit);
+    TEST_ASSERT_EQUAL_UINT(1U, result->diagnostic_count);
+    TEST_ASSERT_NOT_NULL(result->diagnostics);
+    const lemma_frontend_diagnostic *diagnostic = result->diagnostics;
+    TEST_ASSERT_EQUAL(LEMMA_FRONTEND_DIAGNOSTIC_SEVERITY_ERROR,
+                      diagnostic->severity);
+    TEST_ASSERT_EQUAL(LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+                      diagnostic->stage);
+    TEST_ASSERT_EQUAL_STRING("rtl.unsupported_construct", diagnostic->code);
+    TEST_ASSERT_TRUE(diagnostic->has_source_range);
+    TEST_ASSERT_TRUE(range_matches_text(
+        diagnostic->source_range, source, "assign (strong1, weak0) y = a;"));
+    lemma_frontend_result_destroy(result);
+}
+
+//------------------------------------------------------------------------------
 // Extract built-in type, var, signedness, and first-dimension bounds as syntax.
 //
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 void test_frontend_extracts_typed_declaration_facts(void)
 {
     static const char source[] =
@@ -1041,11 +1111,11 @@ void test_frontend_extracts_typed_declaration_facts(void)
     lemma_parsed_source_destroy(parsed);
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Extract syntax events in source order without accepting process semantics.
 //
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 void test_frontend_visits_module_declarations_and_process_statements(void)
 {
     static const char source[] =
@@ -1076,11 +1146,11 @@ void test_frontend_visits_module_declarations_and_process_statements(void)
     lemma_parsed_source_destroy(parsed);
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------
 // Stop or fail a syntax visit immediately when requested by its callback.
 //
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------
 void test_frontend_syntax_visitor_stops_and_fails_immediately(void)
 {
     static const char source[] = "module top(input wire a); endmodule";
@@ -1103,11 +1173,11 @@ void test_frontend_syntax_visitor_stops_and_fails_immediately(void)
     lemma_parsed_source_destroy(parsed);
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 // Fail syntax visitation safely for deeply nested expressions and process syntax.
 //
 // @returns: None.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 void test_frontend_rejects_overdeep_syntax_walks(void)
 {
     static const char prefix[] =
@@ -1194,4 +1264,114 @@ void test_frontend_rejects_overdeep_syntax_walks(void)
     result = lemma_frontend_visit_syntax(parsed, count_syntax_event, &counts);
     lemma_parsed_source_destroy(parsed);
     TEST_ASSERT_EQUAL(LEMMA_SYNTAX_VISIT_FAILED, result);
+}
+
+//---------------------------------------------------------------------------------------
+// Grow every builder array past its initial capacity and verify IDs and stored records.
+//
+// @returns: None.
+//---------------------------------------------------------------------------------------
+void test_circuit_builder_grows_owned_arrays(void)
+{
+    lemma_circuit_builder *builder = lemma_circuit_builder_create();
+    if (builder == NULL) {
+        TEST_FAIL_MESSAGE("builder allocation failed");
+        return;
+    }
+
+    const size_t item_count = 9U;
+    size_t signal_ids[9];
+    size_t read_expression_ids[9];
+    int valid = 1;
+    lemma_source_range source = {0};
+
+    // Add enough signal and port records to cross their initial capacities.
+    for (size_t index = 0U; index < item_count; ++index) {
+        char name[16];
+        int written = snprintf(name, sizeof(name), "signal%u", (unsigned)index);
+        if (written < 0 || (size_t)written >= sizeof(name) ||
+            !lemma_circuit_builder_add_signal(builder, name, (size_t)written,
+                                              1U, false, true, source,
+                                              &signal_ids[index]) ||
+            signal_ids[index] != index ||
+            !lemma_circuit_builder_add_port(builder, signal_ids[index],
+                                            LEMMA_IR_PORT_INPUT)) {
+            valid = 0;
+            break;
+        }
+    }
+
+    // Exercise each expression append path while repeatedly growing its table.
+    for (size_t index = 0U; valid && index < item_count; ++index) {
+        if (!lemma_circuit_builder_add_read_signal(builder, signal_ids[index],
+                                                   source,
+                                                   &read_expression_ids[index]) ||
+            read_expression_ids[index] != index) {
+            valid = 0;
+        }
+    }
+    for (size_t index = 0U; valid && index < item_count; ++index) {
+        size_t expression_id = 0U;
+        if (!lemma_circuit_builder_add_logical_not(
+                builder, read_expression_ids[index], source, &expression_id) ||
+            expression_id != item_count + index) {
+            valid = 0;
+        }
+    }
+    for (size_t index = 0U; valid && index < item_count; ++index) {
+        size_t expression_id = 0U;
+        if (!lemma_circuit_builder_add_logical_binary(
+                builder, LEMMA_IR_EXPRESSION_LOGICAL_AND,
+                read_expression_ids[index], read_expression_ids[index],
+                source, &expression_id) ||
+            expression_id != 2U * item_count + index) {
+            valid = 0;
+        }
+    }
+    for (size_t index = 0U; valid && index < item_count; ++index) {
+        size_t operands[2] = {
+            read_expression_ids[index], read_expression_ids[index]
+        };
+        size_t expression_id = 0U;
+        if (!lemma_circuit_builder_add_operator(
+                builder, LEMMA_IR_EXPRESSION_BITWISE_AND, operands, 2U,
+                source, &expression_id) ||
+            expression_id != 3U * item_count + index) {
+            valid = 0;
+        }
+    }
+
+    // Drivers also cross their initial capacity and retain their references.
+    for (size_t index = 0U; valid && index < item_count; ++index) {
+        if (!lemma_circuit_builder_add_driver(
+                builder, signal_ids[index], read_expression_ids[index], source)) {
+            valid = 0;
+        }
+    }
+
+    if (valid) {
+        valid = lemma_circuit_builder_signal_count(builder) == item_count &&
+                lemma_circuit_builder_port_count(builder) == item_count &&
+                lemma_circuit_builder_expression_count(builder) ==
+                    4U * item_count &&
+                lemma_circuit_builder_driver_count(builder) == item_count;
+    }
+    if (valid) {
+        const lemma_ir_signal *signal =
+            lemma_circuit_builder_signal_at(builder, signal_ids[8]);
+        const lemma_ir_port *port = lemma_circuit_builder_port_at(builder, 8U);
+        const lemma_ir_expression *expression =
+            lemma_circuit_builder_expression_at(builder, 3U * item_count + 8U);
+        const lemma_ir_driver *driver = lemma_circuit_builder_driver_at(builder, 8U);
+        valid = signal != NULL && strcmp(signal->name, "signal8") == 0 &&
+                port != NULL && port->signal_id == signal_ids[8] &&
+                expression != NULL &&
+                expression->kind == LEMMA_IR_EXPRESSION_BITWISE_AND &&
+                driver != NULL && driver->target_signal_id == signal_ids[8] &&
+                driver->expression_id == read_expression_ids[8];
+    }
+
+    lemma_circuit_builder_destroy(builder);
+    TEST_ASSERT_TRUE_MESSAGE(valid,
+                             "growth must preserve every builder array and ID");
 }

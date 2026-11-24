@@ -78,13 +78,16 @@ in other branches follow the ordinary retention rules.
 
 ### 4.3 Reset and Clock Events
 
-At a clock edge, all process conditions—including synchronous-reset-style
-conditions—are evaluated according to the RTL. An active asynchronous reset
-imposes its reset value, including when assertion coincides with a clock edge.
+When an asynchronous reset is active for a process event, its reset assignments
+take precedence over the ordinary clock-triggered update. If reset assertion
+coincides with an active clock edge, the affected registers take their reset
+values; the normal clocked update does not override them.
 
-When an asynchronous reset and ordinary clocked conditions are combined, their
-priority follows the event control, conditions, and branch order expressed in
-the RTL. Lemma adds no priority rule of its own.
+When asynchronous reset is inactive, process conditions and assignments at a
+clock edge follow the RTL. Priority among ordinary clocked conditions follows
+their expressed conditions and branch order. A synchronous-reset-style
+condition remains ordinary clocked control and does not gain asynchronous
+reset priority.
 
 ### 4.4 Reset Deassertion
 

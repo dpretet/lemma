@@ -4,7 +4,7 @@
 #include "circuit_ir.h"
 #include "frontend_parse.h"
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 // Validate and elaborate the sole module into fresh builder-owned IR storage.
 // No separate owning elaborated-design object is created.
 //
@@ -13,7 +13,7 @@
 // @diagnostic: Optional diagnostic output, cleared on entry when provided.
 // @returns: Nonzero on success; zero for unsupported RTL or an operation failure;
 //     destroy, rather than finalize, the builder on failure.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 int lemma_frontend_elaborate(const lemma_parsed_source *parsed,
                              lemma_circuit_builder *builder,
                              lemma_frontend_diagnostic *diagnostic);

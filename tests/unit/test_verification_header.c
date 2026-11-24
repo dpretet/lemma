@@ -31,12 +31,12 @@ _Static_assert(
              default: 0),
     "lemma_result_proof declaration has the expected signature");
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 // Check representative public records with live pointer targets, key field
 // values, and distinct diagnostic stages; this is not a job or proof test.
 //
 // @returns: None.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 void test_verification_header_declarations(void)
 {
     const lemma_diagnostic_stage diagnostic_stages[] = {

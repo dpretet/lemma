@@ -2,13 +2,13 @@
 
 #include "lemma/trace.h"
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Check aggregate-initialized trace fields for width, event kind and edge,
 // transition count, and nested signal name. Referenced data stays live through
 // the assertions; this header-only test checks fields, not ABI offsets.
 //
 // @returns: None.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 void test_trace_declarations(void)
 {
     const unsigned char bytes[] = {0x05U};

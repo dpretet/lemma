@@ -116,9 +116,10 @@ default-zero policy is a later modeling step and must not be misreported as RTL
 behavior.
 
 Latches and other level-sensitive storage are not FFDs and are outside this
-initial representation. Multiple asynchronous reset events per register and
-the exact treatment of coincident clock/reset events remain governed by the
-register-semantics specifications.
+initial representation. A coincident active asynchronous reset takes
+precedence over the ordinary clock-triggered update, as specified in
+[`register-semantics.md`](register-semantics.md). Multiple asynchronous reset
+events per register remain outside the current specification.
 
 ## 5. Invariants at the IR boundary
 

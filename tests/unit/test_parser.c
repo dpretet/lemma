@@ -11,13 +11,13 @@
 
 #define RTL_FIXTURE_COUNT 54U
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Read a named RTL fixture into caller-owned NUL-terminated storage.
 //
 // @name: Fixture file name relative to tests/fixtures/rtl.
 // @length: Receives the source byte length on success.
 // @returns: Caller-owned source, or NULL on path, I/O, size, or allocation failure.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 static char *read_rtl_fixture(const char *name, size_t *length)
 {
     char path[512];
@@ -57,23 +57,23 @@ static char *read_rtl_fixture(const char *name, size_t *length)
     return source;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------
 // Check whether a directory entry names a SystemVerilog fixture.
 //
 // @name: Directory-entry name.
 // @returns: Nonzero when name ends in the exact .sv suffix.
-//--------------------------------------------------------
+//---------------------------------------------------------------
 static int is_systemverilog_fixture(const char *name)
 {
     size_t length = strlen(name);
     return length >= 3U && strcmp(name + length - 3U, ".sv") == 0;
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 // Accept a complete module and return a parsed handle while its source lives.
 //
 // @returns: None.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 void test_parser_accepts_valid_module_source(void)
 {
     static const char source[] = "module top(input wire a); endmodule";
@@ -86,11 +86,11 @@ void test_parser_accepts_valid_module_source(void)
     lemma_parsed_source_destroy(parsed);
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Reject malformed syntax at parsing and report a source-located diagnostic.
 //
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 void test_parser_rejects_malformed_module_source(void)
 {
     static const char source[] = "module broken(input wire a) endmodule";
@@ -104,11 +104,11 @@ void test_parser_rejects_malformed_module_source(void)
     TEST_ASSERT_TRUE(diagnostic.has_source_range);
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------
 // Reject a null input buffer before passing it to Tree-sitter.
 //
 // @returns: None.
-//--------------------------------------------------------
+//-------------------------------------------------------------
 void test_parser_rejects_null_source_buffer(void)
 {
     lemma_frontend_diagnostic diagnostic = {0};
@@ -119,11 +119,11 @@ void test_parser_rejects_null_source_buffer(void)
     TEST_ASSERT_EQUAL_STRING("parse.invalid_input", diagnostic.code);
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Stop syntax-error inspection at a bounded depth with a source-located diagnostic.
 //
 // @returns: None.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 void test_parser_rejects_overdeep_error_tree_without_recursing_unboundedly(void)
 {
     static const char prefix[] = "module deep; always_comb ";
@@ -154,11 +154,11 @@ void test_parser_rejects_overdeep_error_tree_without_recursing_unboundedly(void)
     TEST_ASSERT_TRUE(diagnostic.has_source_range);
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 // Parse every .sv fixture and fail if the checked-in corpus count changes.
 //
 // @returns: None.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 void test_parser_parses_all_rtl_fixtures(void)
 {
     char directory_path[512];

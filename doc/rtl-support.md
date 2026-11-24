@@ -15,20 +15,22 @@ This document is a working specification. **TBD** items are not yet normative.
 
 ### Fixture-bounded frontend profile (incremental)
 
-The current conformance target is the exact set of constructs exercised by the
-54 standalone modules in [`tests/fixtures/rtl`](../tests/fixtures/rtl/README.md):
-27 combinational modules and 27 corresponding clocked modules. The corpus is an
-incremental profile, not a permanent product limit or a replacement for the
+The current conformance target is the constructs exercised by the 54 standalone
+modules in [`tests/fixtures/rtl`](../tests/fixtures/rtl/README.md): 27
+combinational modules and 27 corresponding clocked modules, together with
+explicitly described and tested frontend cases in this profile. The corpus is
+an incremental profile, not a permanent product limit or a replacement for the
 broader target below. Passing these fixtures through circuit-IR construction
 does not imply support for other syntax in the same construct families.
 
 The profile accepts one flat module with an ANSI port list. Ports are scalar or
-explicitly sized, descending packed `wire` or `logic` inputs and outputs; the
-fixtures also use output `reg` declarations for procedural assignments. Packed
-range bounds are concrete decimal integers. Declared signedness is retained and
-omitted signedness is unsigned. The supported declaration forms include the
-bare ANSI shorthand inherited after a fully specified declaration, as described
-below.
+explicitly sized, ascending or descending packed `wire` or `logic` inputs and
+outputs; the fixtures also use output `reg` declarations for procedural
+assignments. Packed range bounds are concrete decimal integers, and a packed
+declaration's width is the absolute difference between its bounds plus one.
+Declared signedness is retained and omitted signedness is unsigned. The
+supported declaration forms include the bare ANSI shorthand inherited after a
+fully specified declaration, as described below.
 
 The module may contain the continuous assignments, one internal packed `wire`
 declaration, complete combinational processes, and clocked processes represented
@@ -313,12 +315,12 @@ multiple clock domains are outside this profile. When a reset event is present,
 the process must test that reset with a condition matching its asserted
 polarity: `if (<reset>)` for `posedge <reset>` or `if (!<reset>)` for
 `negedge <reset>`.
-When an asynchronous reset is active at a coincident clock edge, the reset value
-is imposed, as specified in
-[`register-semantics.md`](register-semantics.md). Other event combinations
-outside the fixture forms remain unsupported. This source-order priority rule
-applies only to assignments within one process; multiple procedural drivers for
-a register are unsupported in the MVP and must be diagnosed.
+When an asynchronous reset is active at a coincident clock edge, the reset
+branch takes precedence over the ordinary clock-triggered update, as specified
+in [`register-semantics.md`](register-semantics.md). Other event combinations
+outside the fixture forms remain unsupported. The source-order priority rule
+for ordinary assignments applies within one process; multiple procedural
+drivers for a register are unsupported in the MVP and must be diagnosed.
 
 ## 8. Process restrictions
 

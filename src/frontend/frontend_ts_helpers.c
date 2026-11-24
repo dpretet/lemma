@@ -3,13 +3,13 @@
 #include <limits.h>
 #include <string.h>
 
-//--------------------------------------------------------
+//-------------------------------------------------------
 // Apply a child filter to one direct Tree-sitter child.
 //
 // @child: Direct child considered for selection.
 // @filter: Requested child category.
 // @returns: Nonzero when the child satisfies the filter.
-//--------------------------------------------------------
+//-------------------------------------------------------
 static int selected_child(TSNode child, lemma_ts_child_filter filter)
 {
     if (filter == LEMMA_TS_CHILD_FILTER_ALL) {
@@ -22,7 +22,7 @@ static int selected_child(TSNode child, lemma_ts_child_filter filter)
            !ts_node_is_extra(child);
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 // Visit selected direct children in original source order.
 //
 // @parent: Non-null node whose immediate children are visited.
@@ -31,7 +31,7 @@ static int selected_child(TSNode child, lemma_ts_child_filter filter)
 // @context: Caller value borrowed during callbacks.
 // @returns: COMPLETE or STOPPED after traversal, or FAILED after callback failure
 //     or an invalid callback action.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
     TSNode parent, lemma_ts_child_filter filter,
     lemma_ts_child_visitor visitor, void *context)
@@ -54,7 +54,7 @@ lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
     return LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 // Find a unique immediate child with the requested exact type.
 //
 // @parent: Non-null parent node.
@@ -63,7 +63,7 @@ lemma_ts_child_visit_result lemma_frontend_ts_visit_children(
 // @child: Non-NULL output initialized to a null node.
 // @returns: UNIQUE, MISSING, or AMBIGUOUS; the arguments satisfy their
 //     documented preconditions.
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 lemma_ts_child_type_result lemma_frontend_ts_unique_child_by_type(
     TSNode parent, const char *type, lemma_ts_child_filter filter, TSNode *child)
 {
@@ -91,14 +91,14 @@ lemma_ts_child_type_result lemma_frontend_ts_unique_child_by_type(
     return LEMMA_TS_CHILD_TYPE_UNIQUE;
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------
 // Find the first immediate child bearing an exact grammar field name.
 //
 // @parent: Non-null parent node.
 // @field_name: Nonempty grammar field name.
 // @child: Required output initialized to a null node.
 // @returns: FOUND, MISSING, or INVALID_INPUT.
-//--------------------------------------------------------
+//--------------------------------------------------------------------
 lemma_ts_child_field_result lemma_frontend_ts_child_by_field_name(
     TSNode parent, const char *field_name, TSNode *child)
 {
@@ -120,14 +120,14 @@ lemma_ts_child_field_result lemma_frontend_ts_child_by_field_name(
     return LEMMA_TS_CHILD_FIELD_MISSING;
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 // Convert Tree-sitter coordinates to Lemma's half-open range.
 //
 // @node: Non-null node whose range is requested.
 // @range: Non-NULL output initialized to zero.
 // @returns: VALID when representable; INVALID_INPUT when a position cannot be
 //     represented by lemma_source_range.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 lemma_ts_range_result lemma_frontend_ts_node_range(
     TSNode node, lemma_source_range *range)
 {
@@ -154,7 +154,7 @@ lemma_ts_range_result lemma_frontend_ts_node_range(
     return LEMMA_TS_RANGE_VALID;
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------
 // Form a checked borrowed slice from a node belonging to parsed's tree.
 //
 // @parsed: Live non-NULL handle with non-NULL source and tree.
@@ -162,7 +162,7 @@ lemma_ts_range_result lemma_frontend_ts_node_range(
 // @text: Non-NULL output initialized to an empty slice.
 // @returns: VALID with a borrowed slice, or INVALID_INPUT for an unrepresentable
 //     node range or source offsets outside the borrowed source buffer.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------
 lemma_ts_text_result lemma_frontend_ts_node_text(
     const lemma_parsed_source *parsed, TSNode node, lemma_syntax_text *text)
 {

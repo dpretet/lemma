@@ -37,7 +37,11 @@ transitions recognized by the supported RTL semantics, including:
 - an active edge of the selected clock; or
 - assertion of a supported asynchronous reset.
 
-A clock event may update state even when no register changes value; in that case the transition still represents evaluation of the sequential logic and assertions at that event. An asynchronous reset assertion may cause a transition outside any clock event. Reset deassertion alone does not update registers and is not, by itself, a state transition; the affected registers retain their values until the RTL causes an update.
+A clock event may update state even when no register changes value; in that case the transition
+still represents evaluation of the sequential logic and assertions at that event. An asynchronous
+reset assertion may cause a transition outside any clock event. Reset deassertion alone does not
+update registers and is not, by itself, a state transition; the affected registers retain their
+values until the RTL causes an update.
 
 Only active edges of the selected clock trigger the synchronous logic included
 in that proof. Lemma does not infer an implicit clock from signal changes.
@@ -110,16 +114,14 @@ follow the supported RTL expression and assignment semantics.
 
 ### 5.2 Reset priority and coincident events
 
-When an asynchronous reset is combined with ordinary clocked conditions,
-priority follows the event control, conditions, and branch order expressed in
-the RTL; Lemma adds no independent priority rule. A reset-named synchronous
-condition is simply one of those ordinary conditions.
+When an asynchronous reset is active for a process event, its reset assignments
+take precedence over the ordinary clock-triggered update. If reset assertion
+coincides with an active clock edge, the affected registers take their reset
+values; the normal clocked update does not override them.
 
-An asserted asynchronous reset imposes its RTL-defined effect independently
-of the clock. If its assertion coincides with a clock edge, the treatment must
-preserve the RTL event semantics; any unresolved atomicity or ordering question
-for that coincidence remains an implementation semantic point and must not be
-hidden by an arbitrary choice.
+When asynchronous reset is inactive, clocked conditions and branch priority
+follow the RTL. A reset-named synchronous condition is ordinary clocked control
+and does not receive asynchronous reset priority.
 
 ### 5.3 Deassertion and supported structure
 

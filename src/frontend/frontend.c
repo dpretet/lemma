@@ -13,13 +13,13 @@ typedef struct frontend_result_storage {
     lemma_frontend_diagnostic diagnostic;
 } frontend_result_storage;
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 // Copy one stage diagnostic into the result-owned error slot.
 //
 // @storage: Result allocation whose diagnostic slot receives the copy.
 // @diagnostic: Stage diagnostic copied into the result.
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 static void set_result_diagnostic(frontend_result_storage *storage,
                                   const lemma_frontend_diagnostic *diagnostic)
 {
@@ -29,7 +29,7 @@ static void set_result_diagnostic(frontend_result_storage *storage,
     storage->result.diagnostics = &storage->diagnostic;
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------
 // Set a frontend error diagnostic for a failure without a stage record.
 //
 // @diagnostic: Diagnostic record receiving the error.
@@ -37,7 +37,7 @@ static void set_result_diagnostic(frontend_result_storage *storage,
 // @code: Static diagnostic code string.
 // @message: Concise diagnostic message.
 // @returns: None.
-//--------------------------------------------------------
+//----------------------------------------------------------------------
 static void set_frontend_diagnostic(lemma_frontend_diagnostic *diagnostic,
                                     lemma_frontend_stage stage, const char *code,
                                     const char *message)
@@ -50,13 +50,13 @@ static void set_frontend_diagnostic(lemma_frontend_diagnostic *diagnostic,
                    "%s", message);
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Run every implemented frontend stage and return its circuit or diagnostic.
 //
 // @source: Non-NULL source buffer borrowed for the duration of this call.
 // @length: Number of source bytes; must fit Tree-sitter's uint32_t limit.
 // @returns: Caller-owned result, or NULL only when result allocation fails.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 lemma_frontend_result *lemma_frontend_build(const char *source, size_t length)
 {
     frontend_result_storage *storage = calloc(1U, sizeof(*storage));
@@ -91,7 +91,7 @@ lemma_frontend_result *lemma_frontend_build(const char *source, size_t length)
         lemma_parsed_source_destroy(parsed);
         if (diagnostic.code == NULL) {
             set_frontend_diagnostic(
-                &diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
+                &diagnostic, LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
                 "frontend.missing_diagnostic",
                 "RTL elaboration failed without a diagnostic");
         }
@@ -112,12 +112,12 @@ lemma_frontend_result *lemma_frontend_build(const char *source, size_t length)
     return &storage->result;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Destroy a frontend result and the storage containing its diagnostic array.
 //
 // @result: Caller-owned result, or NULL; do not access it after destruction.
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 void lemma_frontend_result_destroy(lemma_frontend_result *result)
 {
     if (result != NULL) {

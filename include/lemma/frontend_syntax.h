@@ -269,7 +269,7 @@ typedef enum lemma_syntax_visit_action {
     LEMMA_SYNTAX_VISIT_FAIL
 } lemma_syntax_visit_action;
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 // Handle one syntax event synchronously in source order; views, slices, and
 // ranges must not be retained after the callback.
 //
@@ -277,7 +277,7 @@ typedef enum lemma_syntax_visit_action {
 // @context: Caller-provided context borrowed for the duration of the visit.
 // @returns: CONTINUE to proceed, STOP to end normally without another callback,
 //     or FAIL to return a failed visit result.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 typedef lemma_syntax_visit_action (*lemma_syntax_visitor)(
     const lemma_syntax_view *view, void *context);
 
@@ -291,7 +291,7 @@ typedef enum lemma_syntax_visit_result {
     LEMMA_SYNTAX_VISIT_INVALID_INPUT
 } lemma_syntax_visit_result;
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Visit ordered syntax events synchronously without allocation or inferring RTL
 // meaning. A declaration-group event precedes its per-name declarator events;
 // names retain source order and each declarator carries its group range. ANSI
@@ -313,7 +313,7 @@ typedef enum lemma_syntax_visit_result {
 //     for the duration of the visit.
 // @returns: COMPLETE after traversal, STOPPED after visitor stop, or FAILED
 //     after visitor failure or an invalid action when arguments meet preconditions.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 lemma_syntax_visit_result lemma_frontend_visit_syntax(
     const lemma_parsed_source *parsed, lemma_syntax_visitor visitor,
     void *context);

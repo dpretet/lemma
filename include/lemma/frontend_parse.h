@@ -7,7 +7,7 @@
 
 typedef struct lemma_parsed_source lemma_parsed_source;
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Parse source bytes into a caller-owned handle; the buffer remains borrowed
 // until that handle is destroyed.
 //
@@ -17,16 +17,16 @@ typedef struct lemma_parsed_source lemma_parsed_source;
 // @diagnostic: Optional diagnostic output, cleared on entry when provided.
 // @returns: Caller-owned parsed-source handle, or NULL for invalid input,
 //     syntax or parser failure, or allocation failure.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 lemma_parsed_source *lemma_frontend_parse(const char *source, size_t length,
                                           lemma_frontend_diagnostic *diagnostic);
 
-//--------------------------------------------------------
+//---------------------------------------------------
 // Destroy a parsed-source handle.
 //
 // @parsed: Parsed-source handle to destroy, or NULL.
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------
 void lemma_parsed_source_destroy(lemma_parsed_source *parsed);
 
 #endif

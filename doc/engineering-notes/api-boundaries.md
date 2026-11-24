@@ -241,13 +241,16 @@
   [`frontend_elaboration.c`](../../src/frontend/frontend_elaboration.c),
   [`frontend_ts.c`](../../src/frontend/frontend_ts.c), and
   [`rtl-support.md`](../rtl-support.md).
-- **Open (verified 2026-11-08):** A continuous assignment with `drive_strength`
-  is lowered like a plain alias although strength is absent from the IR and the
-  first-profile contract. `assign (strong1, highz0) y = a;` is accepted. Preserve
-  and reject this modifier unless its semantics are specified. See
-  [`frontend_ts.c`](../../src/frontend/frontend_ts.c) and
-  [`internal-representation.md`](../internal-representation.md). **User triage
-  (2026-11-08):** do not add drive-strength support for MVP; defer further work.
+- **Resolved (verified 2026-11-24):** Continuous assignments containing a
+  `drive_strength` node are rejected as unsupported syntax rather than lowered
+  as plain aliases. `test_frontend.c` verifies rejection, the RTL validation /
+  elaboration diagnostic, no circuit, and a source range. The earlier
+  `assign (strong1, highz0) y = a;` acceptance finding was verified on the
+  reviewed 2026-11-08 base. The user then directed that drive strengths remain
+  unsupported and be rejected, rather than gaining IR semantics. See
+  [`frontend_ts.c`](../../src/frontend/frontend_ts.c),
+  [`test_frontend.c`](../../tests/unit/test_frontend.c), and
+  [`rtl-support.md`](../rtl-support.md).
 - **Resolved (verified 2026-11-08):** Elaborating individual bound slices
   preserves valid ranges with whitespace, line comments, and block comments
   between range tokens; an unterminated block comment still fails parsing.

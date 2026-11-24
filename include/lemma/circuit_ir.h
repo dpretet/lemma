@@ -24,7 +24,7 @@ typedef struct lemma_ir_signal {
 
 // Maps an ordered circuit port to its signal by array index.
 typedef struct lemma_ir_port {
-    uint32_t signal_id;
+    size_t signal_id;
     lemma_ir_port_direction direction;
 } lemma_ir_port;
 
@@ -60,8 +60,8 @@ typedef enum lemma_ir_expression_kind {
 // operand_ids. Unary operators use operand_ids[0] and leave [1] zero.
 typedef struct lemma_ir_expression {
     lemma_ir_expression_kind kind;
-    uint32_t signal_id;
-    uint32_t operand_ids[2];
+    size_t signal_id;
+    size_t operand_ids[2];
     uint32_t width;
     bool is_signed;
     lemma_source_range source;
@@ -69,15 +69,15 @@ typedef struct lemma_ir_expression {
 
 // A combinational assignment; IDs index arrays in the containing circuit.
 typedef struct lemma_ir_driver {
-    uint32_t target_signal_id;
-    uint32_t expression_id;
+    size_t target_signal_id;
+    size_t expression_id;
     lemma_source_range source;
 } lemma_ir_driver;
 
 // A flip-flop assignment; IDs index arrays in the containing circuit.
 typedef struct lemma_ir_ffd {
-    uint32_t q_signal_id;
-    uint32_t d_expression_id;
+    size_t q_signal_id;
+    size_t d_expression_id;
     lemma_source_range source;
 } lemma_ir_ffd;
 
@@ -99,12 +99,12 @@ typedef struct lemma_circuit {
 // Opaque internal owner of circuit storage while elaboration populates it.
 typedef struct lemma_circuit_builder lemma_circuit_builder;
 
-//--------------------------------------------------------
+//---------------------------------------------
 // Destroy a circuit and all its owned storage.
 //
 // @circuit: Circuit to destroy, or NULL.
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------
 void lemma_circuit_destroy(lemma_circuit *circuit);
 
 #endif

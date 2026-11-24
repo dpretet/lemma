@@ -14,7 +14,7 @@ typedef struct lemma_frontend_result {
     const lemma_frontend_diagnostic *diagnostics;
 } lemma_frontend_result;
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Parse, extract, validate, elaborate, and construct the sole-module circuit.
 // The input buffer is borrowed only for this synchronous call. Parse, RTL, and
 // IR failures return a result with no circuit and an error diagnostic.
@@ -24,15 +24,15 @@ typedef struct lemma_frontend_result {
 // @returns: Caller-owned result; its circuit and read-only diagnostics remain
 //     valid until destruction. Returns NULL only if the result object cannot
 //     be allocated.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 lemma_frontend_result *lemma_frontend_build(const char *source, size_t length);
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Destroy a caller-owned frontend result, circuit, and diagnostic storage.
 //
 // @result: Caller-owned result to destroy, or NULL; do not access it afterward.
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 void lemma_frontend_result_destroy(lemma_frontend_result *result);
 
 #endif

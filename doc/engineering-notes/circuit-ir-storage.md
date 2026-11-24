@@ -1,7 +1,8 @@
 # Circuit IR Storage
 
 - **Status:** accepted (owning circuit object and array-position IDs; direct
-  elaboration-to-IR builder handoff); open (allocator policy)
+  elaboration-to-IR builder handoff; future arena-backed allocation direction);
+  open (arena ownership boundaries and allocation-failure behavior)
 - **Date:** 2026-11-07
 - **Context:** The circuit IR contract in [`internal-representation.md`](../internal-representation.md)
   defines circuit-local signal and expression IDs, but not their C storage.
@@ -32,11 +33,30 @@
   but the production frontend has no arena calls; its only current use is the
   unit test. The bundled arena asserts on underlying allocation failure
   (`third_party/tsoding-arena/arena.h`, `new_region`), and its implementation is
-  built with assertions enabled. The frontend's current `malloc`/`free` use
-  permits recoverable allocation errors and cleanup. **Open:** choose whether
-  to make arena allocation fallible before using it for frontend/IR ownership,
-  or keep ordinary heap allocations for those stages. Do not treat the current
-  mix as a settled allocator policy.
+  built with assertions enabled. The current production frontend/IR use of
+  `malloc`, `calloc`, and `realloc` is transitional, not the intended long-term
+  allocation design.
+- **Accepted user direction (2026-11-24):** Move frontend and IR storage toward
+  arena-backed allocation rather than retaining the current per-object heap
+  allocation and array-reallocation approach. This direction is motivated by
+  scaling to large designs and future workloads with many SVA properties; it
+  does not claim SVA modeling is currently implemented. The arena migration is
+  future work, not current behavior.
+- **Accepted user decision (2026-11-24):** Use `size_t` for internal circuit-IR
+  IDs and references, matching array counts and indexing. Keep Tree-sitter's
+  `uint32_t` byte/child values and RTL bit widths/bounds unchanged; they encode
+  separate external or language limits. Implemented in the circuit IR, builder,
+  elaboration, and tests; `./flow.sh test` passed 7/7 CTest tests.
+- **Open:** Define arena ownership/lifetimes across frontend and IR stages, and
+  make allocation failure recoverable before using the bundled arena for
+  production-owned data. Preserve the current fallible heap-allocation behavior
+  until that design is settled; do not treat the bundled asserting allocator as
+  a drop-in replacement.
+- **Accepted user direction (2026-11-24):** Defer deterministic allocation-
+  failure injection tests for the current array-growth reallocations until the
+  allocation strategy is redesigned. Revisit failure testing alongside the
+  arena/allocator design rather than adding test-only wiring for a transitional
+  heap-growth path.
 - **Frontend implementation status (verified 2026-11-07):** Parsing,
   Tree-sitter extraction, first-profile elaboration, direct IR building, and CLI
   frontend integration are implemented in `src/frontend/` and `src/main.c`.

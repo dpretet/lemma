@@ -29,25 +29,26 @@ not describe planned behavior as already implemented.
   must have a comment in this exact line-comment format immediately before it:
 
   ```c
-  //--------------------------------------------------------
+  //---------------------------------------------------
   // Concise description of the function's purpose.
   //
   // @argument_name: description of this argument.
   // @another_argument: description of this argument.
   // @returns: description of the return value.
-  //--------------------------------------------------------
+  //---------------------------------------------------
   ```
 
-  Use the separator line exactly as shown above and below every function
-  comment. Include one `// @name:` line for every argument, using its declared
-  name; omit argument lines for functions without arguments. Every function
-  comment must include `// @returns:`; use `// @returns: None.` for `void`
-  functions. Keep the purpose description concise. Describe valid inputs,
-  ownership/lifetime, and failure behavior where relevant. Return descriptions
-  must explain meaningful values, ownership, and failure results. Comments for
-  public and internal APIs must state the full contract; implementation comments
-  must explain non-obvious assumptions, return meanings, and invariants. Apply
-  the same format to callback typedef documentation and test function prototypes.
+  Make each separator line as long as the longest physical line inside that
+  comment, including its `//` prefix. Include one `// @name:` line for every
+  argument, using its declared name; omit argument lines for functions without
+  arguments. Every function comment must include `// @returns:`; use
+  `// @returns: None.` for `void` functions. Keep the purpose description
+  concise. Describe valid inputs, ownership/lifetime, and failure behavior where
+  relevant. Return descriptions must explain meaningful values, ownership, and
+  failure results. Comments for public and internal APIs must state the full
+  contract; implementation comments must explain non-obvious assumptions,
+  return meanings, and invariants. Apply the same format to callback typedef
+  documentation and test function prototypes.
   For long or multi-phase functions, add brief comments at meaningful code-block
   boundaries. Do not narrate obvious statements line by line, but do not omit
   comments merely because the function seems self-explanatory.

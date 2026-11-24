@@ -10,12 +10,12 @@
 
 #define LEMMA_PARSE_TREE_WALK_MAX_DEPTH 128U
 
-//--------------------------------------------------------
+//-----------------------------------------------------------
 // Reset an optional diagnostic before a parsing operation.
 //
 // @diagnostic: Optional output record cleared when non-NULL.
 // @returns: None.
-//--------------------------------------------------------
+//-----------------------------------------------------------
 static void clear_diagnostic(lemma_frontend_diagnostic *diagnostic)
 {
     if (diagnostic != NULL) {
@@ -23,7 +23,7 @@ static void clear_diagnostic(lemma_frontend_diagnostic *diagnostic)
     }
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------
 // Report a parsing-stage diagnostic with an optional source range.
 //
 // @diagnostic: Optional record receiving the diagnostic.
@@ -31,7 +31,7 @@ static void clear_diagnostic(lemma_frontend_diagnostic *diagnostic)
 // @message: Concise diagnostic message.
 // @node: Node supplying a range, or a null node when unavailable.
 // @returns: None.
-//--------------------------------------------------------
+//-----------------------------------------------------------------
 static void set_parse_diagnostic(lemma_frontend_diagnostic *diagnostic,
                                 const char *code, const char *message,
                                 TSNode node)
@@ -52,7 +52,7 @@ static void set_parse_diagnostic(lemma_frontend_diagnostic *diagnostic,
     }
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------------
 // Locate the first parser error or missing node in source order within a depth bound.
 //
 // @node: Root or descendant node inspected recursively.
@@ -60,7 +60,7 @@ static void set_parse_diagnostic(lemma_frontend_diagnostic *diagnostic,
 // @depth_exceeded: Set when a descendant could not be inspected within the bound.
 // @deep_node: Receives the deepest node at which inspection stopped.
 // @returns: Earliest error node, or a null node when none exists or depth is exceeded.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------------
 static TSNode first_syntax_error(TSNode node, size_t depth, int *depth_exceeded,
                                 TSNode *deep_node)
 {
@@ -86,7 +86,7 @@ static TSNode first_syntax_error(TSNode node, size_t depth, int *depth_exceeded,
     return (TSNode){0};
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------
 // Parse a borrowed source buffer into a caller-owned tree handle.
 //
 // @source: Non-NULL source bytes borrowed until handle destruction.
@@ -94,7 +94,7 @@ static TSNode first_syntax_error(TSNode node, size_t depth, int *depth_exceeded,
 // @diagnostic: Optional parsing diagnostic cleared on entry.
 // @returns: Caller-owned parsed-source handle, or NULL for invalid input,
 //     syntax failure, parser failure, or allocation failure.
-//--------------------------------------------------------
+//------------------------------------------------------------------------
 lemma_parsed_source *lemma_frontend_parse(const char *source, size_t length,
                                           lemma_frontend_diagnostic *diagnostic)
 {
@@ -153,12 +153,12 @@ lemma_parsed_source *lemma_frontend_parse(const char *source, size_t length,
     return parsed;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------
 // Destroy a parsed-source handle and its Tree-sitter tree.
 //
 // @parsed: Handle to destroy, or NULL.
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------------
 void lemma_parsed_source_destroy(lemma_parsed_source *parsed)
 {
     if (parsed != NULL) {

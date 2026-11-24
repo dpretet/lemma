@@ -4,7 +4,7 @@
 > frontend rebuild. It is not a normative RTL specification. Current specs and
 > later user alignment take precedence.
 
-**Date:** 2026-11-17
+**Date:** 2026-11-19
 
 ## Purpose and implementation boundary
 
@@ -91,13 +91,13 @@ unknown module items or statements.
 ## Implementation status
 
 The frontend implementation is present in `src/frontend/`: parsing, nested
-Tree-sitter extraction, first-profile validation/elaboration, IR builder, and the
-one-shot entry point. `lemma_frontend_build` returns a caller-owned result with
-an optional circuit and a read-only diagnostic array; parse, RTL, and IR
-failures return a result with an error diagnostic, while NULL is reserved for
-result allocation failure. The result owns its circuit and diagnostics. The CLI
-prints diagnostics and reports circuit construction only; it does not claim
-proof success.
+Tree-sitter extraction, partial fixture-bounded validation/elaboration and IR
+construction, and the one-shot entry point. This state is committed as
+`a650f31`. `lemma_frontend_build` returns a caller-owned result with an optional
+circuit and a read-only diagnostic array; parse, RTL, and IR failures return a
+result with an error diagnostic, while NULL is reserved for result allocation
+failure. The result owns its circuit and diagnostics. The CLI prints diagnostics
+and reports circuit construction only; it does not claim proof success.
 
 User-aligned next target: all 54 modules in `tests/fixtures/rtl/` must pass
 validation/elaboration and produce circuit IR, without proof execution. The exact
@@ -187,8 +187,10 @@ first-party callers to audit.
 The parser test verifies the complete 54-file corpus. Circuit-IR tests cover
 the alias baseline, boolean continuous assignment, and the six vector-operator
 fixtures; the remaining 45 fixtures are still pending RTL/IR implementation.
-The latest independent run passed all 7 CTest targets and `git diff --check`.
-`./flow.sh test` is the required full validation command after C changes.
+Commit `a650f31` was independently verified: `./flow.sh test` passed all 7
+CTest targets, and `git diff --check` passed. The reported Debug build had no
+compiler warnings. The parser test covers all 54 fixtures; the IR tests cover
+the nine supported fixture modules. Run `./flow.sh test` after further C changes.
 
 ## Deferred review findings (triaged 2026-11-08)
 

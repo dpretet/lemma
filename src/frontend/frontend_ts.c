@@ -25,13 +25,13 @@ typedef struct declaration_type_facts {
     int has_unsigned;
 } declaration_type_facts;
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Return a borrowed source view for a node, or an empty view for a null node.
 //
 // @parsed: Live parsed-source handle that owns the tree and borrows the source.
 // @node: Node whose source text is requested, or a null node.
 // @returns: Borrowed source slice for node, or an empty view on failure.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 static lemma_syntax_text syntax_text_for_node(const lemma_parsed_source *parsed,
                                                TSNode node)
 {
@@ -42,12 +42,12 @@ static lemma_syntax_text syntax_text_for_node(const lemma_parsed_source *parsed,
     return text;
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 // Return a node's range, or a zero range when the node is null or invalid.
 //
 // @node: Node whose source range is requested, or a null node.
 // @returns: Node's half-open range, or a zero range on failure.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 static lemma_source_range syntax_range_for_node(TSNode node)
 {
     lemma_source_range range = {0};
@@ -57,14 +57,14 @@ static lemma_source_range syntax_range_for_node(TSNode node)
     return range;
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Form a borrowed source view from two nodes in the parsed tree.
 //
 // @parsed: Live parsed-source handle with non-NULL source and tree.
 // @first: Non-NULL node in parsed's tree providing the first byte and point.
 // @last: Non-NULL node in parsed's tree providing the exclusive end byte and point.
 // @returns: Borrowed half-open source slice, or empty for invalid ranges/bounds.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 static lemma_syntax_text syntax_text_between_nodes(
     const lemma_parsed_source *parsed, TSNode first, TSNode last)
 {
@@ -90,13 +90,13 @@ static lemma_syntax_text syntax_text_between_nodes(
     return text;
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 // Return the first direct child with an exact named type, or a null node.
 //
 // @parent: Parent node whose direct children are searched.
 // @type: Exact Tree-sitter node type to find.
 // @returns: Matching direct child, or a null node if missing or ambiguous.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 static TSNode syntax_unique_child(TSNode parent, const char *type)
 {
     if (ts_node_is_null(parent)) {
@@ -111,14 +111,14 @@ static TSNode syntax_unique_child(TSNode parent, const char *type)
     return child;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------------
 // Return the first direct child of one of two syntax types, if exactly one exists.
 //
 // @parent: Parent node whose direct children are searched.
 // @first_type: First exact Tree-sitter node type to find.
 // @second_type: Alternate exact Tree-sitter node type to find.
 // @returns: Matching direct child, or a null node when absent or ambiguous.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------------
 static TSNode syntax_child_of_either(TSNode parent, const char *first_type,
                                      const char *second_type)
 {
@@ -130,13 +130,13 @@ static TSNode syntax_child_of_either(TSNode parent, const char *first_type,
     return ts_node_is_null(first) ? second : first;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 // Return a unique direct child including anonymous punctuation tokens.
 //
 // @parent: Parent node whose direct children are searched.
 // @type: Exact Tree-sitter node type to find.
 // @returns: Matching child, or a null node when missing or ambiguous.
-//--------------------------------------------------------
+//---------------------------------------------------------------------
 static TSNode syntax_child_any(TSNode parent, const char *type)
 {
     if (ts_node_is_null(parent)) {
@@ -151,12 +151,12 @@ static TSNode syntax_child_any(TSNode parent, const char *type)
     return child;
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------
 // Count direct named children after excluding Tree-sitter extras.
 //
 // @parent: Parent node whose direct children are counted.
 // @returns: Number of named, non-extra direct children.
-//--------------------------------------------------------
+//----------------------------------------------------------------
 static uint32_t syntax_named_non_extra_child_count(TSNode parent)
 {
     uint32_t total = ts_node_named_child_count(parent);
@@ -169,13 +169,13 @@ static uint32_t syntax_named_non_extra_child_count(TSNode parent)
     return count;
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Send one borrowed syntax view to the caller and remember stop or failure.
 //
 // @walk: Active traversal state.
 // @view: Syntax view whose fields remain borrowed from the parsed source.
 // @returns: Nonzero to continue traversal; zero after stop or callback failure.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 static int syntax_emit(syntax_walk *walk, const lemma_syntax_view *view)
 {
     if (walk->result != LEMMA_SYNTAX_VISIT_COMPLETE) {
@@ -191,18 +191,18 @@ static int syntax_emit(syntax_walk *walk, const lemma_syntax_view *view)
     return 0;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit an opaque module item so later stages cannot silently omit its syntax.
 //
 // @walk: Active syntax traversal state.
 // @item: Module item retained as raw syntax.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int emit_opaque_module_item(syntax_walk *walk, TSNode item,
                                    lemma_source_range module_range);
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Extend a source range to cover direct packed-dimension children.
 //
 // @child: Direct child node inspected.
@@ -210,7 +210,7 @@ static int emit_opaque_module_item(syntax_walk *walk, TSNode item,
 // @field_name: Optional Tree-sitter field name, unused by this callback.
 // @context: Range accumulator updated with the first and last dimension nodes.
 // @returns: CONTINUE to inspect the remaining children.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static lemma_ts_child_visit_action collect_packed_dimension(
     TSNode child, uint32_t child_index, const char *field_name, void *context)
 {
@@ -227,13 +227,13 @@ static lemma_ts_child_visit_action collect_packed_dimension(
     return LEMMA_TS_CHILD_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Visit only the grammar's type wrappers needed to locate packed dimensions.
 //
 // @accumulator: Range state updated with any packed-dimension nodes.
 // @node: Type node whose immediate type wrappers are inspected.
 // @returns: Nonzero when its source slice can be inspected.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static int collect_type_dimensions(range_accumulator *accumulator, TSNode node)
 {
     if (ts_node_is_null(node)) {
@@ -261,14 +261,14 @@ static int collect_type_dimensions(range_accumulator *accumulator, TSNode node)
     return ts_node_is_null(nested) ? 1 : collect_type_dimensions(accumulator, nested);
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 // Return a source slice covering packed dimensions in a known type grammar shape.
 //
 // @parsed: Live parsed-source handle that owns the type node's tree.
 // @type_node: Type syntax node inspected.
 // @group: Declaration-group record receiving the packed-dimension count.
 // @returns: Borrowed source slice covering all dimensions, or an empty view.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------------
 static lemma_syntax_text syntax_packed_dimensions(
     const lemma_parsed_source *parsed, TSNode type_node,
     lemma_syntax_declaration_group *group)
@@ -319,13 +319,13 @@ static lemma_syntax_text syntax_packed_dimensions(
     };
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------
 // Collect declaration keywords by Tree-sitter grammar-node type.
 //
 // @node: Non-NULL type syntax node or descendant to inspect.
 // @facts: Syntax flags updated for exact keyword nodes.
 // @returns: None.
-//--------------------------------------------------------
+//---------------------------------------------------------------
 static void collect_declaration_type_facts(TSNode node,
                                            declaration_type_facts *facts)
 {
@@ -353,13 +353,13 @@ static void collect_declaration_type_facts(TSNode node,
     }
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Set declaration-group type facts from syntax nodes without inferring meaning.
 //
 // @type_node: Shared declaration type node, or null when omitted.
 // @group: Output view receiving keyword categories and syntax flags.
 // @returns: None.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 static void syntax_set_declaration_type_facts(
     TSNode type_node, lemma_syntax_declaration_group *group)
 {
@@ -389,7 +389,7 @@ static void syntax_set_declaration_type_facts(
     }
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit one declaration-group view before the group's declarator views.
 //
 // @walk: Active traversal state.
@@ -401,7 +401,7 @@ static void syntax_set_declaration_type_facts(
 // @dimensions_node: Syntax node containing packed dimensions, or null.
 // @has_port_header: Nonzero only when this ANSI port node has a header.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int syntax_emit_declaration_group(
     syntax_walk *walk, lemma_syntax_declaration_group_kind kind,
     TSNode source_node, lemma_source_range module_range,
@@ -426,7 +426,7 @@ static int syntax_emit_declaration_group(
     return syntax_emit(walk, &view);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit one declarator associated with its declaration group's source range.
 //
 // @walk: Active traversal state.
@@ -436,7 +436,7 @@ static int syntax_emit_declaration_group(
 // @module_range: Range of the containing module.
 // @value_type: Direct child type holding an optional initializer or default.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int syntax_emit_declarator(
     syntax_walk *walk, TSNode name_node, TSNode declarator_node,
     lemma_source_range group_range, lemma_source_range module_range,
@@ -474,7 +474,7 @@ typedef struct declarator_visit {
     const char *value_type;
 } declarator_visit;
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Emit one named declarator from a declaration's declarator list.
 //
 // @child: Direct list child being inspected.
@@ -482,7 +482,7 @@ typedef struct declarator_visit {
 // @field_name: Optional grammar field name, unused by this callback.
 // @context: Declaration-group state for this visit.
 // @returns: CONTINUE for unrelated list items; STOP on visitor stop; FAIL on error.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 static lemma_ts_child_visit_action visit_declarator_child(
     TSNode child, uint32_t child_index, const char *field_name, void *context)
 {
@@ -507,7 +507,7 @@ static lemma_ts_child_visit_action visit_declarator_child(
     return LEMMA_TS_CHILD_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit one parameter or local-parameter group and its per-name assignments.
 //
 // @walk: Active syntax traversal state.
@@ -515,7 +515,7 @@ static lemma_ts_child_visit_action visit_declarator_child(
 // @kind: Parameter or local-parameter declaration category.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_parameter_declaration(
     syntax_walk *walk, TSNode declaration,
     lemma_syntax_declaration_group_kind kind,
@@ -548,14 +548,14 @@ static int visit_parameter_declaration(
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit parameter declarations from a module's parameter-port list.
 //
 // @walk: Active syntax traversal state.
 // @parameter_list: Parameter-port list node, or null when absent.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_parameter_ports(syntax_walk *walk, TSNode parameter_list,
                                  lemma_source_range module_range)
 {
@@ -593,14 +593,14 @@ static int visit_parameter_ports(syntax_walk *walk, TSNode parameter_list,
     return 1;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit one ANSI port group and its declared identifier.
 //
 // @walk: Active syntax traversal state.
 // @port: ANSI port declaration node.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_ansi_port(syntax_walk *walk, TSNode port,
                            lemma_source_range module_range)
 {
@@ -655,7 +655,7 @@ typedef struct port_list_visit {
     lemma_source_range module_range;
 } port_list_visit;
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------
 // Visit one ANSI port child from the header's ordered port list.
 //
 // @child: Direct port-list child being inspected.
@@ -663,7 +663,7 @@ typedef struct port_list_visit {
 // @field_name: Optional grammar field name, unused by this callback.
 // @context: Port-list traversal state.
 // @returns: CONTINUE for non-port children; STOP on visitor stop; FAIL on error.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------------
 static lemma_ts_child_visit_action visit_port_child(
     TSNode child, uint32_t child_index, const char *field_name, void *context)
 {
@@ -686,14 +686,14 @@ static lemma_ts_child_visit_action visit_port_child(
     return LEMMA_TS_CHILD_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit ANSI port groups and declarators in header order.
 //
 // @walk: Active syntax traversal state.
 // @port_list: ANSI port list node, or null when absent.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_ports(syntax_walk *walk, TSNode port_list,
                        lemma_source_range module_range)
 {
@@ -707,14 +707,14 @@ static int visit_ports(syntax_walk *walk, TSNode port_list,
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit one net or data declaration group and all its declarators.
 //
 // @walk: Active syntax traversal state.
 // @declaration: Module-scope net or data declaration node.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
                                     lemma_source_range module_range)
 {
@@ -758,12 +758,12 @@ static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 // Extract a simple signal identifier from a net-assignment destination.
 //
 // @assignment: Net-assignment node being inspected.
 // @returns: Simple identifier node, or null for selects and other lvalues.
-//--------------------------------------------------------
+//-------------------------------------------------------------------------
 static TSNode get_destination_signal(TSNode assignment)
 {
     TSNode lvalue = syntax_unique_child(assignment, "net_lvalue");
@@ -774,23 +774,23 @@ static TSNode get_destination_signal(TSNode assignment)
     return syntax_unique_child(lvalue, "simple_identifier");
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Return the right-hand expression node of one net assignment.
 //
 // @assignment: Net-assignment node being inspected.
 // @returns: Right-hand expression node, or null when the shape is unsupported.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static TSNode get_right_part_of_line(TSNode assignment)
 {
     return syntax_unique_child(assignment, "expression");
 }
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 // Return a top-level ternary condition when the RHS has one.
 //
 // @expression: Right-hand expression node being inspected.
 // @returns: Condition expression node, or null when the RHS is not a ternary.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------
 static TSNode get_condition_if_present(TSNode expression)
 {
     TSNode conditional = syntax_unique_child(expression, "conditional_expression");
@@ -808,7 +808,7 @@ static TSNode get_condition_if_present(TSNode expression)
     return (TSNode){0};
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------------------
 // Visit one expression node and its operands in depth-first source order.
 //
 // @walk: Active syntax traversal state.
@@ -819,14 +819,14 @@ static TSNode get_condition_if_present(TSNode expression)
 // @depth: Expression nesting depth; walks stop at the shared 128-level bound.
 // @child_index: Operand position in the parent expression.
 // @returns: Nonzero after extraction; zero after visitor stop, failure, or depth overflow.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------------------
 static int visit_expression_node(syntax_walk *walk, TSNode node,
                                 lemma_source_range module_range,
                                 lemma_source_range assignment_range,
                                 lemma_source_range parent_range, size_t depth,
                                 size_t child_index);
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Emit one Lemma-owned expression view after visiting its operands.
 //
 // @walk: Active syntax traversal state.
@@ -840,7 +840,7 @@ static int visit_expression_node(syntax_walk *walk, TSNode node,
 // @child_index: Operand position in the parent expression.
 // @operand_count: Number of source-ordered operands.
 // @returns: Nonzero when the syntax visitor continues.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static int emit_expression_view(syntax_walk *walk, TSNode node,
                                 lemma_syntax_expression_kind kind,
                                 TSNode token_node,
@@ -865,14 +865,14 @@ static int emit_expression_view(syntax_walk *walk, TSNode node,
     return syntax_emit(walk, &view);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------
 // Find up to two direct named operand nodes, excluding a unary operator.
 //
 // @node: Expression node whose immediate named children are inspected.
 // @operands: Receives the first two operands in source order.
 // @operand_count: Receives the total direct operand count.
 // @returns: Nonzero when the node has one or two direct operands.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------
 static int expression_operands(TSNode node, TSNode operands[2],
                                size_t *operand_count)
 {
@@ -892,12 +892,12 @@ static int expression_operands(TSNode node, TSNode operands[2],
     return *operand_count == 1U || *operand_count == 2U;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Classify one unary operator token without assigning RTL meaning elsewhere.
 //
 // @token: Borrowed exact source slice for a unary_operator node.
 // @returns: Syntax-only kind for supported unary forms, or OTHER.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static lemma_syntax_expression_kind syntax_unary_operator_kind(
     lemma_syntax_text token)
 {
@@ -933,12 +933,12 @@ static lemma_syntax_expression_kind syntax_unary_operator_kind(
     return LEMMA_SYNTAX_EXPRESSION_OTHER;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Classify one supported binary operator from its exact direct-child token.
 //
 // @node: Expression node whose anonymous direct operator token is inspected.
 // @returns: Syntax-only kind for supported binary forms, or OTHER.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static lemma_syntax_expression_kind syntax_binary_operator_kind(TSNode node)
 {
     static const struct {
@@ -971,7 +971,7 @@ static lemma_syntax_expression_kind syntax_binary_operator_kind(TSNode node)
     return LEMMA_SYNTAX_EXPRESSION_OTHER;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------------------
 // Extract syntax-only expression nodes without assigning RTL meaning.
 //
 // @walk: Active syntax traversal state.
@@ -982,7 +982,7 @@ static lemma_syntax_expression_kind syntax_binary_operator_kind(TSNode node)
 // @depth: Expression nesting depth; walks stop at the shared 128-level bound.
 // @child_index: Operand position in the parent expression.
 // @returns: Nonzero after extraction; zero after visitor stop, failure, or depth overflow.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------------------
 static int visit_expression_node(syntax_walk *walk, TSNode node,
                                 lemma_source_range module_range,
                                 lemma_source_range assignment_range,
@@ -1108,18 +1108,19 @@ static int visit_expression_node(syntax_walk *walk, TSNode node,
         assignment_range, parent_range, depth, child_index, 0U);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit each continuous assignment pair from a module item.
 //
 // @walk: Active syntax traversal state.
 // @continuous: Continuous-assignment module item.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
                                         lemma_source_range module_range)
 {
-    if (!ts_node_is_null(syntax_unique_child(continuous, "delay_control")) ||
+    if (!ts_node_is_null(syntax_unique_child(continuous, "drive_strength")) ||
+        !ts_node_is_null(syntax_unique_child(continuous, "delay_control")) ||
         !ts_node_is_null(syntax_unique_child(continuous, "delay2")) ||
         !ts_node_is_null(syntax_unique_child(continuous, "delay3"))) {
         return emit_opaque_module_item(walk, continuous, module_range);
@@ -1185,14 +1186,14 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
     return 1;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit an opaque module item so later stages cannot silently omit its syntax.
 //
 // @walk: Active syntax traversal state.
 // @item: Module item retained as raw syntax.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int emit_opaque_module_item(syntax_walk *walk, TSNode item,
                                    lemma_source_range module_range)
 {
@@ -1205,25 +1206,25 @@ static int emit_opaque_module_item(syntax_walk *walk, TSNode item,
     return syntax_emit(walk, &view);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit one process and its syntax-only event and statement views.
 //
 // @walk: Active syntax traversal state.
 // @process_node: Process construct node.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_process(syntax_walk *walk, TSNode process_node,
                          lemma_source_range module_range);
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit one direct module-body item using its grammar-specific extractor.
 //
 // @walk: Active syntax traversal state.
 // @item: Direct module-body item.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_body_item(syntax_walk *walk, TSNode item,
                            lemma_source_range module_range)
 {
@@ -1255,7 +1256,7 @@ typedef struct body_visit {
     lemma_source_range module_range;
 } body_visit;
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit one direct child of a module declaration's body.
 //
 // @child: Direct module child inspected.
@@ -1263,7 +1264,7 @@ typedef struct body_visit {
 // @field_name: Optional grammar field name, unused by this callback.
 // @context: Module-body traversal state.
 // @returns: CONTINUE for the header; otherwise STOP or FAIL on visitor result.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static lemma_ts_child_visit_action visit_body_child(
     TSNode child, uint32_t child_index, const char *field_name, void *context)
 {
@@ -1282,7 +1283,7 @@ static lemma_ts_child_visit_action visit_body_child(
     return LEMMA_TS_CHILD_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit one nested statement and its statement children in source order.
 //
 // @walk: Active syntax traversal state.
@@ -1292,7 +1293,7 @@ static lemma_ts_child_visit_action visit_body_child(
 // @parent_range: Range of the parent statement or process.
 // @depth: Nesting depth from the process body.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_statement_node(syntax_walk *walk, TSNode node,
                                 lemma_source_range module_range,
                                 lemma_source_range process_range,
@@ -1307,7 +1308,7 @@ typedef struct statement_children_visit {
     size_t depth;
 } statement_children_visit;
 
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 // Visit one direct statement child while ignoring expression and punctuation nodes.
 //
 // @child: Direct child inspected.
@@ -1315,7 +1316,7 @@ typedef struct statement_children_visit {
 // @field_name: Optional grammar field name, unused by this callback.
 // @context: Parent statement and traversal state.
 // @returns: CONTINUE for non-statement children; STOP or FAIL on visitor result.
-//--------------------------------------------------------
+//----------------------------------------------------------------------------------
 static lemma_ts_child_visit_action visit_statement_child(
     TSNode child, uint32_t child_index, const char *field_name, void *context)
 {
@@ -1374,7 +1375,7 @@ static lemma_ts_child_visit_action visit_statement_child(
     return LEMMA_TS_CHILD_VISIT_CONTINUE;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit statement children through the Tree-sitter direct-child helper.
 //
 // @walk: Active syntax traversal state.
@@ -1384,7 +1385,7 @@ static lemma_ts_child_visit_action visit_statement_child(
 // @parent_range: Range assigned as the immediate statement parent.
 // @depth: Nesting depth assigned to child statements.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_statement_children(syntax_walk *walk, TSNode parent,
                                     lemma_source_range module_range,
                                     lemma_source_range process_range,
@@ -1399,14 +1400,14 @@ static int visit_statement_children(syntax_walk *walk, TSNode parent,
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------------
 // Find the first statement body under a loop-control wrapper within a depth bound.
 //
 // @walk: Active traversal state updated to FAILED if the bound is exceeded.
 // @node: Loop node or direct child inspected.
 // @depth: Current wrapper depth, with the loop node at zero.
 // @returns: First nested statement node, or null when absent or too deep.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------------
 static TSNode first_loop_body(syntax_walk *walk, TSNode node, size_t depth)
 {
     if (depth >= LEMMA_SYNTAX_WALK_MAX_DEPTH) {
@@ -1441,12 +1442,12 @@ static TSNode first_loop_body(syntax_walk *walk, TSNode node, size_t depth)
     return (TSNode){0};
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Find a statement's direct assignment operator, including anonymous tokens.
 //
 // @node: Assignment node whose immediate children are searched.
 // @returns: Assignment operator node, or null when the shape is unsupported.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static TSNode assignment_operator(TSNode node)
 {
     uint32_t count = ts_node_child_count(node);
@@ -1466,7 +1467,7 @@ static TSNode assignment_operator(TSNode node)
     return (TSNode){0};
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Emit one typed statement event with its borrowed source and nesting metadata.
 //
 // @walk: Active syntax traversal state.
@@ -1480,7 +1481,7 @@ static TSNode assignment_operator(TSNode node)
 // @parent_range: Range of the immediate parent statement or process.
 // @depth: Nesting depth from the process body.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 static int emit_statement(syntax_walk *walk, lemma_syntax_statement_kind kind,
                           TSNode node, lemma_syntax_text header,
                           TSNode lvalue_node,
@@ -1504,32 +1505,32 @@ static int emit_statement(syntax_walk *walk, lemma_syntax_statement_kind kind,
     return syntax_emit(walk, &view);
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Find the first direct statement_or_null child, if present.
 //
 // @node: Parent statement node.
 // @returns: Direct statement body node, or null when the statement has no body.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 static TSNode direct_statement_body(TSNode node)
 {
     return syntax_unique_child(node, "statement_or_null");
 }
 
-//--------------------------------------------------------
+//--------------------------------------------------------------------------
 // Return a statement header slice ending immediately before its first body.
 //
 // @parsed: Live parsed-source handle borrowing the source.
 // @statement: Full statement node.
 // @body: First child statement node.
 // @returns: Borrowed prefix slice, or an empty view for invalid ranges.
-//--------------------------------------------------------
+//--------------------------------------------------------------------------
 static lemma_syntax_text statement_prefix(const lemma_parsed_source *parsed,
                                           TSNode statement, TSNode body)
 {
     return syntax_text_between_nodes(parsed, statement, body);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit one statement, unwrapping Tree-sitter's statement container nodes.
 //
 // @walk: Active syntax traversal state.
@@ -1539,7 +1540,7 @@ static lemma_syntax_text statement_prefix(const lemma_parsed_source *parsed,
 // @parent_range: Range of the immediate parent statement or process.
 // @depth: Nesting depth from the process body.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_statement_node(syntax_walk *walk, TSNode node,
                                 lemma_source_range module_range,
                                 lemma_source_range process_range,
@@ -1643,7 +1644,7 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
     return 1;
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Find the timing control and executable body within a bounded wrapper walk.
 //
 // @walk: Active traversal state updated to FAILED if the bound is exceeded.
@@ -1652,7 +1653,7 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
 // @control: Receives an event or delay control when found.
 // @body: Receives the executable statement when found.
 // @returns: Nonzero if a body statement was found within the depth bound.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static int find_process_parts(syntax_walk *walk, TSNode node, size_t depth,
                               TSNode *control, TSNode *body)
 {
@@ -1685,7 +1686,7 @@ static int find_process_parts(syntax_walk *walk, TSNode node, size_t depth,
     return 1;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Emit individual edge or level expressions from a nested event expression.
 //
 // @walk: Active syntax traversal state.
@@ -1694,7 +1695,7 @@ static int find_process_parts(syntax_walk *walk, TSNode node, size_t depth,
 // @process_range: Range of the process owning this event control.
 // @depth: Current recursive event-expression depth, with the root at zero.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_event_expression(syntax_walk *walk, TSNode node,
                                   lemma_source_range module_range,
                                   lemma_source_range process_range, size_t depth)
@@ -1761,14 +1762,14 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
     return syntax_emit(walk, &view);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit one process construct, its event expressions, and its statements.
 //
 // @walk: Active syntax traversal state.
 // @process_node: Process construct node.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_process(syntax_walk *walk, TSNode process_node,
                          lemma_source_range module_range)
 {
@@ -1834,14 +1835,14 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
                                 process.process_range, 0U);
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit an ANSI header's parameter and port declarations.
 //
 // @walk: Active syntax traversal state.
 // @header: Module header node.
 // @module_range: Range of the containing module.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_module_header(syntax_walk *walk, TSNode header,
                                lemma_source_range module_range)
 {
@@ -1854,7 +1855,7 @@ static int visit_module_header(syntax_walk *walk, TSNode header,
            visit_ports(walk, port_list, module_range);
 }
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Visit direct module-body items, dispatching each item by its grammar type.
 //
 // @walk: Active syntax traversal state.
@@ -1862,7 +1863,7 @@ static int visit_module_header(syntax_walk *walk, TSNode header,
 // @header: Header child skipped during body traversal, or null.
 // @module_range: Range of the containing module.
 // @returns: Nonzero after complete traversal; zero after stop or failure.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static int visit_body(syntax_walk *walk, TSNode module, TSNode header,
                       lemma_source_range module_range)
 {
@@ -1873,13 +1874,13 @@ static int visit_body(syntax_walk *walk, TSNode module, TSNode header,
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Visit one module boundary, its header, and its body.
 //
 // @walk: Active syntax traversal state.
 // @module: Module declaration node.
 // @returns: Nonzero to continue traversal; zero after visitor stop or failure.
-//--------------------------------------------------------
+//-----------------------------------------------------------------------------
 static int visit_module(syntax_walk *walk, TSNode module)
 {
     lemma_source_range module_range = syntax_range_for_node(module);
@@ -1920,7 +1921,7 @@ typedef struct source_visit {
     syntax_walk *walk;
 } source_visit;
 
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 // Visit one source-file child, retaining unknown top-level syntax as opaque.
 //
 // @child: Direct source-file child inspected.
@@ -1928,7 +1929,7 @@ typedef struct source_visit {
 // @field_name: Optional grammar field name, unused by this callback.
 // @context: Source traversal state.
 // @returns: CONTINUE for a visited item; STOP or FAIL on visitor result.
-//--------------------------------------------------------
+//---------------------------------------------------------------------------
 static lemma_ts_child_visit_action visit_source_child(
     TSNode child, uint32_t child_index, const char *field_name, void *context)
 {
@@ -1949,7 +1950,7 @@ static lemma_ts_child_visit_action visit_source_child(
                : LEMMA_TS_CHILD_VISIT_FAIL;
 }
 
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 // Visit source modules and their syntax events without allocating a collection.
 //
 // @parsed: Live parsed-source handle, borrowed for the duration of the visit.
@@ -1957,7 +1958,7 @@ static lemma_ts_child_visit_action visit_source_child(
 // @context: Caller-provided context borrowed for the duration of the visit.
 // @returns: COMPLETE after traversal, STOPPED after visitor stop, or FAILED
 //     after visitor failure or an invalid action for valid arguments.
-//--------------------------------------------------------
+//------------------------------------------------------------------------------
 lemma_syntax_visit_result lemma_frontend_visit_syntax(
     const lemma_parsed_source *parsed, lemma_syntax_visitor visitor,
     void *context)
