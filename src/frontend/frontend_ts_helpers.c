@@ -167,15 +167,21 @@ lemma_ts_text_result lemma_frontend_ts_node_text(
     const lemma_parsed_source *parsed, TSNode node, lemma_syntax_text *text)
 {
     memset(text, 0, sizeof(*text));
-    uint32_t start = ts_node_start_byte(node);
-    uint32_t end = ts_node_end_byte(node);
-    if ((size_t)start > parsed->source_length || (size_t)end > parsed->source_length ||
-        end < start || lemma_frontend_ts_node_range(
-                           node, &text->source_range) != LEMMA_TS_RANGE_VALID) {
+    if (lemma_frontend_ts_node_range(
+        node,
+        &text->source_range
+    ) != LEMMA_TS_RANGE_VALID) {
+        memset(text, 0, sizeof(*text));
+        return LEMMA_TS_TEXT_INVALID_INPUT;
+    }
+    size_t start = text->source_range.start_byte;
+    size_t end = text->source_range.end_byte;
+    if (start > parsed->source_length || end > parsed->source_length ||
+        end < start) {
         memset(text, 0, sizeof(*text));
         return LEMMA_TS_TEXT_INVALID_INPUT;
     }
     text->data = parsed->source + start;
-    text->length = (size_t)(end - start);
+    text->length = end - start;
     return LEMMA_TS_TEXT_VALID;
 }

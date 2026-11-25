@@ -1,7 +1,8 @@
 # First-Profile Frontend C Review
 
-- **Status:** verified (drive-strength acceptance, stack-depth handling, and
-  parser fixture sweep); open (test-oracle coverage, packed-bound syntax)
+- **Status:** verified (drive-strength acceptance, stack-depth handling, parser
+  fixture sweep, and frontend argument-guard review); open (test-oracle coverage,
+  packed-bound syntax)
 - **Date:** 2026-11-10
 - **Reviewed base:** `b8a13764955fa15bc5f0ae01e1d3b83c08c4b8e0`
 - **Scope:** First-party C sources, headers, and tests for the current frontend,
@@ -64,6 +65,24 @@
   before treating such inputs as implementation defects or expanding support.
 - Evidence: [`frontend_elaboration.c`](../../src/frontend/frontend_elaboration.c)
   and [`rtl-support.md`](../rtl-support.md).
+
+### Frontend argument and allocation-size guards
+
+- **Status:** verified 2026-11-24.
+- `lemma_frontend_ts_node_range` retains its `uint32_t`-to-`size_t`
+  representability checks. Coordinates from a valid parse tree fit the parsed
+  source length, but the helper's explicit failure contract for an
+  unrepresentable range remains protected.
+- `lemma_frontend_ts_node_text` validates the range before using byte offsets,
+  then uses the checked `size_t` values for source bounds and slice formation.
+- Cycle-validation workspace size checks remain immediately before the
+  allocations they protect. Builder capacity limits bound current valid counts,
+  but retaining the local checks keeps the allocation multiplications checked
+  at their use site.
+- Evidence: [`frontend_ts_helpers.c`](../../src/frontend/frontend_ts_helpers.c),
+  [`frontend_elaboration.c`](../../src/frontend/frontend_elaboration.c),
+  [`frontend_ir.c`](../../src/frontend/frontend_ir.c), and the passing
+  `./flow.sh test` run (7/7 CTest tests).
 
 ## Scope boundary
 

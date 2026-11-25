@@ -49,11 +49,12 @@ authoritative source and update the note.
 - [Circuit IR storage](circuit-ir-storage.md) — accepted private C storage
   outline using one owning object and array-position IDs, plus the first
   scalar/vector alias slice, frontend-first implementation order, and direct
-  builder handoff; allocator policy remains open.
+  builder handoff; arena policy and retained capacity at finalization remain
+  open.
 - [First-profile frontend C review](frontend-code-review.md) — verified
-  drive-strength acceptance, bounded recursive walks, and parser fixture sweep;
-  open test-oracle and packed-bound syntax findings, scoped to the current
-  alias-only frontend.
+  drive-strength acceptance, bounded recursive walks, parser fixture sweep, and
+  argument-guard review; open test-oracle and packed-bound syntax findings,
+  scoped to the current alias-only frontend.
 - [Fixture-driven circuit IR scope](fixture-elaboration.md) — accepted target
   to elaborate all 54 RTL fixtures into circuit IR, using their exact constructs
   as the normative boundary, returning warnings with successful circuit results,

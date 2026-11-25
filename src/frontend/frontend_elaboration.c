@@ -97,9 +97,14 @@ static lemma_syntax_visit_action reject_syntax(
     lemma_source_range range, int has_source_range)
 {
     context->failed = 1;
-    set_diagnostic(context->diagnostic,
-                   LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                   code, message, range, has_source_range);
+    set_diagnostic(
+        context->diagnostic,
+        LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+        code,
+        message,
+        range,
+        has_source_range
+    );
     return LEMMA_SYNTAX_VISIT_FAIL;
 }
 
@@ -118,8 +123,14 @@ static lemma_syntax_visit_action reject_builder(
     lemma_source_range range, int has_source_range)
 {
     context->failed = 1;
-    set_diagnostic(context->diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
-                   code, message, range, has_source_range);
+    set_diagnostic(
+        context->diagnostic,
+        LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
+        code,
+        message,
+        range,
+        has_source_range
+    );
     return LEMMA_SYNTAX_VISIT_FAIL;
 }
 
@@ -391,8 +402,11 @@ static int lower_expression_node(elaboration_context *context,
             return 0;
         }
         return lemma_circuit_builder_add_logical_not(
-                   context->builder, operands[0],
-                   expression->source.source_range, expression_id)
+            context->builder,
+            operands[0],
+            expression->source.source_range,
+            expression_id
+        )
             ? 1
             : -1;
     }
@@ -406,8 +420,13 @@ static int lower_expression_node(elaboration_context *context,
                 ? LEMMA_IR_EXPRESSION_LOGICAL_AND
                 : LEMMA_IR_EXPRESSION_LOGICAL_OR;
         return lemma_circuit_builder_add_logical_binary(
-                   context->builder, kind, operands[0], operands[1],
-                   expression->source.source_range, expression_id)
+            context->builder,
+            kind,
+            operands[0],
+            operands[1],
+            expression->source.source_range,
+            expression_id
+        )
              ? 1
              : -1;
     }
@@ -425,25 +444,36 @@ static int lower_expression_node(elaboration_context *context,
             : NULL;
         if (left->is_signed || (right != NULL && right->is_signed)) {
             context->failed = 1;
-            set_diagnostic(context->diagnostic,
-                           LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                           "rtl.operator_signedness",
-                           "bitwise, arithmetic, and comparison operands must be unsigned",
-                           expression->source.source_range, 1);
+            set_diagnostic(
+                context->diagnostic,
+                LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+                "rtl.operator_signedness",
+                "bitwise, arithmetic, and comparison operands must be unsigned",
+                expression->source.source_range,
+                1
+            );
             return -2;
         }
         if (right != NULL && left->width != right->width) {
             context->failed = 1;
-            set_diagnostic(context->diagnostic,
-                           LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                           "rtl.operator_width",
-                           "binary operator operands must have the same width",
-                           expression->source.source_range, 1);
+            set_diagnostic(
+                context->diagnostic,
+                LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+                "rtl.operator_width",
+                "binary operator operands must have the same width",
+                expression->source.source_range,
+                1
+            );
             return -2;
         }
         return lemma_circuit_builder_add_operator(
-                   context->builder, kind, operands, expression->operand_count,
-                   expression->source.source_range, expression_id)
+            context->builder,
+            kind,
+            operands,
+            expression->operand_count,
+            expression->source.source_range,
+            expression_id
+        )
             ? 1
             : -1;
     }
@@ -596,7 +626,9 @@ static int append_dependency_edge(signal_dependency_edge **edges,
             return 0;
         }
         signal_dependency_edge *grown = realloc(
-            *edges, next_capacity * sizeof(**edges));
+            *edges,
+            next_capacity * sizeof(**edges)
+        );
         if (grown == NULL) {
             return 0;
         }
@@ -671,8 +703,13 @@ static int check_combinational_cycles(const lemma_circuit_builder *builder,
             size_t operand_count = 0U;
             if (expression->kind == LEMMA_IR_EXPRESSION_READ_SIGNAL) {
                 if (!append_dependency_edge(
-                        &edges, &edge_count, &edge_capacity, heads,
-                        driver->target_signal_id, expression->signal_id)) {
+                    &edges,
+                    &edge_count,
+                    &edge_capacity,
+                    heads,
+                    driver->target_signal_id,
+                    expression->signal_id
+                )) {
                     free(heads);
                     free(signal_stack);
                     free(edge_stack);
@@ -768,47 +805,78 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         if (boundary->kind == LEMMA_SYNTAX_MODULE_BEGIN) {
             ++state->module_count;
             if (state->module_count != 1U) {
-                return reject_syntax(state, "rtl.flat_design",
-                                     "source must contain exactly one module",
-                                     boundary->module_range, 1);
+                return reject_syntax(
+                    state,
+                    "rtl.flat_design",
+                    "source must contain exactly one module",
+                    boundary->module_range,
+                    1
+                );
             }
             state->module_range = boundary->module_range;
             if (boundary->name.data == NULL || boundary->name.length == 0U) {
-                return reject_syntax(state, "rtl.module_name",
-                                     "module name is required",
-                                     boundary->module_range, 1);
+                return reject_syntax(
+                    state,
+                    "rtl.module_name",
+                    "module name is required",
+                    boundary->module_range,
+                    1
+                );
             }
             if (!lemma_circuit_builder_set_module_name(
-                    state->builder, boundary->name.data, boundary->name.length)) {
-                return reject_builder(state, "ir.module_name",
-                                      "unable to store module name in circuit IR",
-                                      boundary->module_range, 1);
+                state->builder,
+                boundary->name.data,
+                boundary->name.length
+            )) {
+                return reject_builder(
+                    state,
+                    "ir.module_name",
+                    "unable to store module name in circuit IR",
+                    boundary->module_range,
+                    1
+                );
             }
         }
         return LEMMA_SYNTAX_VISIT_CONTINUE;
     }
     if (view->kind == LEMMA_SYNTAX_DECLARATION_GROUP) {
         if (state->has_pending_port != 0) {
-            return reject_syntax(state, "rtl.port_form",
-                                 "port declaration has no name",
-                                 state->pending_group_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.port_form",
+                "port declaration has no name",
+                state->pending_group_range,
+                1
+            );
         }
         const lemma_syntax_declaration_group *group = &view->as.declaration_group;
         if (group->kind != LEMMA_SYNTAX_DECLARATION_GROUP_PORT) {
-                return reject_syntax(state, "rtl.unsupported_construct",
-                                 "parameters and internal declarations are outside the first profile",
-                                 group->source.source_range, 1);
+                return reject_syntax(
+                    state,
+                    "rtl.unsupported_construct",
+                    "parameters and internal declarations are outside the first profile",
+                    group->source.source_range,
+                    1
+                );
         }
         if (group->has_explicit_port_header != 0) {
             if (!parse_explicit_port_attributes(group, &state->current_port)) {
-                return reject_syntax(state, "rtl.port_form",
-                                     "port must have a supported input/output wire or logic type",
-                                     group->source.source_range, 1);
+                return reject_syntax(
+                    state,
+                    "rtl.port_form",
+                    "port must have a supported input/output wire or logic type",
+                    group->source.source_range,
+                    1
+                );
             }
         } else if (state->current_port.valid == 0) {
-            return reject_syntax(state, "rtl.port_inheritance",
-                                 "bare port identifier must follow a fully specified port",
-                                 group->source.source_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.port_inheritance",
+                "bare port identifier must follow a fully specified port",
+                group->source.source_range,
+                1
+            );
         }
         state->has_pending_port = 1;
         state->pending_group_range = group->source.source_range;
@@ -818,34 +886,62 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         const lemma_syntax_declarator *declarator = &view->as.declarator;
         if (state->has_pending_port == 0 ||
             !ranges_equal(state->pending_group_range, declarator->group_range)) {
-            return reject_syntax(state, "rtl.port_form",
-                                 "port declarator is not attached to its declaration",
-                                 declarator->declarator_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.port_form",
+                "port declarator is not attached to its declaration",
+                declarator->declarator_range,
+                1
+            );
         }
         state->has_pending_port = 0;
         size_t prior_id = 0U;
         if (!is_simple_identifier(declarator->name)) {
-            return reject_syntax(state, "rtl.port_name",
-                                 "only simple port identifiers are supported",
-                                 declarator->declarator_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.port_name",
+                "only simple port identifiers are supported",
+                declarator->declarator_range,
+                1
+            );
         }
         if (lemma_circuit_builder_find_signal(
-                state->builder, declarator->name.data, declarator->name.length,
-                &prior_id)) {
-            return reject_syntax(state, "rtl.duplicate_signal",
-                                 "signal name is declared more than once",
-                                 declarator->declarator_range, 1);
+            state->builder,
+            declarator->name.data,
+            declarator->name.length,
+            &prior_id
+        )) {
+            return reject_syntax(
+                state,
+                "rtl.duplicate_signal",
+                "signal name is declared more than once",
+                declarator->declarator_range,
+                1
+            );
         }
         size_t signal_id = 0U;
         if (!lemma_circuit_builder_add_signal(
-                state->builder, declarator->name.data, declarator->name.length,
-                state->current_port.width, state->current_port.is_signed, true,
-                declarator->declarator_range, &signal_id) ||
+            state->builder,
+            declarator->name.data,
+            declarator->name.length,
+            state->current_port.width,
+            state->current_port.is_signed,
+            true,
+            declarator->declarator_range,
+            &signal_id
+        ) ||
             !lemma_circuit_builder_add_port(
-                state->builder, signal_id, state->current_port.direction)) {
-            return reject_builder(state, "ir.out_of_memory",
-                                  "unable to store a port in the circuit IR",
-                                  declarator->declarator_range, 1);
+                state->builder,
+                signal_id,
+                state->current_port.direction
+            )) {
+            return reject_builder(
+                state,
+                "ir.out_of_memory",
+                "unable to store a port in the circuit IR",
+                declarator->declarator_range,
+                1
+            );
         }
         return LEMMA_SYNTAX_VISIT_CONTINUE;
     }
@@ -855,16 +951,27 @@ static lemma_syntax_visit_action elaborate_syntax_event(
         size_t target_id = 0U;
         if (state->has_pending_assignment != 0 ||
             !is_simple_identifier(assignment->destination_signal)) {
-            return reject_syntax(state, "rtl.assignment_form",
-                                 "assignment target must be a simple signal",
-                                 assignment->assignment.source_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.assignment_form",
+                "assignment target must be a simple signal",
+                assignment->assignment.source_range,
+                1
+            );
         }
         if (!lemma_circuit_builder_find_signal(
-                state->builder, assignment->destination_signal.data,
-                assignment->destination_signal.length, &target_id)) {
-            return reject_syntax(state, "rtl.undeclared_signal",
-                                 "assignment target is outside the port list",
-                                 assignment->assignment.source_range, 1);
+            state->builder,
+            assignment->destination_signal.data,
+            assignment->destination_signal.length,
+            &target_id
+        )) {
+            return reject_syntax(
+                state,
+                "rtl.undeclared_signal",
+                "assignment target is outside the port list",
+                assignment->assignment.source_range,
+                1
+            );
         }
         lemma_ir_port_direction target_direction = LEMMA_IR_PORT_INPUT;
         int target_is_port = 0;
@@ -879,14 +986,22 @@ static lemma_syntax_visit_action elaborate_syntax_event(
             }
         }
         if (target_is_port == 0 || target_direction != LEMMA_IR_PORT_OUTPUT) {
-            return reject_syntax(state, "rtl.input_driver",
-                                  "continuous assignment target must be an output port",
-                                  assignment->lvalue.source_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.input_driver",
+                "continuous assignment target must be an output port",
+                assignment->lvalue.source_range,
+                1
+            );
         }
         if (count_signal_drivers(state->builder, target_id) != 0U) {
-            return reject_syntax(state, "rtl.multiple_drivers",
-                                 "output port has more than one driver",
-                                 assignment->lvalue.source_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.multiple_drivers",
+                "output port has more than one driver",
+                assignment->lvalue.source_range,
+                1
+            );
         }
         state->pending_target_signal_id = target_id;
         state->pending_assignment_range = assignment->assignment.source_range;
@@ -897,38 +1012,66 @@ static lemma_syntax_visit_action elaborate_syntax_event(
     if (view->kind == LEMMA_SYNTAX_EXPRESSION) {
         const lemma_syntax_expression *expression = &view->as.expression;
         if (state->has_pending_assignment == 0 ||
-            !ranges_equal(state->pending_assignment_range,
-                          expression->assignment_range)) {
-            return reject_syntax(state, "rtl.expression_context",
-                                 "expression is not attached to a continuous assignment",
-                                 expression->source.source_range, 1);
+            !ranges_equal(
+                state->pending_assignment_range,
+                expression->assignment_range
+            )) {
+            return reject_syntax(
+                state,
+                "rtl.expression_context",
+                "expression is not attached to a continuous assignment",
+                expression->source.source_range,
+                1
+            );
         }
         if (expression->kind == LEMMA_SYNTAX_EXPRESSION_OTHER) {
-            return reject_syntax(state, "rtl.expression_form",
-                                 "continuous assignment expression is unsupported",
-                                 expression->source.source_range, 1);
+            return reject_syntax(
+                state,
+                "rtl.expression_form",
+                "continuous assignment expression is unsupported",
+                expression->source.source_range,
+                1
+            );
         }
         size_t expression_id = 0U;
         if (expression->kind == LEMMA_SYNTAX_EXPRESSION_IDENTIFIER) {
             size_t signal_id = 0U;
             if (!is_simple_identifier(expression->token)) {
-                return reject_syntax(state, "rtl.expression_form",
-                                     "signal read must use a simple identifier",
-                                     expression->source.source_range, 1);
+                return reject_syntax(
+                    state,
+                    "rtl.expression_form",
+                    "signal read must use a simple identifier",
+                    expression->source.source_range,
+                    1
+                );
             }
             if (!lemma_circuit_builder_find_signal(
-                    state->builder, expression->token.data,
-                    expression->token.length, &signal_id)) {
-                return reject_syntax(state, "rtl.undeclared_signal",
-                                     "expression references a signal outside the port list",
-                                     expression->token.source_range, 1);
+                state->builder,
+                expression->token.data,
+                expression->token.length,
+                &signal_id
+            )) {
+                return reject_syntax(
+                    state,
+                    "rtl.undeclared_signal",
+                    "expression references a signal outside the port list",
+                    expression->token.source_range,
+                    1
+                );
             }
             if (!lemma_circuit_builder_add_read_signal(
-                    state->builder, signal_id, expression->source.source_range,
-                    &expression_id)) {
-                return reject_builder(state, "ir.out_of_memory",
-                                      "unable to store a signal read in circuit IR",
-                                      expression->source.source_range, 1);
+                state->builder,
+                signal_id,
+                expression->source.source_range,
+                &expression_id
+            )) {
+                return reject_builder(
+                    state,
+                    "ir.out_of_memory",
+                    "unable to store a signal read in circuit IR",
+                    expression->source.source_range,
+                    1
+                );
             }
         } else {
             int lower_result =
@@ -937,35 +1080,57 @@ static lemma_syntax_visit_action elaborate_syntax_event(
                 if (lower_result == -2) {
                     return LEMMA_SYNTAX_VISIT_FAIL;
                 }
-                return reject_builder(state, "ir.out_of_memory",
-                                      "unable to store an operator in circuit IR",
-                                      expression->source.source_range, 1);
+                return reject_builder(
+                    state,
+                    "ir.out_of_memory",
+                    "unable to store an operator in circuit IR",
+                    expression->source.source_range,
+                    1
+                );
             }
             if (lower_result == 0) {
-                return reject_builder(state, "ir.expression_tree",
-                                      "expression operator has invalid parent links",
-                                      expression->source.source_range, 1);
+                return reject_builder(
+                    state,
+                    "ir.expression_tree",
+                    "expression operator has invalid parent links",
+                    expression->source.source_range,
+                    1
+                );
             }
         }
         if (expression->depth != 0U) {
             if (!store_expression_child(state, expression, expression_id)) {
-                return reject_builder(state, "ir.expression_tree",
-                                      "expression parent/child links are invalid",
-                                      expression->source.source_range, 1);
+                return reject_builder(
+                    state,
+                    "ir.expression_tree",
+                    "expression parent/child links are invalid",
+                    expression->source.source_range,
+                    1
+                );
             }
             return LEMMA_SYNTAX_VISIT_CONTINUE;
         }
         if (expression->child_index != 0U ||
-            !ranges_equal(expression->parent_range,
-                          state->pending_assignment_range)) {
-            return reject_builder(state, "ir.expression_tree",
-                                  "expression root is not attached to its assignment",
-                                  expression->source.source_range, 1);
+            !ranges_equal(
+                expression->parent_range,
+                state->pending_assignment_range
+            )) {
+            return reject_builder(
+                state,
+                "ir.expression_tree",
+                "expression root is not attached to its assignment",
+                expression->source.source_range,
+                1
+            );
         }
         const lemma_ir_signal *target = lemma_circuit_builder_signal_at(
-            state->builder, state->pending_target_signal_id);
+            state->builder,
+            state->pending_target_signal_id
+        );
         const lemma_ir_expression *root = lemma_circuit_builder_expression_at(
-            state->builder, expression_id);
+            state->builder,
+            expression_id
+        );
         if (target->width != root->width) {
             return reject_syntax(
                 state,
@@ -975,14 +1140,23 @@ static lemma_syntax_visit_action elaborate_syntax_event(
                 root->kind == LEMMA_IR_EXPRESSION_READ_SIGNAL
                     ? "alias source and output widths must match"
                     : "expression result and output widths must match",
-                expression->source.source_range, 1);
+                expression->source.source_range,
+                1
+            );
         }
         if (!lemma_circuit_builder_add_driver(
-                state->builder, state->pending_target_signal_id,
-                expression_id, state->pending_assignment_range)) {
-            return reject_builder(state, "ir.out_of_memory",
-                                  "unable to store a continuous driver in circuit IR",
-                                  state->pending_assignment_range, 1);
+            state->builder,
+            state->pending_target_signal_id,
+            expression_id,
+            state->pending_assignment_range
+        )) {
+            return reject_builder(
+                state,
+                "ir.out_of_memory",
+                "unable to store a continuous driver in circuit IR",
+                state->pending_assignment_range,
+                1
+            );
         }
         state->has_pending_assignment = 0;
         return LEMMA_SYNTAX_VISIT_CONTINUE;
@@ -995,18 +1169,30 @@ static lemma_syntax_visit_action elaborate_syntax_event(
             : view->kind == LEMMA_SYNTAX_PROCESS_EVENT_EXPRESSION
                   ? view->as.process_event_expression.process_range
                   : view->as.statement.source.source_range;
-        return reject_syntax(state, "rtl.unsupported_procedural_logic",
-                             "procedural logic is outside the first profile",
-                             range, 1);
+        return reject_syntax(
+            state,
+            "rtl.unsupported_procedural_logic",
+            "procedural logic is outside the first profile",
+            range,
+            1
+        );
     }
     if (view->kind == LEMMA_SYNTAX_OPAQUE_MODULE_ITEM) {
-        return reject_syntax(state, "rtl.unsupported_construct",
-                             "module item is outside the first profile",
-                             view->as.opaque_module_item.source.source_range, 1);
+        return reject_syntax(
+            state,
+            "rtl.unsupported_construct",
+            "module item is outside the first profile",
+            view->as.opaque_module_item.source.source_range,
+            1
+        );
     }
-    return reject_syntax(state, "rtl.invalid_syntax_event",
-                         "syntax extractor returned an invalid event",
-                         state->module_range, 1);
+    return reject_syntax(
+        state,
+        "rtl.invalid_syntax_event",
+        "syntax extractor returned an invalid event",
+        state->module_range,
+        1
+    );
 }
 
 //-----------------------------------------------------------------------------
@@ -1027,31 +1213,43 @@ static int validate_drivers(elaboration_context *context)
         }
         const lemma_ir_signal *signal =
             lemma_circuit_builder_signal_at(context->builder, port->signal_id);
-        set_diagnostic(context->diagnostic,
-                       LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                       "rtl.output_undriven",
-                       "each output port must have one direct signal driver",
-                       signal->source, 1);
+        set_diagnostic(
+            context->diagnostic,
+            LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+            "rtl.output_undriven",
+            "each output port must have one direct signal driver",
+            signal->source,
+            1
+        );
         return 0;
     }
     size_t cycle_signal_id = 0U;
-    int cycle_result = check_combinational_cycles(context->builder,
-                                                  &cycle_signal_id);
+    int cycle_result = check_combinational_cycles(
+        context->builder,
+        &cycle_signal_id
+    );
     if (cycle_result == 0) {
         const lemma_ir_signal *signal =
             lemma_circuit_builder_signal_at(context->builder, cycle_signal_id);
-        set_diagnostic(context->diagnostic,
-                       LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                       "rtl.combinational_cycle",
-                       "combinational driver dependencies contain a cycle",
-                       signal->source, 1);
+        set_diagnostic(
+            context->diagnostic,
+            LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+            "rtl.combinational_cycle",
+            "combinational driver dependencies contain a cycle",
+            signal->source,
+            1
+        );
         return 0;
     }
     if (cycle_result < 0) {
-        set_diagnostic(context->diagnostic, LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
-                       "ir.validation_failed",
-                       "unable to validate circuit expression dependencies",
-                       context->module_range, 1);
+        set_diagnostic(
+            context->diagnostic,
+            LEMMA_FRONTEND_STAGE_CIRCUIT_IR,
+            "ir.validation_failed",
+            "unable to validate circuit expression dependencies",
+            context->module_range,
+            1
+        );
         return 0;
     }
     return 1;
@@ -1077,35 +1275,54 @@ int lemma_frontend_elaborate(const lemma_parsed_source *parsed,
     context.builder = builder;
     context.diagnostic = diagnostic;
     lemma_syntax_visit_result result = lemma_frontend_visit_syntax(
-        parsed, elaborate_syntax_event, &context);
+        parsed,
+        elaborate_syntax_event,
+        &context
+    );
     if (result != LEMMA_SYNTAX_VISIT_COMPLETE || context.failed != 0) {
         if (context.failed == 0) {
-            set_diagnostic(diagnostic,
-                           LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                           "rtl.syntax_extraction", "unable to extract module syntax",
-                           context.module_range, context.module_count != 0U);
+            set_diagnostic(
+                diagnostic,
+                LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+                "rtl.syntax_extraction",
+                "unable to extract module syntax",
+                context.module_range,
+                context.module_count != 0U
+            );
         }
         return 0;
     }
     if (context.module_count != 1U) {
-        set_diagnostic(diagnostic,
-                       LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                       "rtl.flat_design", "source must contain exactly one module",
-                       context.module_range, context.module_count != 0U);
+        set_diagnostic(
+            diagnostic,
+            LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+            "rtl.flat_design",
+            "source must contain exactly one module",
+            context.module_range,
+            context.module_count != 0U
+        );
         return 0;
     }
     if (lemma_circuit_builder_port_count(builder) == 0U) {
-        set_diagnostic(diagnostic,
-                       LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                       "rtl.port_count", "module must declare at least one ANSI port",
-                       context.module_range, 1);
+        set_diagnostic(
+            diagnostic,
+            LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+            "rtl.port_count",
+            "module must declare at least one ANSI port",
+            context.module_range,
+            1
+        );
         return 0;
     }
     if (context.has_pending_port != 0) {
-        set_diagnostic(diagnostic,
-                       LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
-                       "rtl.port_form", "port declaration has no name",
-                       context.pending_group_range, 1);
+        set_diagnostic(
+            diagnostic,
+            LEMMA_FRONTEND_STAGE_RTL_VALIDATION_ELABORATION,
+            "rtl.port_form",
+            "port declaration has no name",
+            context.pending_group_range,
+            1
+        );
         return 0;
     }
     return validate_drivers(&context);

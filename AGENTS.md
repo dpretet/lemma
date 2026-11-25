@@ -17,6 +17,12 @@ not describe planned behavior as already implemented.
 - Match the repository's simple house style: four-space indentation,
   `snake_case` function names, and the surrounding brace convention. Do not
   reformat unrelated code just to apply a style preference.
+- For actual C function calls spanning multiple lines, put each top-level
+  argument on its own line and indent multi-line continuations under that
+  argument. This applies only to first-party C files under `src/` and
+  `include/`; tests, `third_party/`, generated files, and tooling are excluded.
+  Do not reformat macros, declarations/prototypes, initializers, or single-line
+  calls.
 - Make ownership and lifetime expectations clear at API boundaries, and release
   resources on all applicable paths.
 - Check input and library-operation failures, and handle cleanup consistently on

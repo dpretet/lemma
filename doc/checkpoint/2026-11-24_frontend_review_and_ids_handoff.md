@@ -42,16 +42,23 @@ diagnostic is classified at RTL validation/elaboration.
 - Define arena ownership and lifetimes across frontend/IR stages. The bundled
   `tsoding_arena` asserts on underlying allocation failure; establish a
   recoverable out-of-memory policy before using it for production-owned data.
-- Continue the user's static review of frontend argument checks, distinguishing
-  genuine allocation/representation guards from redundant or arbitrary checks.
-  The fixed `UINT32_MAX` IR element caps are already removed. In particular,
-  review whether the Tree-sitter `uint32_t`-to-`size_t` representability checks
-  in `frontend_ts_helpers.c` are needed on supported targets, and whether the
-  cycle-validation workspace size guards are implied by builder invariants.
-  Discuss any code cleanup with the user before editing.
 - No optimized Release test run has been recorded. `./flow.sh test` runs Debug;
   CMake enables AddressSanitizer and UndefinedBehaviorSanitizer for GNU/Clang
   test builds.
+
+## Follow-up completed in the current worktree
+
+- **Verified 2026-11-24:** The frontend argument-check review is complete.
+  `lemma_frontend_ts_node_range` retains its representability checks; valid
+  parsed-node coordinates are bounded by the parsed source length, but the
+  internal helper also preserves its explicit unrepresentable-range failure
+  contract. `lemma_frontend_ts_node_text` now validates the range before using
+  offsets and uses the checked `size_t` values for source bounds and slicing.
+- **Verified 2026-11-24:** Cycle-validation workspace multiplication guards
+  remain in place. They directly protect allocation-size calculations even
+  though current builder capacity invariants also bound valid signal and
+  expression counts. `./flow.sh test` passed all 7 CTest tests after the
+  helper-ordering change.
 
 ## Verification evidence
 

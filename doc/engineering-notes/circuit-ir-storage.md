@@ -2,7 +2,8 @@
 
 - **Status:** accepted (owning circuit object and array-position IDs; direct
   elaboration-to-IR builder handoff; future arena-backed allocation direction);
-  open (arena ownership boundaries and allocation-failure behavior)
+  open (arena ownership boundaries, allocation-failure behavior, and retained
+  capacity at finalization)
 - **Date:** 2026-11-07
 - **Context:** The circuit IR contract in [`internal-representation.md`](../internal-representation.md)
   defines circuit-local signal and expression IDs, but not their C storage.
@@ -52,6 +53,15 @@
   production-owned data. Preserve the current fallible heap-allocation behavior
   until that design is settled; do not treat the bundled asserting allocator as
   a drop-in replacement.
+- **Open memory concern (2026-11-24):** Builder arrays start at capacity four
+  and double when full. Finalization transfers their pointers and counts into
+  the circuit but does not shrink the allocations, so unused capacity remains
+  for the circuit's lifetime. If a later frontend stage copies the used entries
+  before the circuit is released, this slack can increase peak memory. No
+  growth-factor or finalization-compaction policy has been selected; evaluate
+  this together with arena ownership and allocation-failure behavior. Evidence:
+  `lemma_circuit_grow_array` and `lemma_circuit_builder_finalize` in
+  [`frontend_ir.c`](../../src/frontend/frontend_ir.c).
 - **Accepted user direction (2026-11-24):** Defer deterministic allocation-
   failure injection tests for the current array-growth reallocations until the
   allocation strategy is redesigned. Revisit failure testing alongside the

@@ -9,7 +9,7 @@ the checkpoint marked **ACTIVE** below.
 
 - [`2026-11-24_frontend_review_and_ids_handoff.md`](2026-11-24_frontend_review_and_ids_handoff.md) —
   **ACTIVE**, created 2026-11-24. Current frontend state, accepted IR-ID and
-  reset decisions, allocator direction, and the open argument-check review.
+  reset decisions, allocator direction, and remaining allocation-design work.
 
 ## Historical checkpoints
 

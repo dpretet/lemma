@@ -86,13 +86,25 @@ static void print_frontend_diagnostic(const char *path,
             ? "warning"
             : "error";
     if (diagnostic->has_source_range != 0) {
-        fprintf(stderr, "%s:%zu:%zu: %s: %s (%s)\n", path,
-                diagnostic->source_range.start_row + 1U,
-                diagnostic->source_range.start_column + 1U,
-                severity, diagnostic->message, code);
+        fprintf(
+            stderr,
+            "%s:%zu:%zu: %s: %s (%s)\n",
+            path,
+            diagnostic->source_range.start_row + 1U,
+            diagnostic->source_range.start_column + 1U,
+            severity,
+            diagnostic->message,
+            code
+        );
     } else {
-        fprintf(stderr, "%s: %s: %s (%s)\n", path, severity,
-                diagnostic->message, code);
+        fprintf(
+            stderr,
+            "%s: %s: %s (%s)\n",
+            path,
+            severity,
+            diagnostic->message,
+            code
+        );
     }
 }
 
@@ -143,8 +155,11 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    printf("front end built circuit: %s (%s)\n", source_path,
-           result->circuit->module_name);
+    printf(
+        "front end built circuit: %s (%s)\n",
+        source_path,
+        result->circuit->module_name
+    );
     lemma_frontend_result_destroy(result);
     return EXIT_SUCCESS;
 }

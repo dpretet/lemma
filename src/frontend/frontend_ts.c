@@ -104,8 +104,11 @@ static TSNode syntax_unique_child(TSNode parent, const char *type)
     }
     TSNode child = {0};
     if (lemma_frontend_ts_unique_child_by_type(
-            parent, type, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-            &child) != LEMMA_TS_CHILD_TYPE_UNIQUE) {
+        parent,
+        type,
+        LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+        &child
+    ) != LEMMA_TS_CHILD_TYPE_UNIQUE) {
         return (TSNode){0};
     }
     return child;
@@ -144,8 +147,11 @@ static TSNode syntax_child_any(TSNode parent, const char *type)
     }
     TSNode child = {0};
     if (lemma_frontend_ts_unique_child_by_type(
-            parent, type, LEMMA_TS_CHILD_FILTER_ALL,
-            &child) != LEMMA_TS_CHILD_TYPE_UNIQUE) {
+        parent,
+        type,
+        LEMMA_TS_CHILD_FILTER_ALL,
+        &child
+    ) != LEMMA_TS_CHILD_TYPE_UNIQUE) {
         return (TSNode){0};
     }
     return child;
@@ -242,8 +248,11 @@ static int collect_type_dimensions(range_accumulator *accumulator, TSNode node)
     const char *type = ts_node_type(node);
     if (strcmp(type, "data_type") == 0 || strcmp(type, "implicit_data_type") == 0) {
         (void)lemma_frontend_ts_visit_children(
-            node, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-            collect_packed_dimension, accumulator);
+            node,
+            LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+            collect_packed_dimension,
+            accumulator
+        );
         return 1;
     }
 
@@ -413,8 +422,10 @@ static int syntax_emit_declaration_group(
     group.direction = syntax_text_for_node(walk->parsed, direction_node);
     group.type = syntax_text_for_node(walk->parsed, type_node);
     group.packed_dimensions = syntax_packed_dimensions(
-        walk->parsed, ts_node_is_null(dimensions_node) ? type_node : dimensions_node,
-        &group);
+        walk->parsed,
+        ts_node_is_null(dimensions_node) ? type_node : dimensions_node,
+        &group
+    );
     syntax_set_declaration_type_facts(type_node, &group);
     group.source = syntax_text_for_node(walk->parsed, source_node);
     group.module_range = module_range;
@@ -446,7 +457,10 @@ static int syntax_emit_declarator(
         return emit_opaque_module_item(walk, declarator_node, module_range);
     }
     TSNode suffix_node = syntax_child_of_either(
-        declarator_node, "unpacked_dimension", "variable_dimension");
+        declarator_node,
+        "unpacked_dimension",
+        "variable_dimension"
+    );
     TSNode value_node = {0};
     if (value_type != NULL) {
         value_node = syntax_unique_child(declarator_node, value_type);
@@ -498,8 +512,14 @@ static lemma_ts_child_visit_action visit_declarator_child(
                    : LEMMA_TS_CHILD_VISIT_FAIL;
     }
     TSNode name = syntax_unique_child(child, "simple_identifier");
-    if (!syntax_emit_declarator(visit->walk, name, child, visit->group_range,
-                                visit->module_range, visit->value_type)) {
+    if (!syntax_emit_declarator(
+        visit->walk,
+        name,
+        child,
+        visit->group_range,
+        visit->module_range,
+        visit->value_type
+    )) {
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
@@ -533,8 +553,16 @@ static int visit_parameter_declaration(
     }
 
     TSNode type = syntax_child_of_either(declaration, "data_type_or_implicit", "type");
-    if (!syntax_emit_declaration_group(walk, kind, declaration, module_range,
-                                       (TSNode){0}, type, type, 0)) {
+    if (!syntax_emit_declaration_group(
+        walk,
+        kind,
+        declaration,
+        module_range,
+        (TSNode){0},
+        type,
+        type,
+        0
+    )) {
         return 0;
     }
     lemma_syntax_text group_text = syntax_text_for_node(walk->parsed, declaration);
@@ -543,8 +571,11 @@ static int visit_parameter_declaration(
         "constant_param_expression"
     };
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
-        list, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-        visit_declarator_child, &visit);
+        list,
+        LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+        visit_declarator_child,
+        &visit
+    );
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
@@ -569,7 +600,10 @@ static int visit_parameter_ports(syntax_walk *walk, TSNode parameter_list,
             continue;
         }
         TSNode declaration = syntax_child_of_either(
-            port, "parameter_declaration", "local_parameter_declaration");
+            port,
+            "parameter_declaration",
+            "local_parameter_declaration"
+        );
         if (ts_node_is_null(declaration)) {
             lemma_syntax_opaque_module_item opaque = {
                 syntax_text_for_node(walk->parsed, port), module_range
@@ -633,8 +667,15 @@ static int visit_ansi_port(syntax_walk *walk, TSNode port,
                       : syntax_unique_child(net_header, "net_port_type");
     lemma_syntax_text group_text = syntax_text_for_node(walk->parsed, port);
     if (!syntax_emit_declaration_group(
-            walk, LEMMA_SYNTAX_DECLARATION_GROUP_PORT, port, module_range,
-            direction, type, type, !ts_node_is_null(header))) {
+        walk,
+        LEMMA_SYNTAX_DECLARATION_GROUP_PORT,
+        port,
+        module_range,
+        direction,
+        type,
+        type,
+        !ts_node_is_null(header)
+    )) {
         return 0;
     }
     TSNode suffix = syntax_unique_child(port, "unpacked_dimension");
@@ -702,8 +743,11 @@ static int visit_ports(syntax_walk *walk, TSNode port_list,
     }
     port_list_visit visit = {walk, module_range};
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
-        port_list, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-        visit_port_child, &visit);
+        port_list,
+        LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+        visit_port_child,
+        &visit
+    );
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
@@ -721,8 +765,10 @@ static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
     const char *declaration_type = ts_node_type(declaration);
     int is_net = strcmp(declaration_type, "net_declaration") == 0;
     TSNode list = syntax_unique_child(
-        declaration, is_net ? "list_of_net_decl_assignments"
-                            : "list_of_variable_decl_assignments");
+        declaration,
+        is_net ? "list_of_net_decl_assignments"
+               : "list_of_variable_decl_assignments"
+    );
     TSNode type = is_net ? syntax_unique_child(declaration, "net_type")
                          : syntax_unique_child(declaration, "data_type_or_implicit");
     TSNode dimensions = is_net
@@ -741,8 +787,16 @@ static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
     lemma_syntax_declaration_group_kind kind =
         is_net ? LEMMA_SYNTAX_DECLARATION_GROUP_NET
                : LEMMA_SYNTAX_DECLARATION_GROUP_DATA;
-    if (!syntax_emit_declaration_group(walk, kind, declaration, module_range,
-                                       (TSNode){0}, type, dimensions, 0)) {
+    if (!syntax_emit_declaration_group(
+        walk,
+        kind,
+        declaration,
+        module_range,
+        (TSNode){0},
+        type,
+        dimensions,
+        0
+    )) {
         return 0;
     }
     lemma_syntax_text group_text = syntax_text_for_node(walk->parsed, declaration);
@@ -753,8 +807,11 @@ static int visit_signal_declaration(syntax_walk *walk, TSNode declaration,
     };
     (void)dimensions;
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
-        list, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-        visit_declarator_child, &visit);
+        list,
+        LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+        visit_declarator_child,
+        &visit
+    );
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
@@ -995,8 +1052,17 @@ static int visit_expression_node(syntax_walk *walk, TSNode node,
     const char *type = ts_node_type(node);
     if (strcmp(type, "simple_identifier") == 0) {
         return emit_expression_view(
-            walk, node, LEMMA_SYNTAX_EXPRESSION_IDENTIFIER, node, module_range,
-            assignment_range, parent_range, depth, child_index, 0U);
+            walk,
+            node,
+            LEMMA_SYNTAX_EXPRESSION_IDENTIFIER,
+            node,
+            module_range,
+            assignment_range,
+            parent_range,
+            depth,
+            child_index,
+            0U
+        );
     }
 
     if (strcmp(type, "expression") == 0) {
@@ -1007,22 +1073,45 @@ static int visit_expression_node(syntax_walk *walk, TSNode node,
             if (!expression_operands(node, operands, &operand_count) ||
                 operand_count != 1U) {
                 return emit_expression_view(
-                    walk, node, LEMMA_SYNTAX_EXPRESSION_OTHER, unary_operator,
-                    module_range, assignment_range, parent_range, depth,
-                    child_index, 0U);
+                    walk,
+                    node,
+                    LEMMA_SYNTAX_EXPRESSION_OTHER,
+                    unary_operator,
+                    module_range,
+                    assignment_range,
+                    parent_range,
+                    depth,
+                    child_index,
+                    0U
+                );
             }
             lemma_syntax_text token = syntax_text_for_node(walk->parsed, unary_operator);
             lemma_syntax_expression_kind kind =
                 syntax_unary_operator_kind(token);
             lemma_source_range current_range = syntax_range_for_node(node);
             if (!visit_expression_node(
-                    walk, operands[0], module_range, assignment_range,
-                    current_range, depth + 1U, 0U)) {
+                walk,
+                operands[0],
+                module_range,
+                assignment_range,
+                current_range,
+                depth + 1U,
+                0U
+            )) {
                 return 0;
             }
             return emit_expression_view(
-                walk, node, kind, unary_operator, module_range, assignment_range,
-                parent_range, depth, child_index, 1U);
+                walk,
+                node,
+                kind,
+                unary_operator,
+                module_range,
+                assignment_range,
+                parent_range,
+                depth,
+                child_index,
+                1U
+            );
         }
 
         TSNode operands[2] = {{0}};
@@ -1047,14 +1136,29 @@ static int visit_expression_node(syntax_walk *walk, TSNode node,
             lemma_source_range current_range = syntax_range_for_node(node);
             for (size_t index = 0U; index < 2U; ++index) {
                 if (!visit_expression_node(
-                        walk, operands[index], module_range, assignment_range,
-                        current_range, depth + 1U, index)) {
+                    walk,
+                    operands[index],
+                    module_range,
+                    assignment_range,
+                    current_range,
+                    depth + 1U,
+                    index
+                )) {
                     return 0;
                 }
             }
             return emit_expression_view(
-                walk, node, kind, operator_node, module_range, assignment_range,
-                parent_range, depth, child_index, 2U);
+                walk,
+                node,
+                kind,
+                operator_node,
+                module_range,
+                assignment_range,
+                parent_range,
+                depth,
+                child_index,
+                2U
+            );
         }
     }
 
@@ -1067,20 +1171,42 @@ static int visit_expression_node(syntax_walk *walk, TSNode node,
             if (!expression_operands(node, operands, &operand_count) ||
                 operand_count != 1U) {
                 return emit_expression_view(
-                    walk, node, LEMMA_SYNTAX_EXPRESSION_OTHER,
-                    (TSNode){0}, module_range, assignment_range, parent_range,
-                    depth, child_index, 0U);
+                    walk,
+                    node,
+                    LEMMA_SYNTAX_EXPRESSION_OTHER,
+                    (TSNode){0},
+                    module_range,
+                    assignment_range,
+                    parent_range,
+                    depth,
+                    child_index,
+                    0U
+                );
             }
             lemma_source_range current_range = syntax_range_for_node(node);
             if (!visit_expression_node(
-                    walk, operands[0], module_range, assignment_range,
-                    current_range, depth + 1U, 0U)) {
+                walk,
+                operands[0],
+                module_range,
+                assignment_range,
+                current_range,
+                depth + 1U,
+                0U
+            )) {
                 return 0;
             }
             return emit_expression_view(
-                walk, node, LEMMA_SYNTAX_EXPRESSION_PARENTHESIZED,
-                (TSNode){0}, module_range, assignment_range, parent_range,
-                depth, child_index, 1U);
+                walk,
+                node,
+                LEMMA_SYNTAX_EXPRESSION_PARENTHESIZED,
+                (TSNode){0},
+                module_range,
+                assignment_range,
+                parent_range,
+                depth,
+                child_index,
+                1U
+            );
         }
     }
 
@@ -1100,12 +1226,27 @@ static int visit_expression_node(syntax_walk *walk, TSNode node,
          strcmp(type, "primary") == 0 ||
          strcmp(type, "hierarchical_identifier") == 0)) {
         return visit_expression_node(
-            walk, sole_child, module_range, assignment_range, parent_range,
-            depth, child_index);
+            walk,
+            sole_child,
+            module_range,
+            assignment_range,
+            parent_range,
+            depth,
+            child_index
+        );
     }
     return emit_expression_view(
-        walk, node, LEMMA_SYNTAX_EXPRESSION_OTHER, (TSNode){0}, module_range,
-        assignment_range, parent_range, depth, child_index, 0U);
+        walk,
+        node,
+        LEMMA_SYNTAX_EXPRESSION_OTHER,
+        (TSNode){0},
+        module_range,
+        assignment_range,
+        parent_range,
+        depth,
+        child_index,
+        0U
+    );
 }
 
 //-----------------------------------------------------------------------------
@@ -1168,7 +1309,9 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
         item.destination_signal = syntax_text_for_node(walk->parsed, destination);
         item.expression = syntax_text_for_node(walk->parsed, expression);
         item.condition = syntax_text_for_node(
-            walk->parsed, get_condition_if_present(expression));
+            walk->parsed,
+            get_condition_if_present(expression)
+        );
         item.assignment = syntax_text_for_node(walk->parsed, assignment);
         item.module_range = module_range;
         lemma_syntax_view view = {0};
@@ -1178,8 +1321,14 @@ static int visit_continuous_assignments(syntax_walk *walk, TSNode continuous,
             return 0;
         }
         if (!visit_expression_node(
-                walk, expression, module_range, item.assignment.source_range,
-                item.assignment.source_range, 0U, 0U)) {
+            walk,
+            expression,
+            module_range,
+            item.assignment.source_range,
+            item.assignment.source_range,
+            0U,
+            0U
+        )) {
             return 0;
         }
     }
@@ -1365,9 +1514,14 @@ static lemma_ts_child_visit_action visit_statement_child(
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
     }
-    if (!visit_statement_node(visit->walk, child, visit->module_range,
-                              visit->process_range, visit->parent_range,
-                              visit->depth)) {
+    if (!visit_statement_node(
+        visit->walk,
+        child,
+        visit->module_range,
+        visit->process_range,
+        visit->parent_range,
+        visit->depth
+    )) {
         return visit->walk->result == LEMMA_SYNTAX_VISIT_STOPPED
                    ? LEMMA_TS_CHILD_VISIT_STOP
                    : LEMMA_TS_CHILD_VISIT_FAIL;
@@ -1395,8 +1549,11 @@ static int visit_statement_children(syntax_walk *walk, TSNode parent,
         walk, parent, module_range, process_range, parent_range, depth
     };
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
-        parent, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-        visit_statement_child, &visit);
+        parent,
+        LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+        visit_statement_child,
+        &visit
+    );
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
@@ -1554,13 +1711,28 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
     if (strcmp(type, "statement") == 0 ||
         strcmp(type, "statement_item") == 0 ||
         strcmp(type, "statement_or_null") == 0) {
-        return visit_statement_children(walk, node, module_range, process_range,
-                                        parent_range, depth);
+        return visit_statement_children(
+            walk,
+            node,
+            module_range,
+            process_range,
+            parent_range,
+            depth
+        );
     }
     if (strcmp(type, "procedural_timing_control_statement") == 0) {
-        return emit_statement(walk, LEMMA_SYNTAX_STATEMENT_OPAQUE, node,
-                              (lemma_syntax_text){0}, (TSNode){0}, (TSNode){0},
-                              module_range, process_range, parent_range, depth);
+        return emit_statement(
+            walk,
+            LEMMA_SYNTAX_STATEMENT_OPAQUE,
+            node,
+            (lemma_syntax_text){0},
+            (TSNode){0},
+            (TSNode){0},
+            module_range,
+            process_range,
+            parent_range,
+            depth
+        );
     }
 
     lemma_syntax_statement_kind kind = LEMMA_SYNTAX_STATEMENT_OPAQUE;
@@ -1618,8 +1790,18 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
         kind = LEMMA_SYNTAX_STATEMENT_OPAQUE;
     }
 
-    if (!emit_statement(walk, kind, node, header, lvalue, expression,
-                        module_range, process_range, parent_range, depth)) {
+    if (!emit_statement(
+        walk,
+        kind,
+        node,
+        header,
+        lvalue,
+        expression,
+        module_range,
+        process_range,
+        parent_range,
+        depth
+    )) {
         return 0;
     }
 
@@ -1628,8 +1810,14 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
         kind == LEMMA_SYNTAX_STATEMENT_CONDITIONAL ||
         kind == LEMMA_SYNTAX_STATEMENT_CASE ||
         kind == LEMMA_SYNTAX_STATEMENT_CASE_ITEM) {
-        return visit_statement_children(walk, node, module_range, process_range,
-                                        current_range, depth + 1U);
+        return visit_statement_children(
+            walk,
+            node,
+            module_range,
+            process_range,
+            current_range,
+            depth + 1U
+        );
     }
     if (kind == LEMMA_SYNTAX_STATEMENT_LOOP) {
         TSNode body = first_loop_body(walk, node, 0U);
@@ -1637,8 +1825,14 @@ static int visit_statement_node(syntax_walk *walk, TSNode node,
             return 0;
         }
         if (!ts_node_is_null(body)) {
-            return visit_statement_node(walk, body, module_range, process_range,
-                                        current_range, depth + 1U);
+            return visit_statement_node(
+                walk,
+                body,
+                module_range,
+                process_range,
+                current_range,
+                depth + 1U
+            );
         }
     }
     return 1;
@@ -1710,8 +1904,13 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
             TSNode child = ts_node_named_child(node, index);
             if (!ts_node_is_extra(child) &&
                 strcmp(ts_node_type(child), "event_expression") == 0 &&
-                !visit_event_expression(walk, child, module_range, process_range,
-                                        depth + 1U)) {
+                !visit_event_expression(
+                    walk,
+                    child,
+                    module_range,
+                    process_range,
+                    depth + 1U
+                )) {
                 return 0;
             }
         }
@@ -1725,8 +1924,13 @@ static int visit_event_expression(syntax_walk *walk, TSNode node,
         if (!ts_node_is_extra(child) &&
             strcmp(ts_node_type(child), "event_expression") == 0) {
             ++nested_count;
-            if (!visit_event_expression(walk, child, module_range, process_range,
-                                        depth + 1U)) {
+            if (!visit_event_expression(
+                walk,
+                child,
+                module_range,
+                process_range,
+                depth + 1U
+            )) {
                 return 0;
             }
         }
@@ -1826,13 +2030,24 @@ static int visit_process(syntax_walk *walk, TSNode process_node,
         strcmp(ts_node_type(control), "event_control") == 0) {
         TSNode clocking = syntax_unique_child(control, "clocking_event");
         if (!ts_node_is_null(clocking) &&
-            !visit_event_expression(walk, clocking, module_range,
-                                    process.process_range, 0U)) {
+            !visit_event_expression(
+                walk,
+                clocking,
+                module_range,
+                process.process_range,
+                0U
+            )) {
             return 0;
         }
     }
-    return visit_statement_node(walk, body, module_range, process.process_range,
-                                process.process_range, 0U);
+    return visit_statement_node(
+        walk,
+        body,
+        module_range,
+        process.process_range,
+        process.process_range,
+        0U
+    );
 }
 
 //-----------------------------------------------------------------------------
@@ -1869,8 +2084,11 @@ static int visit_body(syntax_walk *walk, TSNode module, TSNode header,
 {
     body_visit body = {walk, header, module_range};
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
-        module, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-        visit_body_child, &body);
+        module,
+        LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+        visit_body_child,
+        &body
+    );
     return result == LEMMA_TS_CHILD_VISIT_COMPLETE;
 }
 
@@ -1885,7 +2103,10 @@ static int visit_module(syntax_walk *walk, TSNode module)
 {
     lemma_source_range module_range = syntax_range_for_node(module);
     TSNode header = syntax_child_of_either(
-        module, "module_ansi_header", "module_nonansi_header");
+        module,
+        "module_ansi_header",
+        "module_nonansi_header"
+    );
     TSNode name = syntax_unique_child(header, "simple_identifier");
     lemma_syntax_module_boundary boundary = {0};
     boundary.kind = LEMMA_SYNTAX_MODULE_BEGIN;
@@ -1969,8 +2190,11 @@ lemma_syntax_visit_result lemma_frontend_visit_syntax(
     TSNode root = ts_tree_root_node(parsed->tree);
     source_visit visit = {&walk};
     lemma_ts_child_visit_result result = lemma_frontend_ts_visit_children(
-        root, LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
-        visit_source_child, &visit);
+        root,
+        LEMMA_TS_CHILD_FILTER_NAMED_EXCLUDING_EXTRAS,
+        visit_source_child,
+        &visit
+    );
     if (result == LEMMA_TS_CHILD_VISIT_FAILED) {
         return LEMMA_SYNTAX_VISIT_FAILED;
     }

@@ -11,6 +11,25 @@ struct lemma_circuit_builder {
     size_t driver_capacity;
 };
 
+//-------------------------------------------------------------------
+// Release all storage owned by a circuit without freeing its struct.
+//
+// @circuit: Non-NULL circuit whose owned allocations are released.
+// @returns: None.
+//-------------------------------------------------------------------
+static void lemma_circuit_release_storage(lemma_circuit *circuit)
+{
+    free(circuit->module_name);
+    for (size_t index = 0U; index < circuit->signal_count; ++index) {
+        free(circuit->signals[index].name);
+    }
+    free(circuit->ports);
+    free(circuit->signals);
+    free(circuit->expressions);
+    free(circuit->drivers);
+    free(circuit->ffds);
+}
+
 //---------------------------------------------------------------------
 // Create an empty caller-owned circuit builder.
 //
@@ -32,17 +51,82 @@ void lemma_circuit_builder_destroy(lemma_circuit_builder *builder)
     if (builder == NULL) {
         return;
     }
-    lemma_circuit *circuit = &builder->storage;
-    free(circuit->module_name);
-    for (size_t index = 0U; index < circuit->signal_count; ++index) {
-        free(circuit->signals[index].name);
-    }
-    free(circuit->ports);
-    free(circuit->signals);
-    free(circuit->expressions);
-    free(circuit->drivers);
-    free(circuit->ffds);
+    lemma_circuit_release_storage(&builder->storage);
     free(builder);
+}
+
+//-----------------------------------------------
+// Destroy a circuit and all storage owned by it.
+//
+// @circuit: Circuit to destroy, or NULL.
+// @returns: None.
+//-----------------------------------------------
+void lemma_circuit_destroy(lemma_circuit *circuit)
+{
+    if (circuit == NULL) {
+        return;
+    }
+    lemma_circuit_release_storage(circuit);
+    free(circuit);
+}
+
+//------------------------------------------------------------------------------------
+// Grow an array using the builder's initial and doubling capacity policy.
+//
+// @array: Existing allocation, left owned by the caller on failure.
+// @capacity: Current element capacity.
+// @element_size: Nonzero size of one array element.
+// @next_capacity: Valid output pointer, written only when reallocation succeeds.
+// @returns: Reallocated array on success; NULL on overflow or allocation failure.
+//------------------------------------------------------------------------------------
+static void *lemma_circuit_grow_array(void *array, size_t capacity,
+                                      size_t element_size,
+                                      size_t *next_capacity)
+{
+    if (element_size == 0U) {
+        return NULL;
+    }
+
+    size_t grown_capacity = capacity;
+    if (grown_capacity == 0U) {
+        grown_capacity = 4U;
+    } else {
+        if (grown_capacity > SIZE_MAX / 2U) {
+            return NULL;
+        }
+        grown_capacity *= 2U;
+    }
+    if (grown_capacity > SIZE_MAX / element_size) {
+        return NULL;
+    }
+
+    void *grown_array = realloc(array, grown_capacity * element_size);
+    if (grown_array == NULL) {
+        return NULL;
+    }
+    *next_capacity = grown_capacity;
+    return grown_array;
+}
+
+//--------------------------------------------------------------------------------------------------------------------
+// Copy a validated byte slice into a fresh owned, NUL-terminated string.
+//
+// @name: Non-NULL readable bytes borrowed for the call.
+// @name_length: Number of readable bytes, not SIZE_MAX.
+// @returns: Owned string copy, or NULL when the length overflows or allocation fails.
+//--------------------------------------------------------------------------------------------------------------------
+static char *lemma_circuit_copy_name(const char *name, size_t name_length)
+{
+    if (name_length == SIZE_MAX) {
+        return NULL;
+    }
+    char *copy = malloc(name_length + 1U);
+    if (copy == NULL) {
+        return NULL;
+    }
+    memcpy(copy, name, name_length);
+    copy[name_length] = '\0';
+    return copy;
 }
 
 //--------------------------------------------------------------------------------
@@ -56,15 +140,10 @@ void lemma_circuit_builder_destroy(lemma_circuit_builder *builder)
 int lemma_circuit_builder_set_module_name(lemma_circuit_builder *builder,
                                           const char *name, size_t name_length)
 {
-    if (name_length == SIZE_MAX) {
-        return 0;
-    }
-    char *copy = malloc(name_length + 1U);
+    char *copy = lemma_circuit_copy_name(name, name_length);
     if (copy == NULL) {
         return 0;
     }
-    memcpy(copy, name, name_length);
-    copy[name_length] = '\0';
     builder->storage.module_name = copy;
     return 1;
 }
@@ -93,33 +172,23 @@ int lemma_circuit_builder_add_signal(lemma_circuit_builder *builder,
         return 0;
     }
     if (builder->storage.signal_count == builder->signal_capacity) {
-        size_t next_capacity = builder->signal_capacity;
-        if (next_capacity == 0U) {
-            next_capacity = 4U;
-        } else {
-            if (next_capacity > SIZE_MAX / 2U) {
-                return 0;
-            }
-            next_capacity *= 2U;
-        }
-        if (next_capacity > SIZE_MAX / sizeof(*builder->storage.signals)) {
-            return 0;
-        }
-        lemma_ir_signal *grown_signals =
-            realloc(builder->storage.signals,
-                    next_capacity * sizeof(*builder->storage.signals));
+        size_t next_capacity;
+        lemma_ir_signal *grown_signals = lemma_circuit_grow_array(
+            builder->storage.signals,
+            builder->signal_capacity,
+            sizeof(*builder->storage.signals),
+            &next_capacity
+        );
         if (grown_signals == NULL) {
             return 0;
         }
         builder->storage.signals = grown_signals;
         builder->signal_capacity = next_capacity;
     }
-    char *copy = malloc(name_length + 1U);
+    char *copy = lemma_circuit_copy_name(name, name_length);
     if (copy == NULL) {
         return 0;
     }
-    memcpy(copy, name, name_length);
-    copy[name_length] = '\0';
     size_t index = builder->storage.signal_count++;
     builder->storage.signals[index] = (lemma_ir_signal){
         copy, width, is_signed, is_port, source
@@ -141,21 +210,13 @@ int lemma_circuit_builder_add_port(lemma_circuit_builder *builder,
                                    lemma_ir_port_direction direction)
 {
     if (builder->storage.port_count == builder->port_capacity) {
-        size_t next_capacity = builder->port_capacity;
-        if (next_capacity == 0U) {
-            next_capacity = 4U;
-        } else {
-            if (next_capacity > SIZE_MAX / 2U) {
-                return 0;
-            }
-            next_capacity *= 2U;
-        }
-        if (next_capacity > SIZE_MAX / sizeof(*builder->storage.ports)) {
-            return 0;
-        }
-        lemma_ir_port *grown_ports =
-            realloc(builder->storage.ports,
-                    next_capacity * sizeof(*builder->storage.ports));
+        size_t next_capacity;
+        lemma_ir_port *grown_ports = lemma_circuit_grow_array(
+            builder->storage.ports,
+            builder->port_capacity,
+            sizeof(*builder->storage.ports),
+            &next_capacity
+        );
         if (grown_ports == NULL) {
             return 0;
         }
@@ -183,21 +244,13 @@ int lemma_circuit_builder_add_read_signal(lemma_circuit_builder *builder,
                                           size_t *expression_id)
 {
     if (builder->storage.expression_count == builder->expression_capacity) {
-        size_t next_capacity = builder->expression_capacity;
-        if (next_capacity == 0U) {
-            next_capacity = 4U;
-        } else {
-            if (next_capacity > SIZE_MAX / 2U) {
-                return 0;
-            }
-            next_capacity *= 2U;
-        }
-        if (next_capacity > SIZE_MAX / sizeof(*builder->storage.expressions)) {
-            return 0;
-        }
-        lemma_ir_expression *grown_expressions =
-            realloc(builder->storage.expressions,
-                    next_capacity * sizeof(*builder->storage.expressions));
+        size_t next_capacity;
+        lemma_ir_expression *grown_expressions = lemma_circuit_grow_array(
+            builder->storage.expressions,
+            builder->expression_capacity,
+            sizeof(*builder->storage.expressions),
+            &next_capacity
+        );
         if (grown_expressions == NULL) {
             return 0;
         }
@@ -232,21 +285,13 @@ int lemma_circuit_builder_add_logical_not(lemma_circuit_builder *builder,
                                           size_t *expression_id)
 {
     if (builder->storage.expression_count == builder->expression_capacity) {
-        size_t next_capacity = builder->expression_capacity;
-        if (next_capacity == 0U) {
-            next_capacity = 4U;
-        } else {
-            if (next_capacity > SIZE_MAX / 2U) {
-                return 0;
-            }
-            next_capacity *= 2U;
-        }
-        if (next_capacity > SIZE_MAX / sizeof(*builder->storage.expressions)) {
-            return 0;
-        }
-        lemma_ir_expression *grown_expressions =
-            realloc(builder->storage.expressions,
-                    next_capacity * sizeof(*builder->storage.expressions));
+        size_t next_capacity;
+        lemma_ir_expression *grown_expressions = lemma_circuit_grow_array(
+            builder->storage.expressions,
+            builder->expression_capacity,
+            sizeof(*builder->storage.expressions),
+            &next_capacity
+        );
         if (grown_expressions == NULL) {
             return 0;
         }
@@ -282,21 +327,13 @@ int lemma_circuit_builder_add_logical_binary(
     lemma_source_range source, size_t *expression_id)
 {
     if (builder->storage.expression_count == builder->expression_capacity) {
-        size_t next_capacity = builder->expression_capacity;
-        if (next_capacity == 0U) {
-            next_capacity = 4U;
-        } else {
-            if (next_capacity > SIZE_MAX / 2U) {
-                return 0;
-            }
-            next_capacity *= 2U;
-        }
-        if (next_capacity > SIZE_MAX / sizeof(*builder->storage.expressions)) {
-            return 0;
-        }
-        lemma_ir_expression *grown_expressions =
-            realloc(builder->storage.expressions,
-                    next_capacity * sizeof(*builder->storage.expressions));
+        size_t next_capacity;
+        lemma_ir_expression *grown_expressions = lemma_circuit_grow_array(
+            builder->storage.expressions,
+            builder->expression_capacity,
+            sizeof(*builder->storage.expressions),
+            &next_capacity
+        );
         if (grown_expressions == NULL) {
             return 0;
         }
@@ -346,21 +383,13 @@ int lemma_circuit_builder_add_operator(
         result_width = 1U;
     }
     if (builder->storage.expression_count == builder->expression_capacity) {
-        size_t next_capacity = builder->expression_capacity;
-        if (next_capacity == 0U) {
-            next_capacity = 4U;
-        } else {
-            if (next_capacity > SIZE_MAX / 2U) {
-                return 0;
-            }
-            next_capacity *= 2U;
-        }
-        if (next_capacity > SIZE_MAX / sizeof(*builder->storage.expressions)) {
-            return 0;
-        }
-        lemma_ir_expression *grown_expressions =
-            realloc(builder->storage.expressions,
-                    next_capacity * sizeof(*builder->storage.expressions));
+        size_t next_capacity;
+        lemma_ir_expression *grown_expressions = lemma_circuit_grow_array(
+            builder->storage.expressions,
+            builder->expression_capacity,
+            sizeof(*builder->storage.expressions),
+            &next_capacity
+        );
         if (grown_expressions == NULL) {
             return 0;
         }
@@ -395,21 +424,13 @@ int lemma_circuit_builder_add_driver(lemma_circuit_builder *builder,
                                      lemma_source_range source)
 {
     if (builder->storage.driver_count == builder->driver_capacity) {
-        size_t next_capacity = builder->driver_capacity;
-        if (next_capacity == 0U) {
-            next_capacity = 4U;
-        } else {
-            if (next_capacity > SIZE_MAX / 2U) {
-                return 0;
-            }
-            next_capacity *= 2U;
-        }
-        if (next_capacity > SIZE_MAX / sizeof(*builder->storage.drivers)) {
-            return 0;
-        }
-        lemma_ir_driver *grown_drivers =
-            realloc(builder->storage.drivers,
-                    next_capacity * sizeof(*builder->storage.drivers));
+        size_t next_capacity;
+        lemma_ir_driver *grown_drivers = lemma_circuit_grow_array(
+            builder->storage.drivers,
+            builder->driver_capacity,
+            sizeof(*builder->storage.drivers),
+            &next_capacity
+        );
         if (grown_drivers == NULL) {
             return 0;
         }
@@ -569,27 +590,4 @@ lemma_circuit *lemma_circuit_builder_finalize(lemma_circuit_builder *builder)
     *circuit = builder->storage;
     free(builder);
     return circuit;
-}
-
-//-----------------------------------------------
-// Destroy a circuit and all storage owned by it.
-//
-// @circuit: Circuit to destroy, or NULL.
-// @returns: None.
-//-----------------------------------------------
-void lemma_circuit_destroy(lemma_circuit *circuit)
-{
-    if (circuit == NULL) {
-        return;
-    }
-    free(circuit->module_name);
-    for (size_t index = 0U; index < circuit->signal_count; ++index) {
-        free(circuit->signals[index].name);
-    }
-    free(circuit->ports);
-    free(circuit->signals);
-    free(circuit->expressions);
-    free(circuit->drivers);
-    free(circuit->ffds);
-    free(circuit);
 }

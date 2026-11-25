@@ -75,7 +75,11 @@ static TSNode first_syntax_error(TSNode node, size_t depth, int *depth_exceeded,
     }
     for (uint32_t index = 0U; index < count; ++index) {
         TSNode found = first_syntax_error(
-            ts_node_child(node, index), depth + 1U, depth_exceeded, deep_node);
+            ts_node_child(node, index),
+            depth + 1U,
+            depth_exceeded,
+            deep_node
+        );
         if (!ts_node_is_null(found)) {
             return found;
         }
@@ -100,28 +104,44 @@ lemma_parsed_source *lemma_frontend_parse(const char *source, size_t length,
 {
     clear_diagnostic(diagnostic);
     if (source == NULL || length > UINT32_MAX) {
-        set_parse_diagnostic(diagnostic, "parse.invalid_input",
-                             "source is NULL or exceeds parser input limits", (TSNode){0});
+        set_parse_diagnostic(
+            diagnostic,
+            "parse.invalid_input",
+            "source is NULL or exceeds parser input limits",
+            (TSNode){0}
+        );
         return NULL;
     }
 
     TSParser *parser = ts_parser_new();
     if (parser == NULL) {
-        set_parse_diagnostic(diagnostic, "parse.out_of_memory",
-                             "unable to allocate parser", (TSNode){0});
+        set_parse_diagnostic(
+            diagnostic,
+            "parse.out_of_memory",
+            "unable to allocate parser",
+            (TSNode){0}
+        );
         return NULL;
     }
     if (!ts_parser_set_language(parser, tree_sitter_systemverilog())) {
         ts_parser_delete(parser);
-        set_parse_diagnostic(diagnostic, "parse.language", "unable to load grammar",
-                             (TSNode){0});
+        set_parse_diagnostic(
+            diagnostic,
+            "parse.language",
+            "unable to load grammar",
+            (TSNode){0}
+        );
         return NULL;
     }
     TSTree *tree = ts_parser_parse_string(parser, NULL, source, (uint32_t)length);
     ts_parser_delete(parser);
     if (tree == NULL) {
-        set_parse_diagnostic(diagnostic, "parse.failed", "parser could not process source",
-                             (TSNode){0});
+        set_parse_diagnostic(
+            diagnostic,
+            "parse.failed",
+            "parser could not process source",
+            (TSNode){0}
+        );
         return NULL;
     }
 
@@ -131,8 +151,12 @@ lemma_parsed_source *lemma_frontend_parse(const char *source, size_t length,
         TSNode deep_node = {0};
         TSNode error = first_syntax_error(root, 0U, &depth_exceeded, &deep_node);
         if (depth_exceeded != 0) {
-            set_parse_diagnostic(diagnostic, "parse.tree_too_deep",
-                                 "syntax tree exceeds parser inspection depth", deep_node);
+            set_parse_diagnostic(
+                diagnostic,
+                "parse.tree_too_deep",
+                "syntax tree exceeds parser inspection depth",
+                deep_node
+            );
             ts_tree_delete(tree);
             return NULL;
         }
@@ -143,8 +167,12 @@ lemma_parsed_source *lemma_frontend_parse(const char *source, size_t length,
     lemma_parsed_source *parsed = calloc(1U, sizeof(*parsed));
     if (parsed == NULL) {
         ts_tree_delete(tree);
-        set_parse_diagnostic(diagnostic, "parse.out_of_memory",
-                             "unable to allocate parsed-source handle", (TSNode){0});
+        set_parse_diagnostic(
+            diagnostic,
+            "parse.out_of_memory",
+            "unable to allocate parsed-source handle",
+            (TSNode){0}
+        );
         return NULL;
     }
     parsed->source = source;
