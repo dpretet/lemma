@@ -36,7 +36,7 @@
 - Parser error inspection and syntax extraction now stop at a checked 128-level
   limit. Parser rejection has a source-located diagnostic; the syntax visitor
   reports its existing failure result. Regressions exercise 160 nested constructs.
-- Evidence: [`parser.c`](../../src/frontend/parser.c),
+- Evidence: [`frontend_parser.c`](../../src/frontend/frontend_parser.c),
   [`frontend_ts.c`](../../src/frontend/frontend_ts.c),
   [`test_parser.c`](../../tests/unit/test_parser.c),
   [`test_frontend.c`](../../tests/unit/test_frontend.c), and

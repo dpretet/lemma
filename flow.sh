@@ -28,6 +28,11 @@ case "$1" in
         rm -rf "${BUILD_DIR}" "${ROOT_DIR}/dist"
         printf 'Removed generated build/ and dist/ files.\n'
         ;;
+    tags)
+        rm -f tags
+        ctags -a src/**/*.c
+        ctags -a include/**/*.h
+        ;;
     build)
         configure_debug
         cmake --build "${BUILD_DIR}" --parallel

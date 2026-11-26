@@ -214,13 +214,13 @@
   already guarantee those preconditions, so the function does not repeat the
   checks or return an invalid-input result.
 - **Resolved (verified 2026-11-17):** Source-controlled recursive walks in
-  `parser.c` and `frontend_ts.c` enforce a 128-level bound. Deep syntax-error
+  `frontend_parser.c` and `frontend_ts.c` enforce a 128-level bound. Deep syntax-error
   inspection returns a source-located `parse.tree_too_deep` diagnostic;
   syntax extraction returns `LEMMA_SYNTAX_VISIT_FAILED` when its walk exceeds
   the bound because that API has no diagnostic output. Parser and visitor
   regressions exercise 160 nested constructs, and the parser test sweeps the
   complete 54-file RTL fixture corpus. See
-  [`parser.c`](../../src/frontend/parser.c),
+  [`frontend_parser.c`](../../src/frontend/frontend_parser.c),
   [`frontend_ts.c`](../../src/frontend/frontend_ts.c),
   [`test_parser.c`](../../tests/unit/test_parser.c), and
   [`test_frontend.c`](../../tests/unit/test_frontend.c).
@@ -264,4 +264,4 @@
   one possible serialization, not a selected format; it is distinct from the
   test-oracle format.
 - **References:** [Tool flow](../tool-flow.md), [internal representation](../internal-representation.md),
-  and [`frontend_parse.h`](../../include/lemma/frontend_parse.h).
+  and [`frontend_parser.h`](../../include/lemma/frontend_parser.h).

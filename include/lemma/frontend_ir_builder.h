@@ -1,7 +1,7 @@
-#ifndef LEMMA_CIRCUIT_IR_BUILDER_INTERNAL_H
-#define LEMMA_CIRCUIT_IR_BUILDER_INTERNAL_H
+#ifndef LEMMA_FRONTEND_IR_BUILDER_H
+#define LEMMA_FRONTEND_IR_BUILDER_H
 
-#include "circuit_ir.h"
+#include "frontend_ir.h"
 
 //-------------------------------------------------------------------
 // Create an empty caller-owned builder.

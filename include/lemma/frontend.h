@@ -1,7 +1,7 @@
 #ifndef LEMMA_FRONTEND_H
 #define LEMMA_FRONTEND_H
 
-#include "circuit_ir.h"
+#include "frontend_ir.h"
 #include "frontend_types.h"
 
 #include <stddef.h>

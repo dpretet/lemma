@@ -2,7 +2,7 @@
 #define LEMMA_FRONTEND_TS_INTERNAL_H
 
 // Internal frontend state; Tree-sitter types are confined to this header.
-#include "frontend_parse.h"
+#include "frontend_parser.h"
 #include "frontend_syntax.h"
 
 #include <stddef.h>

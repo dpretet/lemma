@@ -1,5 +1,5 @@
-#ifndef LEMMA_FRONTEND_PARSE_H
-#define LEMMA_FRONTEND_PARSE_H
+#ifndef LEMMA_FRONTEND_PARSER_H
+#define LEMMA_FRONTEND_PARSER_H
 
 #include "frontend_types.h"
 

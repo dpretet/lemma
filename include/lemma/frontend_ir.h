@@ -1,5 +1,5 @@
-#ifndef LEMMA_CIRCUIT_IR_H
-#define LEMMA_CIRCUIT_IR_H
+#ifndef LEMMA_FRONTEND_IR_H
+#define LEMMA_FRONTEND_IR_H
 
 #include "frontend_types.h"
 
@@ -96,7 +96,7 @@ typedef struct lemma_circuit {
     size_t ffd_count;
 } lemma_circuit;
 
-// Opaque internal owner of circuit storage while elaboration populates it.
+// Opaque owner of circuit storage while elaboration populates it.
 typedef struct lemma_circuit_builder lemma_circuit_builder;
 
 //---------------------------------------------

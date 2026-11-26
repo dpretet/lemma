@@ -1,8 +1,8 @@
 #ifndef LEMMA_FRONTEND_SYNTAX_H
 #define LEMMA_FRONTEND_SYNTAX_H
 
-#include "frontend_parse.h"
-#include "lemma/source_range.h"
+#include "frontend_parser.h"
+#include "frontend_types.h"
 
 #include <stdbool.h>
 #include <stddef.h>

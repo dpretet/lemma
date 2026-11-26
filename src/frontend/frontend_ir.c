@@ -1,4 +1,4 @@
-#include "lemma/circuit_ir_builder_internal.h"
+#include "lemma/frontend_ir_builder.h"
 
 #include <stdlib.h>
 #include <string.h>

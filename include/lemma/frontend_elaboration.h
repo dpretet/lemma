@@ -1,8 +1,8 @@
 #ifndef LEMMA_FRONTEND_ELABORATION_H
 #define LEMMA_FRONTEND_ELABORATION_H
 
-#include "circuit_ir.h"
-#include "frontend_parse.h"
+#include "frontend_ir.h"
+#include "frontend_parser.h"
 
 //--------------------------------------------------------------------------------
 // Validate and elaborate the sole module into fresh builder-owned IR storage.

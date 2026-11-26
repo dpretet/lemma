@@ -79,7 +79,7 @@ target_include_directories(cargs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party
 
 add_library(lemma_core STATIC
     src/frontend/frontend.c
-    src/frontend/parser.c
+    src/frontend/frontend_parser.c
     src/frontend/frontend_ts_helpers.c
     src/frontend/frontend_ts.c
     src/frontend/frontend_elaboration.c

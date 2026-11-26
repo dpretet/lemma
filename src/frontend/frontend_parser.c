@@ -1,4 +1,4 @@
-#include "lemma/frontend_parse.h"
+#include "lemma/frontend_parser.h"
 #include "lemma/frontend_ts_internal.h"
 
 #include <stdio.h>

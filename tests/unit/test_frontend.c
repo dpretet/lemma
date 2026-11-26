@@ -1,7 +1,7 @@
 #include "lemma/frontend.h"
-#include "lemma/frontend_parse.h"
+#include "lemma/frontend_parser.h"
 #include "lemma/frontend_syntax.h"
-#include "lemma/circuit_ir_builder_internal.h"
+#include "lemma/frontend_ir_builder.h"
 
 #include "unity.h"
 

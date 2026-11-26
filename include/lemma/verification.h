@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "lemma/source_range.h"
+#include "lemma/frontend_types.h"
 #include "lemma/trace.h"
 
 /*
